@@ -54,8 +54,10 @@ class OWVcfFile(widget.OWWidget, RecentPathsWComboMixin):
     recent_paths = Setting([
         RecentPath("", "sample-datasets", "small.vcf"),
     ])
-    quality = Setting(0)
-    frequency = Setting(0)
+    quality = Setting(1)
+    cb_qual = Setting(True)
+    frequency = Setting(1)
+    cb_freq = Setting(True)
 
     class Warning(widget.OWWidget.Warning):
         file_too_big = widget.Msg("The file is too large to load automatically."
@@ -71,8 +73,6 @@ class OWVcfFile(widget.OWWidget, RecentPathsWComboMixin):
         self.variants = None
         self.table = None
         self.loaded_file = ""
-        self.quality = 0
-        self.frequency = 0
 
         layout = QGridLayout()
         gui.widgetBox(self.controlArea, margin=0, orientation=layout)
@@ -107,12 +107,17 @@ class OWVcfFile(widget.OWWidget, RecentPathsWComboMixin):
             self.apply_button.setEnabled(True)
 
         box = gui.vBox(self.controlArea, "Filtering")
-        qspin = gui.spin(box, self, 'quality', 0, 999, step=1,
-                 label='Quality threshold', callback=enable_apply)
+        _, qspin = gui.spin(
+            box, self, 'quality', 0, 999, step=1,
+            label='Quality threshold (QT)', callback=enable_apply,
+            checked='cb_qual', checkCallback=enable_apply)
         qspin.setToolTip("Minimum quality to use reads.")
-        gui.spin(box, self, 'frequency', 0, 999, step=1,
-                 label='Frequency threshold', callback=enable_apply)
-        qspin.setToolTip("Keep only variants with at least this many occurances of alternative alleles.")
+        _, fspin = gui.spin(
+            box, self, 'frequency', 0, 999, step=1,
+            label='Frequency threshold (FT)', callback=enable_apply,
+            checked='cb_freq', checkCallback=enable_apply)
+        fspin.setToolTip("Keep only variants with at least this many "
+                         "occurrences of alternative alleles.")
 
         gui.rubber(self.controlArea)
 
@@ -213,7 +218,9 @@ class OWVcfFile(widget.OWWidget, RecentPathsWComboMixin):
         if self.variants is None:
             self.table = None
         else:
-            self.table = self.variants.get_data(self.quality, self.frequency)
+            q = self.quality if self.cb_qual else None
+            f = self.frequency if self.cb_freq else None
+            self.table = self.variants.get_data(q, f)
 
         self.update_info()
         self.Outputs.data.send(self.table)

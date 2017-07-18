@@ -36,13 +36,16 @@ class VariantData:
         print("Unique samples: %d" % len(unique_samples))
         print("Variants: %d" % len(self.records))
 
-    def get_data(self, quality, frequency):
+    def get_data(self, quality=None, frequency=None):
         """Orange data table with genotypes above quality and frequency
         threshold."""
 
         X = self.gt.astype(dtype="float", copy=True)
-        X[self.gq < quality] = np.nan
-        selected = np.nansum(X, axis=1) >= frequency
+        if quality is not None:
+            X[self.gq < quality] = np.nan
+        selected = ~np.isnan(X).all(axis=1)
+        if frequency is not None:
+            selected &= np.nansum(X, axis=1) >= frequency
         X = X[selected].T
 
         variables = tuple(np.array(self.variables)[selected])
