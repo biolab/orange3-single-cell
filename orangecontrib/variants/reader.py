@@ -42,7 +42,7 @@ class VariantData:
 
         X = self.gt.astype(dtype="float", copy=True)
         X[self.gq < quality] = np.nan
-        selected = np.nansum(X, axis=1) > frequency
+        selected = np.nansum(X, axis=1) >= frequency
         X = X[selected].T
 
         variables = tuple(np.array(self.variables)[selected])
