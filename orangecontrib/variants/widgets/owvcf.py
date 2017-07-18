@@ -32,7 +32,7 @@ class OWVcfFile(widget.OWWidget, RecentPathsWComboMixin):
     name = "VCF File"
     id = "orangecontrib.variants.widgets.vcf"
     description = "Read data from a VCF file."
-    icon = "icons/File.svg"
+    icon = "icons/VCFFile.svg"
     priority = 10
     category = "Variants"
     keywords = ["data", "vcf", "file", "load", "read"]
