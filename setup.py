@@ -1,15 +1,15 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from os import path, walk
 
 import sys
 from setuptools import setup, find_packages
 
-NAME = "Orange3 Example Add-on"
+NAME = "Orange3 Variants"
 
-VERSION = "0.0.3"
+VERSION = "0.0.1"
 
-DESCRIPTION = "Add-on containing example widgets"
+DESCRIPTION = "Add-on for SNV calling from NGS data"
 LONG_DESCRIPTION = open(path.join(path.dirname(__file__), 'README.md')).read()
 
 LICENSE = "BSD"
@@ -17,14 +17,14 @@ LICENSE = "BSD"
 KEYWORDS = (
     # [PyPi](https://pypi.python.org) packages with keyword "orange3 add-on"
     # can be installed using the Orange Add-on Manager
-    'orange3 add-on',
+    #'orange3 add-on',
 )
 
 PACKAGES = find_packages()
 
 PACKAGE_DATA = {
-    'orangecontrib.example': ['tutorials/*.ows'],
-    'orangecontrib.example.widgets': ['icons/*'],
+    'orangecontrib.variants': ['tutorials/*.ows'],
+    'orangecontrib.variants.widgets': ['icons/*'],
 }
 
 DATA_FILES = [
@@ -33,19 +33,20 @@ DATA_FILES = [
 
 INSTALL_REQUIRES = [
     'Orange3',
+    'PyVCF',
 ]
 
 ENTRY_POINTS = {
     # Entry points that marks this package as an orange add-on. If set, addon will
     # be shown in the add-ons manager even if not published on PyPi.
     'orange3.addon': (
-        'example = orangecontrib.example',
+        'variants = orangecontrib.variants',
     ),
     # Entry point used to specify packages containing tutorials accessible
     # from welcome screen. Tutorials are saved Orange Workflows (.ows files).
     'orange.widgets.tutorials': (
         # Syntax: any_text = path.to.package.containing.tutorials
-        'exampletutorials = orangecontrib.example.tutorials',
+        'vcftutorials = orangecontrib.variants.tutorials',
     ),
 
     # Entry point used to specify packages containing widgets.
@@ -53,17 +54,17 @@ ENTRY_POINTS = {
         # Syntax: category name = path.to.package.containing.widgets
         # Widget category specification can be seen in
         #    orangecontrib/example/widgets/__init__.py
-        'Examples = orangecontrib.example.widgets',
+        'Variants = orangecontrib.variants.widgets',
     ),
 
     # Register widget help
     "orange.canvas.help": (
-        'html-index = orangecontrib.example.widgets:WIDGET_HELP_PATH',)
+        'html-index = orangecontrib.variants.widgets:WIDGET_HELP_PATH',)
 }
 
 NAMESPACE_PACKAGES = ["orangecontrib"]
 
-TEST_SUITE = "orangecontrib.example.tests.suite"
+TEST_SUITE = "orangecontrib.variants.tests.suite"
 
 
 def include_documentation(local_dir, install_dir):
@@ -81,7 +82,7 @@ def include_documentation(local_dir, install_dir):
     DATA_FILES.extend(doc_files)
 
 if __name__ == '__main__':
-    include_documentation('doc/build/html', 'help/orange3-example')
+    include_documentation('doc/build/html', 'help/orange3-variants')
     setup(
         name=NAME,
         version=VERSION,
