@@ -169,8 +169,9 @@ class OWVcfFile(widget.OWWidget, RecentPathsWComboMixin):
         self.apply_button.setEnabled(False)
         self.clear_messages()
         self.set_file_list()
-        if self.last_path() and not os.path.exists(self.last_path()):
-            self.Error.file_not_found()
+        if not self.last_path() or not os.path.exists(self.last_path()):
+            if self.last_path():
+                self.Error.file_not_found()
             self.Outputs.data.send(None)
             self.info.setText("No data.")
             return
