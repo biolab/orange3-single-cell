@@ -203,15 +203,20 @@ class OWVcfFile(widget.OWWidget, RecentPathsWComboMixin):
         self.apply()  # sends data
 
     def update_info(self):
+        pl = lambda x: '' if x == 1 else 's'
         text = ""
         if self.variants is not None:
             nsamples, nvariants = self.variants.gt.T.shape
-            text += "<p>Before filtering: {} sample(s), {} variant(s)</p>".\
-                format(nsamples, nvariants)
+            text += ("<p>Before filtering:<br/>" +
+                     "&nbsp; {} sample{}, {} variant{}</p>").\
+                format(nsamples, pl(nsamples), nvariants, pl(nvariants), )
         if self.table is not None:
             nsamples, nvariants = self.table.X.shape
-            text += "<p>After filtering: {} sample(s), {} variant(s)</p>".\
-                format(nsamples, nvariants)
+            below = np.isnan(self.table.X).sum() / self.table.X.size * 100
+            text += ("<p>After filtering:<br/>" +
+                     "&nbsp; {} sample{}, {} variant{}<br/>" +
+                     "&nbsp; {:.2f}% reads below QT</p>").\
+                format(nsamples, pl(nsamples), nvariants, pl(nvariants), below)
         self.info.setText(text)
 
     def apply(self):
@@ -234,7 +239,6 @@ class OWVcfFile(widget.OWWidget, RecentPathsWComboMixin):
         if self.table is None:
             self.report_paragraph("VCF File", "No file.")
             return
-
         home = os.path.expanduser("~")
         if self.loaded_file.startswith(home):
             # os.path.join does not like ~
@@ -243,11 +247,11 @@ class OWVcfFile(widget.OWWidget, RecentPathsWComboMixin):
         else:
             name = self.loaded_file
         self.report_items("VCF File", [("File name", name),])
-
-        self.report_items("Filtering parameters",
-                          [("Quality", self.quality),
-                           ("Frequency", self.frequency)])
-
+        parameters = [("Quality", self.quality, self.cb_qual),
+                      ("Frequency", self.frequency, self.cb_freq)]
+        self.report_items(
+            "Filtering parameters",
+            [(name, value) for name, value, enabled in parameters if enabled])
         self.report_data("Data", self.table)
 
     def dragEnterEvent(self, event):
