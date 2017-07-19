@@ -58,6 +58,7 @@ class OWVcfFile(widget.OWWidget, RecentPathsWComboMixin):
     cb_qual = Setting(True)
     frequency = Setting(1)
     cb_freq = Setting(True)
+    autocommit= Setting(True)
 
     class Warning(widget.OWWidget.Warning):
         file_too_big = widget.Msg("The file is too large to load automatically."
@@ -100,41 +101,33 @@ class OWVcfFile(widget.OWWidget, RecentPathsWComboMixin):
         layout.addWidget(reload_button, 0, 3)
 
         box = gui.vBox(self.controlArea, "Info")
-        self.info = gui.widgetLabel(box, 'No data loaded.')
-        self.warnings = gui.widgetLabel(box, '')
+        self.info = gui.widgetLabel(box, 'No data.<br/><br/><br/>')
 
-        def enable_apply():
-            self.apply_button.setEnabled(True)
+        def apply():
+            self.commit()
 
         box = gui.vBox(self.controlArea, "Filtering")
         _, qspin = gui.spin(
             box, self, 'quality', 0, 999, step=1,
-            label='Quality threshold (QT)', callback=enable_apply,
-            checked='cb_qual', checkCallback=enable_apply)
+            label='Quality threshold (QT)', callback=apply,
+            checked='cb_qual', checkCallback=apply)
         qspin.setToolTip("Minimum quality to use reads.")
         _, fspin = gui.spin(
             box, self, 'frequency', 0, 999, step=1,
-            label='Frequency threshold (FT)', callback=enable_apply,
-            checked='cb_freq', checkCallback=enable_apply)
+            label='Frequency threshold (FT)', callback=apply,
+            checked='cb_freq', checkCallback=apply)
         fspin.setToolTip("Keep only variants with at least this many "
                          "occurrences of alternative alleles.")
 
         gui.rubber(self.controlArea)
-
-        box = gui.hBox(self.controlArea)
-        box.layout().addWidget(self.report_button)
-        self.report_button.setFixedWidth(170)
-        gui.rubber(box)
-
-        self.apply_button = gui.button(
-            box, self, "Apply", callback=self.apply)
-        self.apply_button.setEnabled(False)
-        self.apply_button.setFixedWidth(170)
+        ac = gui.auto_commit(self.controlArea, self, 'autocommit', 'Commit')
+        ac.button.setFixedWidth(160)
+        self.report_button.setFixedWidth(160)
+        ac.layout().insertWidget(0, self.report_button)
+        ac.layout().insertSpacing(1, 50)
+        ac.layout().insertStretch(2)
 
         self.set_file_list()
-        # Must not call open_file from within __init__. open_file
-        # explicitly re-enters the event loop (by a progress bar)
-
         self.setAcceptDrops(True)
 
         last_path = self.last_path()
@@ -146,7 +139,7 @@ class OWVcfFile(widget.OWWidget, RecentPathsWComboMixin):
         QTimer.singleShot(0, self.load_data)
 
     def sizeHint(self):
-        return QSize(500, 200)
+        return QSize(450, 300)
 
     def select_file(self, n):
         assert n < len(self.recent_paths)
@@ -171,27 +164,23 @@ class OWVcfFile(widget.OWWidget, RecentPathsWComboMixin):
         # We need to catch any exception type since anything can happen in
         # file readers
         # pylint: disable=broad-except
-        self.apply_button.setEnabled(False)
         self.clear_messages()
         self.set_file_list()
         if not self.last_path() or not os.path.exists(self.last_path()):
             if self.last_path():
                 self.Error.file_not_found()
             self.Outputs.data.send(None)
-            self.info.setText("No data.")
+            self.info.setText("No data.<br/><br/><br/>")
             return
 
         error = None
-
-        if not error:
-            with catch_warnings(record=True) as warnings:
-                try:
-                    variants = VariantData(self.last_path())
-                except Exception as ex:
-                    log.exception(ex)
-                    error = ex
-                self.warning(warnings[-1].message.args[0] if warnings else '')
-
+        with catch_warnings(record=True) as warnings:
+            try:
+                variants = VariantData(self.last_path())
+            except Exception as ex:
+                log.exception(ex)
+                error = ex
+            self.warning(warnings[-1].message.args[0] if warnings else '')
         if error:
             self.variants = self.table = None
             self.Outputs.data.send(None)
@@ -200,7 +189,7 @@ class OWVcfFile(widget.OWWidget, RecentPathsWComboMixin):
 
         self.loaded_file = self.last_path()
         self.variants = variants
-        self.apply()  # sends data
+        self.commit()  # sends data
 
     def update_info(self):
         pl = lambda x: '' if x == 1 else 's'
@@ -219,17 +208,15 @@ class OWVcfFile(widget.OWWidget, RecentPathsWComboMixin):
                 format(nsamples, pl(nsamples), nvariants, pl(nvariants), below)
         self.info.setText(text)
 
-    def apply(self):
+    def commit(self):
         if self.variants is None:
             self.table = None
         else:
             q = self.quality if self.cb_qual else None
             f = self.frequency if self.cb_freq else None
             self.table = self.variants.get_data(q, f)
-
         self.update_info()
         self.Outputs.data.send(self.table)
-        self.apply_button.setEnabled(False)
 
     def get_widget_name_extension(self):
         _, name = os.path.split(self.loaded_file)
