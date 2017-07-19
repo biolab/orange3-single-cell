@@ -7,12 +7,15 @@ from setuptools import setup, find_packages
 
 NAME = "Orange3-Variants"
 
-VERSION = "0.0.1"
+VERSION = "0.0.2"
 
 DESCRIPTION = "Add-on for SNV calling from NGS data"
 LONG_DESCRIPTION = open(path.join(path.dirname(__file__), 'README.md')).read()
-
-LICENSE = "BSD"
+AUTHOR = 'Bioinformatics Laboratory, FRI UL'
+AUTHOR_EMAIL = 'info@biolab.si'
+URL = "https://github.com/biolab/orange3-variants"
+DOWNLOAD_URL = "https://github.com/biolab/orange3-variants/tarball/{}".format(VERSION)
+LICENSE = 'GPLv3+'
 
 KEYWORDS = (
     # [PyPi](https://pypi.python.org) packages with keyword "orange3 add-on"
@@ -88,6 +91,10 @@ if __name__ == '__main__':
         version=VERSION,
         description=DESCRIPTION,
         long_description=LONG_DESCRIPTION,
+        author=AUTHOR,
+        author_email=AUTHOR_EMAIL,
+        url=URL,
+        download_url=DOWNLOAD_URL,
         license=LICENSE,
         packages=PACKAGES,
         package_data=PACKAGE_DATA,
