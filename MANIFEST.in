@@ -1,2 +1,7 @@
-include orangecontrib/example/tutorials/*.ows
-include orangecontrib/example/widgets/icons/*
+include orangecontrib/variants/tutorials/*.ows
+include orangecontrib/variants/widgets/icons/*
+include orangecontrib/variants/datasets/*
+
+include requirements.txt
+include README.md
+include LICENSE

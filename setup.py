@@ -5,7 +5,7 @@ from os import path, walk
 import sys
 from setuptools import setup, find_packages
 
-NAME = "Orange3 Variants"
+NAME = "Orange3-Variants"
 
 VERSION = "0.0.1"
 
@@ -31,10 +31,10 @@ DATA_FILES = [
     # Data files that will be installed outside site-packages folder
 ]
 
-INSTALL_REQUIRES = [
-    'Orange3',
-    'PyVCF',
-]
+INSTALL_REQUIRES = sorted(set(
+    line.partition('#')[0].strip()
+    for line in open(path.join(path.dirname(__file__), 'requirements.txt'))
+) - {''})
 
 ENTRY_POINTS = {
     # Entry points that marks this package as an orange add-on. If set, addon will
