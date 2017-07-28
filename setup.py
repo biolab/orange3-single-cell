@@ -7,7 +7,7 @@ from setuptools import setup, find_packages
 
 NAME = "Orange3-Variants"
 
-VERSION = "0.0.2"
+VERSION = "0.0.3"
 
 DESCRIPTION = "Add-on for SNV calling from NGS data"
 LONG_DESCRIPTION = open(path.join(path.dirname(__file__), 'README.md')).read()
