@@ -1,7 +1,7 @@
-import Orange
-from Orange.data import StringVariable, DiscreteVariable
-import vcf
 import numpy as np
+import vcf
+
+from Orange.data import DiscreteVariable, Domain, StringVariable, Table
 
 
 class VariantData:
@@ -13,7 +13,7 @@ class VariantData:
 
         self.gq = np.array([[s.data.GQ for s in r.samples] for r in records],
                            dtype="f")
-        self.gq = np.nan_to_num(self.gq, 0)
+        self.gq = np.nan_to_num(self.gq)
 
         gt = np.array([[s.data.GT for s in r.samples] for r in records])
         self.gt = gt != "0/0"
@@ -52,12 +52,12 @@ class VariantData:
         metas = [StringVariable(s) for s in ["sample", "id"]]
         M = np.empty((len(X), 2), dtype="object")
         M[:, 0] = self.samples
-        M[:, 1] = np.arange(1, len(X)+1)
-        domain = Orange.data.Domain(variables, [], metas=metas)
-        data = Orange.data.Table(domain, X, Y=None, metas=M)
+        M[:, 1] = np.arange(1, len(X) + 1)
+        domain = Domain(variables, [], metas=metas)
+        data = Table(domain, X, Y=None, metas=M)
 
         return data
 
 if __name__ == "__main__":
     variants = VariantData("cells.vcf")
-    data = variants.get_data(40, 10)
+    data = variants.get_data(30, 30)
