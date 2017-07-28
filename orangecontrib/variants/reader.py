@@ -13,7 +13,7 @@ class VariantData:
 
         self.gq = np.array([[s.data.GQ for s in r.samples] for r in records],
                            dtype="f")
-        self.gq = np.nan_to_num(self.gq, 0)
+        self.gq = np.nan_to_num(self.gq)
 
         gt = np.array([[s.data.GT for s in r.samples] for r in records])
         self.gt = gt != "0/0"
