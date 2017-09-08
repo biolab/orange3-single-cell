@@ -5,16 +5,16 @@ from os import path, walk
 import sys
 from setuptools import setup, find_packages
 
-NAME = "Orange3-Variants"
+NAME = "Orange3-SingleCell"
 
 VERSION = "0.0.3"
 
-DESCRIPTION = "Add-on for SNV calling from NGS data"
+DESCRIPTION = "Add-on for bioinformatics analysis of single cell data"
 LONG_DESCRIPTION = open(path.join(path.dirname(__file__), 'README.md')).read()
 AUTHOR = 'Bioinformatics Laboratory, FRI UL'
 AUTHOR_EMAIL = 'info@biolab.si'
-URL = "https://github.com/biolab/orange3-variants"
-DOWNLOAD_URL = "https://github.com/biolab/orange3-variants/tarball/{}".format(VERSION)
+URL = "https://github.com/biolab/orange3-single-cell"
+DOWNLOAD_URL = "https://github.com/biolab/orange3-single-cell/tarball/{}".format(VERSION)
 LICENSE = 'GPLv3+'
 
 KEYWORDS = (
@@ -26,8 +26,8 @@ KEYWORDS = (
 PACKAGES = find_packages()
 
 PACKAGE_DATA = {
-    'orangecontrib.variants': ['tutorials/*.ows'],
-    'orangecontrib.variants.widgets': ['icons/*'],
+    'orangecontrib.single_cell': ['tutorials/*.ows'],
+    'orangecontrib.single_cell.widgets': ['icons/*'],
 }
 
 DATA_FILES = [
@@ -43,13 +43,13 @@ ENTRY_POINTS = {
     # Entry points that marks this package as an orange add-on. If set, addon will
     # be shown in the add-ons manager even if not published on PyPi.
     'orange3.addon': (
-        'variants = orangecontrib.variants',
+        'single_cell = orangecontrib.single_cell',
     ),
     # Entry point used to specify packages containing tutorials accessible
     # from welcome screen. Tutorials are saved Orange Workflows (.ows files).
     'orange.widgets.tutorials': (
         # Syntax: any_text = path.to.package.containing.tutorials
-        'vcftutorials = orangecontrib.variants.tutorials',
+        'vcftutorials = orangecontrib.single_cell.tutorials',
     ),
 
     # Entry point used to specify packages containing widgets.
@@ -57,17 +57,17 @@ ENTRY_POINTS = {
         # Syntax: category name = path.to.package.containing.widgets
         # Widget category specification can be seen in
         #    orangecontrib/example/widgets/__init__.py
-        'Variants = orangecontrib.variants.widgets',
+        'Single Cell = orangecontrib.single_cell.widgets',
     ),
 
     # Register widget help
     "orange.canvas.help": (
-        'html-index = orangecontrib.variants.widgets:WIDGET_HELP_PATH',)
+        'html-index = orangecontrib.single_cell.widgets:WIDGET_HELP_PATH',)
 }
 
 NAMESPACE_PACKAGES = ["orangecontrib"]
 
-TEST_SUITE = "orangecontrib.variants.tests.suite"
+TEST_SUITE = "orangecontrib.single_cell.tests.suite"
 
 
 def include_documentation(local_dir, install_dir):
@@ -85,7 +85,7 @@ def include_documentation(local_dir, install_dir):
     DATA_FILES.extend(doc_files)
 
 if __name__ == '__main__':
-    include_documentation('doc/build/html', 'help/orange3-variants')
+    include_documentation('doc/build/html', 'help/orange3-single_cell')
     setup(
         name=NAME,
         version=VERSION,

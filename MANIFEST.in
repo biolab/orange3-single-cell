@@ -1,6 +1,6 @@
-include orangecontrib/variants/tutorials/*.ows
-include orangecontrib/variants/widgets/icons/*
-include orangecontrib/variants/datasets/*
+include orangecontrib/single_cell/tutorials/*.ows
+include orangecontrib/single_cell/widgets/icons/*
+include orangecontrib/single_cell/datasets/*
 
 include requirements.txt
 include README.md

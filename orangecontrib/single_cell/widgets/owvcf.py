@@ -22,7 +22,7 @@ from Orange.widgets.widget import Output
 
 from Orange.widgets.utils.filedialogs import RecentPath
 
-from orangecontrib.variants.reader import VariantData
+from orangecontrib.single_cell.reader import VariantData
 
 
 log = logging.getLogger(__name__)
@@ -30,11 +30,11 @@ log = logging.getLogger(__name__)
 
 class OWVcfFile(widget.OWWidget, RecentPathsWComboMixin):
     name = "VCF File"
-    id = "orangecontrib.variants.widgets.vcf"
+    id = "orangecontrib.single_cell.widgets.vcf"
     description = "Read data from a VCF file."
     icon = "icons/VCFFile.svg"
     priority = 10
-    category = "Variants"
+    category = "Single cell"
     keywords = ["data", "vcf", "file", "load", "read"]
 
     class Outputs:
