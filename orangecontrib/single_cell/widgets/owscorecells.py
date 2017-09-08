@@ -7,10 +7,10 @@ from Orange.widgets.utils.signals import Output, Input
 from Orange.widgets.utils.sql import check_sql_input
 
 
-class OWGeneScore(widget.OWWidget):
-    name = "Gene Score"
-    description = "Expand data with a score for a set of genes"
-    icon = "icons/GS.svg"
+class OWScoreCells(widget.OWWidget):
+    name = "Score Cells"
+    description = "Add a cell score based on the given set of genes"
+    icon = "icons/ScoreCells.svg"
     priority = 112
 
     settingsHandler = DomainContextHandler(metas_in_res=True)
@@ -95,7 +95,7 @@ def test():
     from AnyQt.QtWidgets import QApplication
     app = QApplication([])
 
-    w = OWGeneScore()
+    w = OWScoreCells()
     data = Table("iris")
     w.set_data(data)
     w.handleNewSignals()

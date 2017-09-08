@@ -1,7 +1,7 @@
-Orange3 Variants
+Orange3 Single Cell
 ======================
 
-The Variants add-on for [Orange3](http://orange.biolab.si) adds functionality for working with VFC files and SNV data.
+The Single Cell add-on for [Orange3](http://orange.biolab.si) adds functionality for analysis of single cell data.
 
 Installation
 ------------
@@ -29,4 +29,4 @@ use
 
     python -m Orange.canvas
 
-The new widget appears in the toolbox bar under the section Variants.
+The new widget appears in the toolbox bar under the section Single Cell.

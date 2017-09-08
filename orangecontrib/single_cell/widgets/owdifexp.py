@@ -13,7 +13,7 @@ from Orange.widgets.utils.sql import check_sql_input
 class OWDifferentialExpression(widget.OWWidget):
     name = "Differential Expression"
     description = "Compare expressions in groups of samples"
-    icon = "icons/DE.svg"
+    icon = "icons/DifferentialExpression.svg"
     priority = 111
 
     settingsHandler = DomainContextHandler(metas_in_res=True)
