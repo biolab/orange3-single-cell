@@ -5,6 +5,7 @@ from Orange.widgets.settings import (Setting, ContextSetting,
 from Orange.widgets.utils.itemmodels import DomainModel
 from Orange.widgets.utils.signals import Output, Input
 from Orange.widgets.utils.sql import check_sql_input
+from Orange.widgets.widget import OWWidget, Msg
 
 
 class OWScoreCells(widget.OWWidget):
@@ -18,6 +19,12 @@ class OWScoreCells(widget.OWWidget):
     auto_apply = Setting(True)
 
     want_main_area = False
+
+    class Error(OWWidget.Error):
+        no_genes = Msg("No matching genes in data")
+
+    class Warning(OWWidget.Warning):
+        some_genes = Msg("{} (of {}) genes not found in data")
 
     class Inputs:
         data = Input("Data", Table)
@@ -48,8 +55,7 @@ class OWScoreCells(widget.OWWidget):
     @Inputs.genes
     @check_sql_input
     def set_genes(self, genes):
-        if self.feature_model:
-            self.closeContext()
+        self.closeContext()
         self.genes = genes
         self.feature_model.set_domain(None)
         self.gene = None
@@ -64,12 +70,23 @@ class OWScoreCells(widget.OWWidget):
 
     def commit(self):
         table = None
+        self.Error.no_genes.clear()
+        self.Warning.some_genes.clear()
         if self.data and self.genes and self.gene:
-            gene_list = [str(ins[self.gene]) for ins in self.genes]
+            available_genes = set(f.name for f in self.data.domain)
+            gene_list_all = [str(ins[self.gene]) for ins in self.genes]
+            gene_list = [g for g in gene_list_all if g in available_genes]
+            if not gene_list:
+                self.Error.no_genes()
+                self.Outputs.data.send(table)
+                return
+            if len(gene_list) < len(gene_list_all):
+                self.Warning.some_genes(len(gene_list_all) - len(gene_list),
+                                        len(gene_list_all))
             values = self.data[:, gene_list].X
             score = values.max(axis=1)
             d = self.data.domain
-            score_var = ContinuousVariable('Gene score')
+            score_var = ContinuousVariable('Score')
             dom = Domain(d.attributes, d.class_vars,
                          d.metas + (score_var,))
             table = self.data.transform(dom)
