@@ -1,3 +1,5 @@
+import numpy as np
+
 from Orange.data import ContinuousVariable, StringVariable, Domain, Table
 from Orange.widgets import widget, gui
 from Orange.widgets.settings import (Setting, ContextSetting,
@@ -84,7 +86,7 @@ class OWScoreCells(widget.OWWidget):
                 self.Warning.some_genes(len(gene_list_all) - len(gene_list),
                                         len(gene_list_all))
             values = self.data[:, gene_list].X
-            score = values.max(axis=1)
+            score = np.nanmax(values, axis=1)
             d = self.data.domain
             score_var = ContinuousVariable('Score')
             dom = Domain(d.attributes, d.class_vars,
