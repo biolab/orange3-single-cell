@@ -1,54 +1,9 @@
-import numpy as np
-import scipy.sparse as sp
-
 from AnyQt.QtCore import Qt
 from Orange.data import Table, DiscreteVariable
 from Orange.widgets import widget, gui, settings
 from Orange.widgets.utils.itemmodels import DomainModel
-
-
-def normalize(X, y=None, equalize=True, normalize_cells=True, log_base=2):
-    """
-    A simple ad-hoc normalization to provide basic facilities.
-    :param X: (Sparse) matrix with expression values as counts.
-            Columns are genes and rows are cells.
-    :param y: Iterable with unique values for each library (default: None).
-        If None, data is assumed to be from a single library.
-    :param equalize: Equalize libraries (default: True)
-    :param normalize_cells: Normalize w.r.t cells
-    :param log_base: log(1 + x) transform.
-    :return:
-    """
-    # Result in expected number of reads
-    Xeq = X.copy()
-
-    # Equalize based on read depth per library / match mean read count per cell
-    if equalize and y is not None:
-        lib_sizes = dict()
-        libraries = dict([(lib, np.where(y == lib)[0]) for lib in set(y)])
-        for lib, inxs in sorted(libraries.items()):
-            lib_sizes[lib] = X[inxs, :].sum(axis=1).mean()
-        target = min(lib_sizes.values())
-        size_factors = dict([(lib, target/float(size)) for lib, size in lib_sizes.items()])
-        for lib, inxs in sorted(libraries.items()):
-            Xeq[inxs, :] *= size_factors[lib]
-
-    # Normalize by cells, sweep columns by means / median
-    if normalize_cells:
-        rs  = np.array(Xeq.sum(axis=1).reshape((Xeq.shape[0], 1)))
-        rsm = np.median(rs)
-        Xd = sp.dia_matrix(((rsm / rs).ravel(), 0), shape=(len(rs), len(rs)))
-        Xeq = Xd.dot(Xeq)
-
-    # Log transform log(1 + x)
-    if log_base is not None:
-        if sp.isspmatrix(Xeq):
-            Xeq = Xeq.log1p() / np.log(log_base)
-        else:
-            Xeq = np.log(1 + Xeq) / np.log(log_base)
-
-    # Preserve sparsity
-    return Xeq.tocsr() if sp.isspmatrix(Xeq) else Xeq
+from Orange.preprocess.preprocess import Preprocess
+from orangecontrib.single_cell.preprocess.scnormalize import ScNormalize
 
 
 class OWNormalization(widget.OWWidget):
@@ -58,7 +13,7 @@ class OWNormalization(widget.OWWidget):
     priority = 110
 
     inputs = [("Data", Table, 'set_data')]
-    outputs = [("Data", Table)]
+    outputs = [("Data", Table), ("Preprocessor", Preprocess)]
 
     want_main_area = False
     resizing_enabled = False
@@ -142,19 +97,17 @@ class OWNormalization(widget.OWWidget):
 
         if self.equalize_lib and self.selected_attr in self.data.domain:
             library_var = self.data.domain[self.selected_attr]
-            library_values, _ = self.data.get_column_view(library_var)
         else:
-            library_values = None
+            library_var = None
         log_base = self.log_base if self.log_check else None
-        X_normed = normalize(self.data.X,
-                             y=library_values,
-                             equalize=self.equalize_lib,
-                             normalize_cells=self.normalize_cells,
-                             log_base=log_base)
 
-        new_data = Table.from_table(source=self.data, domain=self.data.domain)
-        new_data.X = X_normed
+        model = ScNormalize(equalize_var=library_var,
+                            normalize_cells=self.normalize_cells,
+                            log_base=log_base)
+
+        new_data = model(self.data)
         self.send("Data", new_data)
+        self.send("Preprocessor", model)
 
 
 if __name__ == "__main__":
