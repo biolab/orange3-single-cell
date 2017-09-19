@@ -91,21 +91,18 @@ class OWNormalization(widget.OWWidget):
         self.commit()
 
     def commit(self):
-        if self.data is None:
-            self.send("Data", None)
-            return
-
-        if self.equalize_lib and self.selected_attr in self.data.domain:
-            library_var = self.data.domain[self.selected_attr]
-        else:
-            library_var = None
         log_base = self.log_base if self.log_check else None
+        library_var = None
+        if self.data is not None and \
+                self.equalize_lib and \
+                self.selected_attr in self.data.domain:
+            library_var = self.data.domain[self.selected_attr]
 
         model = ScNormalize(equalize_var=library_var,
                             normalize_cells=self.normalize_cells,
                             log_base=log_base)
 
-        new_data = model(self.data)
+        new_data = model(self.data) if self.data is not None else None
         self.send("Data", new_data)
         self.send("Preprocessor", model)
 
