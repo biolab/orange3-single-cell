@@ -2,8 +2,7 @@ from AnyQt.QtCore import Qt
 from Orange.data import Table, DiscreteVariable
 from Orange.widgets import widget, gui, settings
 from Orange.widgets.utils.itemmodels import DomainModel
-from Orange.preprocess.preprocess import Preprocess
-from orangecontrib.single_cell.preprocess.scnormalize import ScNormalizeProjector
+from orangecontrib.single_cell.preprocess.scnormalize import ScNormalizeProjection, ScNormalizeModel
 
 class OWNormalization(widget.OWWidget):
     name = 'Single Cell Normalization'
@@ -12,7 +11,7 @@ class OWNormalization(widget.OWWidget):
     priority = 110
 
     inputs = [("Data", Table, 'set_data')]
-    outputs = [("Data", Table), ("Preprocessor", Preprocess)]
+    outputs = [("Data", Table), ("Preprocessor", ScNormalizeProjection)]
 
     want_main_area = False
     resizing_enabled = False
@@ -91,19 +90,32 @@ class OWNormalization(widget.OWWidget):
 
     def commit(self):
         log_base = self.log_base if self.log_check else None
-        library_var = None
+        library_var, Y = None, None
         if self.data is not None and \
                 self.equalize_lib and \
                 self.selected_attr in self.data.domain:
             library_var = self.data.domain[self.selected_attr]
+            Y, _ = self.data.get_column_view(library_var)
 
-        model = ScNormalizeProjector(equalize_var=library_var,
-                                     normalize_cells=self.normalize_cells,
-                                     log_base=log_base)
 
-        new_data = model(self.data) if self.data is not None else None
+        # Faster execution if model is fit in-place.
+        model = ScNormalizeModel(equalize_var=library_var,
+                                        normalize_cells=self.normalize_cells,
+                                        log_base=log_base)
+        model.fit(X=self.data.X, Y=Y)
+        new_data = model.transform(self.data) if self.data is not None else None
+        projection = ScNormalizeProjection(model, self.data.domain)
+
+        # Slower execution for projection
+        # projector = ScNormalizeProjector(self.data.domain,
+        #                                 equalize_var=library_var,
+        #                                 normalize_cells=self.normalize_cells,
+        #                                 log_base=log_base)
+        # projection = projector.fit(X=self.data.X, Y=Y)
+        # new_data = projection(self.data) if self.data is not None else None
+
         self.send("Data", new_data)
-        self.send("Preprocessor", model)
+        self.send("Preprocessor", projection)
 
 
 if __name__ == "__main__":
