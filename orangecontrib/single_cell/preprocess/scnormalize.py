@@ -5,35 +5,39 @@ from Orange.data.table import Table
 from Orange.data.domain import Domain
 from Orange.data.variable import ContinuousVariable
 from Orange.projection import Projection, Projector
-from Orange.projection.pca import Projector as PcaProjector
 from Orange.data.util import SharedComputeValue
 
 
+class ScShared(SharedComputeValue):
+    """Places the values of shared data within the coresponding variable column."""
+    def compute(self, data, shared_data):
+        assert self.variable is not None
+        return np.array(shared_data[:, self.variable]).ravel()
 
-# Defines only a transformation of the domain (which is trivial here, bust must
-# specify a PcaProjector instance, which uses SharedComputeValue)
-# proj requires a __call__(self, data) methods
+
 class ScNormalizeProjection(Projection):
+    """
+    Defines a transformation of the domain.
+    Initialized with an instance of ScNormalizeModel, which has __call__(self, data) method,
+    and is used to compute shared_data in ScShared.
+    """
     name = 'ScNormalize'
-
     def __init__(self, proj, domain):
-
-        # proj: fitted instance of a model
         super().__init__(proj=proj)
         self.orig_domain = domain
         self.domain = Domain(
-            # This call methods had to transform new data
-            # Based on the initialized sc_transform object
             [ContinuousVariable(name=var.name,
-                                compute_value=PcaProjector(self, i, proj))
-             for i, var in enumerate(self.orig_domain)],
+                                compute_value=ScShared(proj, variable=var))
+             for var in self.orig_domain.attributes],
             domain.class_vars, domain.metas)
 
 
-# Fits data to a model instance and returns a Projection instance based on current model instances
-# Projector has a default __call__(self, data) method that calls self.fit(data.X, data.Y) and
-# sets domain
 class ScNormalizeProjector(Projector):
+    """
+    Fits data to a model instance and returns a Projection instance based on current model instances
+    Projector has a default __call__(self, data) method that calls self.fit(data.X, data.Y) and
+    sets domain.
+    """
     name = 'ScNormalize'
     supports_sparse = True
 
@@ -57,10 +61,11 @@ class ScNormalizeProjector(Projector):
         return ScNormalizeProjection(proj, self.domain)
 
 
-# Implements model fitting and transformation.
-# Parameters infered from data are stored inside an instance of this class.
+
 class ScNormalizeModel:
     """
+    Implements model fitting and transformation.
+    Parameters infered from data are stored inside an instance of this class.
      A simple ad-hoc normalization to provide basic raw count pre-processing.
     """
 
@@ -94,7 +99,11 @@ class ScNormalizeModel:
             self.target_row_mean = np.median(np.array(X.sum(axis=1)))
 
     def __call__(self, data):
-        self.transform(data)
+        """
+        :param data: Data to be transformed.
+        :return:
+        """
+        return self.transform(data)
 
     def transform(self, data):
         """
@@ -129,15 +138,3 @@ class ScNormalizeModel:
                                     W=data.W,
                                     metas=data.metas)
         return data_new
-
-
-if __name__ == "__main__":
-    # These command should work
-    table = Table("iris")
-
-    # Fit projector to return a projection instance
-    projector = ScNormalizeProjector(domain=table.domain)
-    projection = projector.fit(table.X)
-
-    # Transform domain of new data
-    data_t = projection(table)
