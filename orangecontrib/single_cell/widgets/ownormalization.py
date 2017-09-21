@@ -3,8 +3,7 @@ from Orange.data import Table, DiscreteVariable
 from Orange.widgets import widget, gui, settings
 from Orange.widgets.utils.itemmodels import DomainModel
 from Orange.preprocess.preprocess import Preprocess
-from orangecontrib.single_cell.preprocess.scnormalize import ScNormalize
-
+from orangecontrib.single_cell.preprocess.scnormalize import ScNormalizeProjector
 
 class OWNormalization(widget.OWWidget):
     name = 'Single Cell Normalization'
@@ -98,9 +97,9 @@ class OWNormalization(widget.OWWidget):
                 self.selected_attr in self.data.domain:
             library_var = self.data.domain[self.selected_attr]
 
-        model = ScNormalize(equalize_var=library_var,
-                            normalize_cells=self.normalize_cells,
-                            log_base=log_base)
+        model = ScNormalizeProjector(equalize_var=library_var,
+                                     normalize_cells=self.normalize_cells,
+                                     log_base=log_base)
 
         new_data = model(self.data) if self.data is not None else None
         self.send("Data", new_data)
