@@ -93,8 +93,8 @@ class ScNormalizeModel:
             libraries = dict([(lib, np.where(Y == lib)[0]) for lib in set(Y)])
             lib_sizes = dict()
             for lib, inxs in sorted(libraries.items()):
-                lib_sizes[lib] = X[inxs, :].sum(axis=1).median()
-            self.target_row_mean = min(lib_sizes.values())  # Paramater 1
+                lib_sizes[lib] = np.median(X[inxs, :].sum(axis=1))
+            self.target_row_mean = min(lib_sizes.values())
         else:
             self.target_row_mean = np.median(np.array(X.sum(axis=1)))
 
@@ -107,7 +107,7 @@ class ScNormalizeModel:
 
     def transform(self, data):
         """
-        Trasnform data based on inferred parameters.
+        Transform data based on inferred parameters.
         :param data: Data table with expression values as counts.
                     Columns are genes and rows are cells.
         :return: Data table with normalized values.
@@ -115,7 +115,6 @@ class ScNormalizeModel:
         # Result in expected number of reads
         Xeq = data.X.copy()
 
-        # TODO: ensure overlapping libraries in test data
         # Normalize by cells, sweep columns by means / median
         if self.normalize_cells:
             rsm = self.target_row_mean
