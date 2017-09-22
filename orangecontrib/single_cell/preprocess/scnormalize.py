@@ -6,6 +6,7 @@ from Orange.data.domain import Domain
 from Orange.data.variable import ContinuousVariable
 from Orange.projection import Projection, Projector
 from Orange.data.util import SharedComputeValue
+from Orange.preprocess.preprocess import Preprocess
 
 
 class ScShared(SharedComputeValue):
@@ -15,7 +16,7 @@ class ScShared(SharedComputeValue):
         return np.array(shared_data[:, self.variable]).ravel()
 
 
-class ScNormalizeProjection(Projection):
+class ScNormalizeProjection(Projection, Preprocess):
     """
     Defines a transformation of the domain.
     Initialized with an instance of ScNormalizeModel, which has __call__(self, data) method,
@@ -79,6 +80,7 @@ class ScNormalizeModel:
         self.normalize_cells = normalize_cells
         self.log_base = log_base
         self.target_row_mean = 1
+        self.size_factors = {}
 
     def fit(self, X, Y=None):
         """
@@ -95,6 +97,8 @@ class ScNormalizeModel:
             for lib, inxs in sorted(libraries.items()):
                 lib_sizes[lib] = np.median(X[inxs, :].sum(axis=1))
             self.target_row_mean = min(lib_sizes.values())
+            for lib in libraries.keys():
+                self.size_factors[lib] = self.target_row_mean / lib_sizes[lib]
         else:
             self.target_row_mean = np.median(np.array(X.sum(axis=1)))
 
@@ -114,12 +118,25 @@ class ScNormalizeModel:
         """
         # Result in expected number of reads
         Xeq = data.X.copy()
+        n = Xeq.shape[0]
 
-        # Normalize by cells, sweep columns by means / median
+        # Normalize cell profiles
+
         if self.normalize_cells:
-            rsm = self.target_row_mean
-            rs = np.array(Xeq.sum(axis=1).reshape((Xeq.shape[0], 1)))
-            Xd = sp.dia_matrix(((rsm / rs).ravel(), 0), shape=(len(rs), len(rs)))
+            # Each cell is normalized independently by default
+            rs = np.array(Xeq.sum(axis=1))
+            rsm = np.ones((n, )) * self.target_row_mean
+            factors = rs / rsm
+
+            # Override with library size factor, if provided. Else, each row is
+            # treated as a separate group
+            if self.equalize_var is not None:
+                vals = np.array(list(map(lambda lib: self.size_factors.get(lib, np.nan),
+                                    data.get_column_view(self.equalize_var)[0])))
+                inxs = np.logical_not(np.isnan(vals))
+                factors[inxs] = vals[inxs]
+
+            Xd = sp.dia_matrix((factors.ravel(), 0), shape=(n, n))
             Xeq = Xd.dot(Xeq)
 
         # Log transform log(1 + x)
