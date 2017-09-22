@@ -1,8 +1,11 @@
-from AnyQt.QtCore import Qt
+from AnyQt.QtCore import Qt, QTimer
+
 from Orange.data import Table, DiscreteVariable
 from Orange.widgets import widget, gui, settings
 from Orange.widgets.utils.itemmodels import DomainModel
-from orangecontrib.single_cell.preprocess.scnormalize import ScNormalizeProjection, ScNormalizeModel
+
+from orangecontrib.single_cell.preprocess.scnormalize import SCNormalizer
+
 
 class OWNormalization(widget.OWWidget):
     name = 'Single Cell Normalization'
@@ -13,7 +16,7 @@ class OWNormalization(widget.OWWidget):
     DEFAULT_CELL_NORM = "(One group per cell)"
 
     inputs = [("Data", Table, 'set_data')]
-    outputs = [("Data", Table), ("Preprocessor", ScNormalizeProjection)]
+    outputs = [("Data", Table), ("Preprocessor", SCNormalizer)]
 
     want_main_area = False
     resizing_enabled = False
@@ -57,6 +60,7 @@ class OWNormalization(widget.OWWidget):
                  checkCallback=self.on_changed, controlWidth=60)
 
         gui.auto_commit(self.controlArea, self, 'autocommit', '&Apply')
+        QTimer.singleShot(0, self.commit)
 
     def set_data(self, data):
         self.closeContext()
@@ -88,24 +92,21 @@ class OWNormalization(widget.OWWidget):
 
     def commit(self):
         log_base = self.log_base if self.log_check else None
-        library_var, Y = None, None
+        library_var = None
         if self.data is not None and \
                 self.normalize_cells and \
                 self.selected_attr in self.data.domain:
             library_var = self.data.domain[self.selected_attr]
-            Y, _ = self.data.get_column_view(library_var)
 
+        pp = SCNormalizer(equalize_var=library_var,
+                          normalize_cells=self.normalize_cells,
+                          log_base=log_base)
+        data = None
+        if self.data is not None:
+            data = pp(self.data)
 
-        # Faster execution if model is fit in-place.
-        model = ScNormalizeModel(equalize_var=library_var,
-                                 normalize_cells=self.normalize_cells,
-                                 log_base=log_base)
-        model.fit(X=self.data.X, Y=Y)
-        new_data = model.transform(self.data) if self.data is not None else None
-        projection = ScNormalizeProjection(model, self.data.domain)
-
-        self.send("Data", new_data)
-        self.send("Preprocessor", projection)
+        self.send("Data", data)
+        self.send("Preprocessor", pp)
 
 
 if __name__ == "__main__":

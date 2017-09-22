@@ -1,40 +1,65 @@
+import pickle
 import unittest
+
 import numpy as np
-from Orange.data.table import Table
-from orangecontrib.single_cell.preprocess.scnormalize import ScNormalizeModel, ScNormalizeProjector
+
+from Orange.data import Table
+
+from orangecontrib.single_cell.preprocess.scnormalize import SCNormalizer
 
 
 class ScNormalizeTest(unittest.TestCase):
 
     def setUp(self):
-        self.table = Table("iris")
+        self.iris = Table("iris")
 
-    def test_projection(self):
+    def test_normalize_no_group(self):
         # Fit with projector
-        projector = ScNormalizeProjector(domain=self.table.domain)
-        projection = projector.fit(self.table.X)
-        proj_data = projection(self.table)
-        # Fit with model
-        model = ScNormalizeModel()
-        model.fit(self.table.X)
-        model_data = model(self.table)
-        self.assertTrue(np.all(np.array(proj_data.X == model_data.X)))
+        pp = SCNormalizer(log_base=None)
+        data = pp(self.iris)
 
-    def test_new_data(self):
-        inxs1 = list(range(0, len(self.table), 2))
-        inxs2 = list(range(1, len(self.table), 2))
-        projector = ScNormalizeProjector(domain=self.table.domain,
-                                         equalize_var=None,
-                                         normalize_cells=True,
-                                         log_base=None)
+        row_sums = data.X.sum(axis=1)
+        np.testing.assert_almost_equal(row_sums, row_sums[0])
 
-        mi1 = np.median(self.table[inxs1].X.mean(axis=1))
-        mi2 = np.median(self.table[inxs2].X.mean(axis=1))
-        self.assertNotEqual(mi1, mi2)
-        projection = projector.fit(self.table[inxs1].X)
-        proj_data1 = projection(self.table[inxs1])
-        proj_data2 = projection(self.table[inxs2])
-        self.assertFalse(np.all(np.array(proj_data1.X == proj_data2.X)))
-        m1 = np.median(proj_data1.X.mean(axis=1))
-        m2 = np.median(proj_data2.X.mean(axis=1))
-        self.assertTrue(m1 - m2 < 1)
+    def test_normalize_with_group(self):
+        pp = SCNormalizer(equalize_var=self.iris.domain.class_var,
+                          log_base=None)
+        data = pp(self.iris)
+
+        group1, group2, group3 = [self.iris.Y == i for i in range(3)]
+        med1 = np.median(data.X[group1].sum(axis=1))
+        med2 = np.median(data.X[group2].sum(axis=1))
+        med3 = np.median(data.X[group3].sum(axis=1))
+        # Group medians should be equal
+        self.assertAlmostEqual(med1, med2)
+        self.assertAlmostEqual(med2, med3)
+
+    def test_normalize_log(self):
+        LOG_BASE = 2.7
+
+        pp = SCNormalizer(normalize_cells=False, log_base=LOG_BASE)
+        data = pp(self.iris)
+
+        expected_X = np.log(1 + self.iris.X) / np.log(LOG_BASE)
+        np.testing.assert_almost_equal(data.X, expected_X)
+
+    def test_normalize_works_as_preprocessor(self):
+        pp = SCNormalizer(normalize_cells=False, log_base=2)
+        data = pp(self.iris)
+
+        data2 = self.iris.transform(data.domain)
+
+        np.testing.assert_almost_equal(data.X, data2.X)
+        np.testing.assert_array_equal(data.ids, data2.ids)
+
+    def test_normalized_data_can_be_pickled(self):
+        pp = SCNormalizer(normalize_cells=False, log_base=2)
+        data = pp(self.iris)
+
+        data2 = pickle.loads(pickle.dumps(data))
+        np.testing.assert_almost_equal(data.X, data2.X)
+        np.testing.assert_array_equal(data.ids, data2.ids)
+
+        data3 = self.iris.transform(data2.domain)
+        np.testing.assert_almost_equal(data.X, data3.X)
+        np.testing.assert_array_equal(data.ids, data3.ids)

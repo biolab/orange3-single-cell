@@ -1,12 +1,11 @@
 import numpy as np
 import scipy.sparse as sp
 
-from Orange.data.table import Table
-from Orange.data.domain import Domain
-from Orange.data.variable import ContinuousVariable
-from Orange.projection import Projection, Projector
+from Orange.data import ContinuousVariable, Domain, Table
 from Orange.data.util import SharedComputeValue
 from Orange.preprocess.preprocess import Preprocess
+
+__all__ = ["SCNormalizer"]
 
 
 class ScShared(SharedComputeValue):
@@ -16,51 +15,27 @@ class ScShared(SharedComputeValue):
         return np.array(shared_data[:, self.variable]).ravel()
 
 
-class ScNormalizeProjection(Projection, Preprocess):
-    """
-    Defines a transformation of the domain.
-    Initialized with an instance of ScNormalizeModel, which has __call__(self, data) method,
-    and is used to compute shared_data in ScShared.
-    """
-    name = 'ScNormalize'
-    def __init__(self, proj, domain):
-        super().__init__(proj=proj)
-        self.orig_domain = domain
-        self.domain = Domain(
-            [ContinuousVariable(name=var.name,
-                                compute_value=ScShared(proj, variable=var))
-             for var in self.orig_domain.attributes],
-            domain.class_vars, domain.metas)
-
-
-class ScNormalizeProjector(Projector):
-    """
-    Fits data to a model instance and returns a Projection instance based on current model instances
-    Projector has a default __call__(self, data) method that calls self.fit(data.X, data.Y) and
-    sets domain.
-    """
-    name = 'ScNormalize'
-    supports_sparse = True
-
+class SCNormalizer(Preprocess):
     def __init__(self,
-                 domain,
                  equalize_var=None,
                  normalize_cells=True,
                  log_base=2):
-        super().__init__()
         self.equalize_var = equalize_var
         self.normalize_cells = normalize_cells
         self.log_base = log_base
-        self.domain = domain
 
-
-    def fit(self, X, Y=None):
+    def __call__(self, data):
         proj = ScNormalizeModel(self.equalize_var,
                                 self.normalize_cells,
                                 self.log_base)
-        proj.fit(X, Y)
-        return ScNormalizeProjection(proj, self.domain)
-
+        Y = data.get_column_view(self.equalize_var)[0] if self.equalize_var is not None else None
+        proj.fit(data.X, Y)
+        normalized_domain = Domain(
+            [ContinuousVariable(name=var.name,
+                                compute_value=ScShared(proj, variable=var))
+             for var in data.domain.attributes],
+            data.domain.class_vars, data.domain.metas)
+        return data.transform(normalized_domain)
 
 
 class ScNormalizeModel:
@@ -92,15 +67,15 @@ class ScNormalizeModel:
         # Equalize based on read depth per library / match mean read count per cell
         # Must not store indices
         if Y is not None:
-            libraries = dict([(lib, np.where(Y == lib)[0]) for lib in set(Y)])
-            lib_sizes = dict()
-            for lib, inxs in sorted(libraries.items()):
-                lib_sizes[lib] = np.median(X[inxs, :].sum(axis=1))
+            libraries = {lib: np.where(Y == lib)[0] for lib in set(Y)}
+            lib_sizes = {}
+            for lib, rows in libraries.items():
+                lib_sizes[lib] = np.median(X[rows, :].sum(axis=1))
             self.target_row_mean = min(lib_sizes.values())
-            for lib in libraries.keys():
+            for lib in libraries:
                 self.size_factors[lib] = self.target_row_mean / lib_sizes[lib]
         else:
-            self.target_row_mean = np.median(np.array(X.sum(axis=1)))
+            self.target_row_mean = np.median(X.sum(axis=1))
 
     def __call__(self, data):
         """
@@ -121,12 +96,11 @@ class ScNormalizeModel:
         n = Xeq.shape[0]
 
         # Normalize cell profiles
-
         if self.normalize_cells:
             # Each cell is normalized independently by default
             rs = np.array(Xeq.sum(axis=1))
             rsm = np.ones((n, )) * self.target_row_mean
-            factors = rs / rsm
+            factors = rsm / rs
 
             # Override with library size factor, if provided. Else, each row is
             # treated as a separate group
