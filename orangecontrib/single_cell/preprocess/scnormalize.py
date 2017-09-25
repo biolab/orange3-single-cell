@@ -12,7 +12,7 @@ class ScShared(SharedComputeValue):
     """Places the values of shared data within the coresponding variable column."""
     def compute(self, data, shared_data):
         assert self.variable is not None
-        return np.array(shared_data[:, self.variable]).ravel()
+        return shared_data.get_column_view(self.variable)[0]
 
 
 class SCNormalizer(Preprocess):
