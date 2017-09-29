@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.sparse as sp
 
-from Orange.data import ContinuousVariable, Domain, Table
+from Orange.data import Domain, Table
 from Orange.data.util import SharedComputeValue
 from Orange.preprocess.preprocess import Preprocess
 
@@ -12,7 +12,7 @@ class ScShared(SharedComputeValue):
     """Places the values of shared data within the coresponding variable column."""
     def compute(self, data, shared_data):
         assert self.variable is not None
-        return shared_data.get_column_view(self.variable)[0]
+        return shared_data.get_column_view(self.variable)[0] if self.variable in shared_data.domain else np.nan
 
 
 class SCNormalizer(Preprocess):
@@ -31,10 +31,10 @@ class SCNormalizer(Preprocess):
         Y = data.get_column_view(self.equalize_var)[0] if self.equalize_var is not None else None
         proj.fit(data.X, Y)
         normalized_domain = Domain(
-            [ContinuousVariable(name=var.name,
-                                compute_value=ScShared(proj, variable=var))
+            [var.copy(compute_value=ScShared(proj, variable=var))
              for var in data.domain.attributes],
             data.domain.class_vars, data.domain.metas)
+
         return data.transform(normalized_domain)
 
 
