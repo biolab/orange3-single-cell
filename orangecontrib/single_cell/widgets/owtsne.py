@@ -7,12 +7,9 @@ from AnyQt.QtWidgets import QFormLayout, QApplication
 from AnyQt.QtGui import QPainter
 from AnyQt.QtCore import Qt, QTimer
 
-import pyqtgraph as pg
-
 import Orange.data
 from Orange.data import Domain, Table, ContinuousVariable
 import Orange.projection
-from Orange.projection.manifold import torgerson
 import Orange.distance
 import Orange.misc
 from Orange.widgets import gui, settings
@@ -23,15 +20,6 @@ from Orange.widgets.visualize.owscatterplotgraph import OWScatterPlotGraph, Inte
 from Orange.widgets.widget import Msg, OWWidget, Input, Output
 from Orange.widgets.utils.annotated_data import (create_annotated_table,
                                                  ANNOTATED_DATA_SIGNAL_NAME, get_unique_names)
-
-
-def stress(X, distD):
-    assert X.shape[0] == distD.shape[0] == distD.shape[1]
-    D1_c = scipy.spatial.distance.pdist(X, metric="euclidean")
-    D1 = scipy.spatial.distance.squareform(D1_c, checks=False)
-    delta = D1 - distD
-    delta_sq = np.square(delta, out=delta)
-    return delta_sq.sum(axis=0) / 2
 
 
 class MDSInteractiveViewBox(InteractiveViewBox):
