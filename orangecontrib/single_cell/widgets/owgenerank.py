@@ -146,9 +146,9 @@ REG_SCORES = [
     ScoreMeta("RReliefF", "RReliefF", score.RReliefF, ProblemType.REGRESSION, True)
 ]
 UNSUP_SCORES = [
-    ScoreMeta("Mean", "Mean", MeanScorer, ProblemType.UNSUPERVISED, False),
-    ScoreMeta("Variance", "Variance", VarianceScorer, ProblemType.UNSUPERVISED, False),
-    ScoreMeta("Dispersion", "Dispersion", DispersionScorer, ProblemType.UNSUPERVISED, False),
+    ScoreMeta("Mean", "Mean", MeanScorer, ProblemType.UNSUPERVISED, True),
+    ScoreMeta("Variance", "Variance", VarianceScorer, ProblemType.UNSUPERVISED, True),
+    ScoreMeta("Dispersion", "Dispersion", DispersionScorer, ProblemType.UNSUPERVISED, True),
 ]
 
 SCORES = CLS_SCORES + REG_SCORES + UNSUP_SCORES
@@ -311,8 +311,9 @@ class OWRank(OWWidget):
         self.measuresStack = stacked = QStackedWidget(self)
         self.controlArea.layout().addWidget(stacked)
 
-        for scoring_methods in (CLS_SCORES,
-                                REG_SCORES,
+        # Allow unsupervised scorers for any problem type
+        for scoring_methods in (CLS_SCORES + UNSUP_SCORES,
+                                REG_SCORES + UNSUP_SCORES,
                                 UNSUP_SCORES,
                                 []):
             box = gui.vBox(None, "Scoring Methods" if scoring_methods else None)
@@ -479,7 +480,8 @@ class OWRank(OWWidget):
         methods = [method
                    for method in SCORES
                    if (method.name in self.selected_methods and
-                       method.problem_type == self.problem_type_mode and
+                       (method.problem_type == self.problem_type_mode or
+                        method.problem_type == ProblemType.UNSUPERVISED) and
                        (not issparse(self.data.X) or
                         method.scorer.supports_sparse_data))]
 
