@@ -1,18 +1,15 @@
+import re
 import sys
 
 import numpy as np
-import scipy.spatial.distance
 
 from AnyQt.QtWidgets import QFormLayout, QApplication
 from AnyQt.QtGui import QPainter
 from AnyQt.QtCore import Qt, QTimer
 
-import pyqtgraph as pg
-
 import Orange.data
 from Orange.data import Domain, Table, ContinuousVariable
 import Orange.projection
-from Orange.projection.manifold import torgerson
 import Orange.distance
 import Orange.misc
 from Orange.widgets import gui, settings
@@ -22,16 +19,37 @@ from Orange.canvas import report
 from Orange.widgets.visualize.owscatterplotgraph import OWScatterPlotGraph, InteractiveViewBox
 from Orange.widgets.widget import Msg, OWWidget, Input, Output
 from Orange.widgets.utils.annotated_data import (create_annotated_table,
-                                                 ANNOTATED_DATA_SIGNAL_NAME, get_unique_names)
+                                                 ANNOTATED_DATA_SIGNAL_NAME)
 
 
-def stress(X, distD):
-    assert X.shape[0] == distD.shape[0] == distD.shape[1]
-    D1_c = scipy.spatial.distance.pdist(X, metric="euclidean")
-    D1 = scipy.spatial.distance.squareform(D1_c, checks=False)
-    delta = D1 - distD
-    delta_sq = np.square(delta, out=delta)
-    return delta_sq.sum(axis=0) / 2
+RE_FIND_INDEX = r"(^{} \()(\d{{1,}})(\)$)"
+
+
+def get_indices(names, name):
+    """
+    Return list of indices which occur in a names list for a given name.
+    :param names: list of strings
+    :param name: str
+    :return: list of indices
+    """
+    return [int(a.group(2)) for x in names
+            for a in re.finditer(RE_FIND_INDEX.format(name), x)]
+
+
+def get_unique_names(names, proposed):
+    """
+    Returns unique names of variables. Variables which are duplicate get appended by
+    unique index which is the same in all proposed variable names in a list.
+    :param names: list of strings
+    :param proposed: list of strings
+    :return: list of strings
+    """
+    if len([name for name in proposed if name in names]):
+        max_index = max([max(get_indices(names, name),
+                             default=1) for name in proposed], default=1)
+        for i, name in enumerate(proposed):
+            proposed[i] = "{} ({})".format(name, max_index + 1)
+    return proposed
 
 
 class MDSInteractiveViewBox(InteractiveViewBox):
@@ -41,6 +59,12 @@ class MDSInteractiveViewBox(InteractiveViewBox):
 
 class OWMDSGraph(OWScatterPlotGraph):
     jitter_size = settings.Setting(0)
+
+    def __init__(self, scatter_widget, parent=None, name="None", view_box=None):
+        super().__init__(scatter_widget, parent=parent, _=name,
+                         view_box=view_box)
+        for axis_loc in ["left", "bottom"]:
+            self.plot_widget.hideAxis(axis_loc)
 
     def update_data(self, attr_x, attr_y, reset_view=True):
         super().update_data(attr_x, attr_y, reset_view=reset_view)
