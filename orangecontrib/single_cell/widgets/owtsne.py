@@ -1,7 +1,7 @@
+import re
 import sys
 
 import numpy as np
-import scipy.spatial.distance
 
 from AnyQt.QtWidgets import QFormLayout, QApplication
 from AnyQt.QtGui import QPainter
@@ -19,7 +19,37 @@ from Orange.canvas import report
 from Orange.widgets.visualize.owscatterplotgraph import OWScatterPlotGraph, InteractiveViewBox
 from Orange.widgets.widget import Msg, OWWidget, Input, Output
 from Orange.widgets.utils.annotated_data import (create_annotated_table,
-                                                 ANNOTATED_DATA_SIGNAL_NAME, get_unique_names)
+                                                 ANNOTATED_DATA_SIGNAL_NAME)
+
+
+RE_FIND_INDEX = r"(^{} \()(\d{{1,}})(\)$)"
+
+
+def get_indices(names, name):
+    """
+    Return list of indices which occur in a names list for a given name.
+    :param names: list of strings
+    :param name: str
+    :return: list of indices
+    """
+    return [int(a.group(2)) for x in names
+            for a in re.finditer(RE_FIND_INDEX.format(name), x)]
+
+
+def get_unique_names(names, proposed):
+    """
+    Returns unique names of variables. Variables which are duplicate get appended by
+    unique index which is the same in all proposed variable names in a list.
+    :param names: list of strings
+    :param proposed: list of strings
+    :return: list of strings
+    """
+    if len([name for name in proposed if name in names]):
+        max_index = max([max(get_indices(names, name),
+                             default=1) for name in proposed], default=1)
+        for i, name in enumerate(proposed):
+            proposed[i] = "{} ({})".format(name, max_index + 1)
+    return proposed
 
 
 class MDSInteractiveViewBox(InteractiveViewBox):
