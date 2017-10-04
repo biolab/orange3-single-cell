@@ -320,8 +320,8 @@ class OWtSNE(OWWidget):
         self._invalidated = True
 
         if data is not None:
-            self._primitive_metas = tuple(
-            a for a in data.domain.metas if a.is_primitive())
+            self._primitive_metas = tuple(a for a in data.domain.metas
+                                          if a.is_primitive())
             keys = [k for k, a in enumerate(data.domain.metas)
                     if a.is_primitive()]
             self._data_metas = data.metas[:, keys]
@@ -341,7 +341,6 @@ class OWtSNE(OWWidget):
         # invalidate the pen/brush when the subset is changed
         self._subset_mask = None  # type: Optional[np.ndarray]
         self.controls.graph.alpha_value.setEnabled(subset_data is None)
-        self._invalidated = True
 
     def _clear(self):
         self.__set_update_loop(None)
