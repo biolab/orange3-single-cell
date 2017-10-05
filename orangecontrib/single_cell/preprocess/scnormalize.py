@@ -99,6 +99,7 @@ class ScNormalizeModel:
         if self.normalize_cells:
             # Each cell is normalized independently by default
             rs = np.array(Xeq.sum(axis=1))
+            rs[rs == 0] = 1
             rsm = np.ones((n, )) * self.target_row_mean
             factors = rsm / rs
 
