@@ -80,13 +80,13 @@ class OWScoreCells(widget.OWWidget):
             gene_list = [g for g in gene_list_all if g in available_genes]
             if not gene_list:
                 self.Error.no_genes()
-                self.Outputs.data.send(table)
-                return
-            if len(gene_list) < len(gene_list_all):
-                self.Warning.some_genes(len(gene_list_all) - len(gene_list),
-                                        len(gene_list_all))
-            values = self.data[:, gene_list].X
-            score = np.nanmax(values, axis=1)
+                score = np.zeros(len(self.data))
+            else:
+                if len(gene_list) < len(gene_list_all):
+                    self.Warning.some_genes(len(gene_list_all) - len(gene_list),
+                                            len(gene_list_all))
+                values = self.data[:, gene_list].X
+                score = np.nanmax(values, axis=1)
             d = self.data.domain
             score_var = ContinuousVariable('Score')
             dom = Domain(d.attributes, d.class_vars,
