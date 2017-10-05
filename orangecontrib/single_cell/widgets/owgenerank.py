@@ -121,9 +121,31 @@ class DispersionScorer(UnsupervisedScorer):
         conts = np.array([a.is_continuous for a in data.domain.attributes])
 
         means = data.X[:, conts].mean(axis = 0)
-        vars = np.var(data.X[:, conts], axis=0)
+        variances = np.var(data.X[:, conts], axis=0)
         means[means == 0] = 1
-        weights[conts] = vars / means
+        weights[conts] = variances / means
+
+        if feature:
+            return weights[0]
+        return weights
+
+
+class VariationCoefficientScorer(UnsupervisedScorer):
+    """
+    Simple scorer returning coefficient of variation.
+    http://www.statisticshowto.com/how-to-find-a-coefficient-of-variation/
+    """
+    supports_sparse_data = False
+    friendly_name = "Coef. of Variation"
+
+    def score_data(self, data, feature):
+        weights = np.nan + np.zeros((len(data.domain.attributes)))
+        conts = np.array([a.is_continuous for a in data.domain.attributes])
+
+        means = data.X[:, conts].mean(axis = 0)
+        stds = data.X[:, conts].std(axis=0)
+        means[means == 0] = 1
+        weights[conts] = stds / means
 
         if feature:
             return weights[0]
@@ -134,8 +156,8 @@ ScoreMeta = namedtuple("score_meta", ["name", "shortname", "scorer", 'problem_ty
 # Default scores.
 CLS_SCORES = [
     ScoreMeta("Information Gain", "Info. gain", score.InfoGain, ProblemType.CLASSIFICATION, False),
-    ScoreMeta("Information Gain Ratio", "Gain ratio", score.GainRatio, ProblemType.CLASSIFICATION, True),
-    ScoreMeta("Gini Decrease", "Gini", score.Gini, ProblemType.CLASSIFICATION, True),
+    ScoreMeta("Information Gain Ratio", "Gain ratio", score.GainRatio, ProblemType.CLASSIFICATION, False),
+    ScoreMeta("Gini Decrease", "Gini", score.Gini, ProblemType.CLASSIFICATION, False),
     ScoreMeta("ANOVA", "ANOVA", score.ANOVA, ProblemType.CLASSIFICATION, False),
     ScoreMeta("χ²", "χ²", score.Chi2, ProblemType.CLASSIFICATION, False),
     ScoreMeta("ReliefF", "ReliefF", score.ReliefF, ProblemType.CLASSIFICATION, False),
@@ -148,7 +170,8 @@ REG_SCORES = [
 UNSUP_SCORES = [
     ScoreMeta("Mean", "Mean", MeanScorer, ProblemType.UNSUPERVISED, True),
     ScoreMeta("Variance", "Variance", VarianceScorer, ProblemType.UNSUPERVISED, True),
-    ScoreMeta("Dispersion", "Dispersion", DispersionScorer, ProblemType.UNSUPERVISED, True),
+    ScoreMeta("Dispersion", "Dispersion", DispersionScorer, ProblemType.UNSUPERVISED, False),
+    ScoreMeta("Coef. of variation (CV)", "CV", VariationCoefficientScorer, ProblemType.UNSUPERVISED, False),
 ]
 
 SCORES = CLS_SCORES + REG_SCORES + UNSUP_SCORES
@@ -245,7 +268,7 @@ class TableModel(PyTableModel):
 class OWRank(OWWidget):
     name = "Gene Rank"
     description = "Rank and filter genes (features) by their relevance."
-    icon = "icons/Rank.svg"
+    icon = "icons/GeneRank.svg"
     priority = 1102
 
     buttons_area_orientation = Qt.Vertical
@@ -348,7 +371,7 @@ class OWRank(OWWidget):
         b3 = button(self.tr("Manual"), OWRank.SelectManual)
         b4 = button(self.tr("Best ranked:"), OWRank.SelectNBest)
 
-        s = gui.spin(selMethBox, self, "nSelected", 1, 100,
+        s = gui.spin(selMethBox, self, "nSelected", 1, 1000,
                      callback=lambda: self.setSelectionMethod(OWRank.SelectNBest))
 
         grid.addWidget(b1, 0, 0)
