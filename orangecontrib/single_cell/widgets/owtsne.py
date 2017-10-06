@@ -1,7 +1,9 @@
+import os.path
 import re
 import sys
 
 import numpy as np
+from joblib.memory import Memory
 
 from AnyQt.QtWidgets import QFormLayout, QApplication
 from AnyQt.QtGui import QPainter
@@ -12,6 +14,7 @@ from Orange.data import Domain, Table, ContinuousVariable
 import Orange.projection
 import Orange.distance
 import Orange.misc
+from Orange.misc.environ import cache_dir
 from Orange.widgets import gui, settings
 from Orange.widgets.settings import SettingProvider
 from Orange.widgets.utils.sql import check_sql_input
@@ -23,6 +26,10 @@ from Orange.widgets.utils.annotated_data import (create_annotated_table,
 
 
 RE_FIND_INDEX = r"(^{} \()(\d{{1,}})(\)$)"
+
+tsne_cache = os.path.join(cache_dir(), "tsne")
+memory = Memory(tsne_cache, verbose=0, bytes_limit=1e8)
+memory.reduce_size()
 
 
 ###
@@ -54,6 +61,15 @@ def get_unique_names(names, proposed):
             proposed[i] = "{} ({})".format(name, max_index + 1)
     return proposed
 
+###
+###
+
+@memory.cache
+def cached_tsne(X, perplexity, iter, init):
+    tsne = Orange.projection.TSNE(n_components=2, perplexity=perplexity,
+                                  n_iter=iter, init=init, random_state=0)
+    tsnefit = tsne.fit(X)
+    return tsnefit.embedding_
 
 class MDSInteractiveViewBox(InteractiveViewBox):
     def _dragtip_pos(self):
@@ -382,13 +398,8 @@ class OWtSNE(OWWidget):
 
             while not done:
                 step_iter = min(max_iter - iterations_done, step)
-                tsne = Orange.projection.TSNE(
-                    n_components=2, perplexity=self.perplexity,
-                    n_iter=step_iter, init=embedding, random_state=0)
-                tsnefit = tsne(data)
+                embedding = cached_tsne(data.X, self.perplexity, step_iter, embedding)
                 iterations_done += step_iter
-                embedding = tsnefit.embedding_
-
                 if iterations_done >= max_iter:
                     done = True
 
