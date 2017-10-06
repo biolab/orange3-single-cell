@@ -334,12 +334,7 @@ class OWtSNE(OWWidget):
 
         self.data = self.signal_data
 
-        if self.data.domain.attributes:
-            pca = Orange.projection.PCA(
-                n_components=self.pca_components, random_state=0)
-            model = pca(self.data)
-            self.effective_matrix = model(self.data)
-        else:
+        if not self.data.domain.attributes:
             self.Error.no_attributes()
             return
 
@@ -354,20 +349,28 @@ class OWtSNE(OWWidget):
             self.start()
 
     def start(self):
-        if self.__state == OWtSNE.Running:
+        if not self.data or self.__state == OWtSNE.Running:
             return
-        elif self.__state == OWtSNE.Finished:
-            # Resume/continue from a previous run
-            self.__start()
-        elif self.__state == OWtSNE.Waiting and \
-                self.effective_matrix is not None:
+        elif self.__state in (OWtSNE.Finished, OWtSNE.Waiting):
             self.__start()
 
     def stop(self):
         if self.__state == OWtSNE.Running:
             self.__set_update_loop(None)
 
+    def pca_preprocessing(self):
+        if self.effective_matrix is not None and \
+                self.effective_matrix.X.shape[1] == self.pca_components:
+            return
+        pca = Orange.projection.PCA(
+            n_components=self.pca_components, random_state=0)
+        model = pca(self.data)
+        self.effective_matrix = model(self.data)
+
     def __start(self):
+        self.pca_preprocessing()
+        embedding = 'pca' if self.embedding is None else self.embedding
+        step_size = self.max_iter
 
         def update_loop(X, max_iter, step, embedding):
             """
@@ -391,8 +394,6 @@ class OWtSNE(OWWidget):
 
                 yield embedding, iterations_done / max_iter
 
-        embedding = 'pca' if self.embedding is None else self.embedding
-        step_size = self.max_iter
         self.__set_update_loop(update_loop(
             self.effective_matrix, self.max_iter, step_size, embedding))
         self.progressBarInit(processEvents=None)
