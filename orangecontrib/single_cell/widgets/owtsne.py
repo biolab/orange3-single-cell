@@ -335,7 +335,8 @@ class OWtSNE(OWWidget):
         self.data = self.signal_data
 
         if self.data.domain.attributes:
-            pca = Orange.projection.PCA(n_components=self.pca_components)
+            pca = Orange.projection.PCA(
+                n_components=self.pca_components, random_state=0)
             model = pca(self.data)
             self.effective_matrix = model(self.data)
         else:
@@ -367,16 +368,6 @@ class OWtSNE(OWWidget):
             self.__set_update_loop(None)
 
     def __start(self):
-        embedding = self.embedding
-
-        # number of iterations per single GUI update step
-        _, step_size = OWtSNE.RefreshRate[self.refresh_rate]
-
-        ## TODO: refresh rates - fixed to None for now
-        step_size = -1
-
-        if step_size == -1:
-            step_size = self.max_iter
 
         def update_loop(X, max_iter, step, embedding):
             """
@@ -385,15 +376,12 @@ class OWtSNE(OWWidget):
             # NOTE: this code MUST NOT call into QApplication.processEvents
             done = False
             iterations_done = 0
-            # init = "pca" if self.initialization == OWtSNE.PCA else "random"
-            init = "pca"
 
             while not done:
                 step_iter = min(max_iter - iterations_done, step)
                 tsne = Orange.projection.TSNE(
                     n_components=2, perplexity=self.perplexity,
-                    n_iter=step_iter, init=init)
-
+                    n_iter=step_iter, init=embedding, random_state=0)
                 tsnefit = tsne(X)
                 iterations_done += step_iter
                 embedding = tsnefit.embedding_
@@ -403,6 +391,8 @@ class OWtSNE(OWWidget):
 
                 yield embedding, iterations_done / max_iter
 
+        embedding = 'pca' if self.embedding is None else self.embedding
+        step_size = self.max_iter
         self.__set_update_loop(update_loop(
             self.effective_matrix, self.max_iter, step_size, embedding))
         self.progressBarInit(processEvents=None)
