@@ -156,7 +156,7 @@ class OWtSNE(OWWidget):
 
         self._subset_mask = None  # type: Optional[np.ndarray]
         self._invalidated = False
-        self.effective_matrix = None
+        self.pca_data = None
         self._curve = None
         self._primitive_metas = ()
         self._data_metas = None
@@ -324,7 +324,7 @@ class OWtSNE(OWWidget):
         self._clear()
         self.Error.clear()
         self.data = None
-        self.effective_matrix = None
+        self.pca_data = None
         self.embedding = None
         self.init_attr_values()
 
@@ -359,20 +359,20 @@ class OWtSNE(OWWidget):
             self.__set_update_loop(None)
 
     def pca_preprocessing(self):
-        if self.effective_matrix is not None and \
-                self.effective_matrix.X.shape[1] == self.pca_components:
+        if self.pca_data is not None and \
+                self.pca_data.X.shape[1] == self.pca_components:
             return
         pca = Orange.projection.PCA(
             n_components=self.pca_components, random_state=0)
         model = pca(self.data)
-        self.effective_matrix = model(self.data)
+        self.pca_data = model(self.data)
 
     def __start(self):
         self.pca_preprocessing()
         embedding = 'pca' if self.embedding is None else self.embedding
         step_size = self.max_iter
 
-        def update_loop(X, max_iter, step, embedding):
+        def update_loop(data, max_iter, step, embedding):
             """
             return an iterator over successive improved MDS point embeddings.
             """
@@ -385,7 +385,7 @@ class OWtSNE(OWWidget):
                 tsne = Orange.projection.TSNE(
                     n_components=2, perplexity=self.perplexity,
                     n_iter=step_iter, init=embedding, random_state=0)
-                tsnefit = tsne(X)
+                tsnefit = tsne(data)
                 iterations_done += step_iter
                 embedding = tsnefit.embedding_
 
@@ -395,7 +395,7 @@ class OWtSNE(OWWidget):
                 yield embedding, iterations_done / max_iter
 
         self.__set_update_loop(update_loop(
-            self.effective_matrix, self.max_iter, step_size, embedding))
+            self.pca_data, self.max_iter, step_size, embedding))
         self.progressBarInit(processEvents=None)
 
     def __set_update_loop(self, loop):
