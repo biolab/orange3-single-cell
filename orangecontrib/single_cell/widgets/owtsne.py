@@ -120,7 +120,7 @@ class OWtSNE(OWWidget):
 
     settingsHandler = settings.DomainContextHandler()
 
-    max_iter = settings.Setting(1000)
+    max_iter = settings.Setting(500)
     perplexity = settings.Setting(30)
     pca_components = settings.Setting(20)
 
@@ -182,7 +182,7 @@ class OWtSNE(OWWidget):
 
         form.addRow(
             "Max iterations:",
-            gui.spin(box, self, "max_iter", 250, 10 ** 4, step=1))
+            gui.spin(box, self, "max_iter", 250, 10**4, step=10))
 
         form.addRow(
             "Perplexity:",
