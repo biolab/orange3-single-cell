@@ -7,7 +7,7 @@ from setuptools import setup, find_packages
 
 NAME = "Orange3-SingleCell"
 
-VERSION = "0.0.6"
+VERSION = "0.0.8"
 
 DESCRIPTION = "Add-on for bioinformatics analysis of single cell data"
 LONG_DESCRIPTION = open(path.join(path.dirname(__file__), 'README.md')).read()
