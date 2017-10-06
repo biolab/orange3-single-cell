@@ -1,7 +1,9 @@
+import os.path
 import re
 import sys
 
 import numpy as np
+from joblib.memory import Memory
 
 from AnyQt.QtWidgets import QFormLayout, QApplication
 from AnyQt.QtGui import QPainter
@@ -12,6 +14,7 @@ from Orange.data import Domain, Table, ContinuousVariable
 import Orange.projection
 import Orange.distance
 import Orange.misc
+from Orange.misc.environ import cache_dir
 from Orange.widgets import gui, settings
 from Orange.widgets.settings import SettingProvider
 from Orange.widgets.utils.sql import check_sql_input
@@ -24,6 +27,13 @@ from Orange.widgets.utils.annotated_data import (create_annotated_table,
 
 RE_FIND_INDEX = r"(^{} \()(\d{{1,}})(\)$)"
 
+tsne_cache = os.path.join(cache_dir(), "tsne")
+memory = Memory(tsne_cache, verbose=0, bytes_limit=1e8)
+memory.reduce_size()
+
+
+###
+### TODO: When the next two functions are released in Orange, import from there
 
 def get_indices(names, name):
     """
@@ -51,6 +61,15 @@ def get_unique_names(names, proposed):
             proposed[i] = "{} ({})".format(name, max_index + 1)
     return proposed
 
+###
+###
+
+@memory.cache
+def cached_tsne(X, perplexity, iter, init):
+    tsne = Orange.projection.TSNE(n_components=2, perplexity=perplexity,
+                                  n_iter=iter, init=init, random_state=0)
+    tsnefit = tsne.fit(X)
+    return tsnefit.embedding_
 
 class MDSInteractiveViewBox(InteractiveViewBox):
     def _dragtip_pos(self):
@@ -72,11 +91,6 @@ class OWMDSGraph(OWScatterPlotGraph):
             self.plot_widget.hideAxis(axis)
         self.plot_widget.setAspectLocked(True, 1)
 
-    def get_size_index(self):
-        if self.attr_size == "Stress":
-            return -2
-        return super().get_size_index()
-
     def compute_sizes(self):
         def scale(a):
             dmin, dmax = np.nanmin(a), np.nanmax(a)
@@ -90,9 +104,6 @@ class OWMDSGraph(OWScatterPlotGraph):
         if size_index == -1:
             size_data = np.full((self.n_points,), self.point_width,
                                 dtype=float)
-        elif size_index == -2:
-            size_data = scale(stress(self.master.embedding, self.master.effective_matrix))
-            size_data = self.MinShapeSize + size_data * self.point_width
         else:
             size_data = \
                 self.MinShapeSize + \
@@ -104,9 +115,6 @@ class OWMDSGraph(OWScatterPlotGraph):
             self.master.Information.missing_size(self.attr_size)
         return size_data
 
-
-#: Maximum number of displayed closest pairs.
-MAX_N_PAIRS = 10000
 
 class OWtSNE(OWWidget):
     name = "t-SNE"
@@ -123,29 +131,14 @@ class OWtSNE(OWWidget):
 
     settings_version = 2
 
-    #: Initialization type
-    PCA, Random = 0, 1
-
-    #: Refresh rate
-    RefreshRate = [
-        ("Every iteration", 1),
-        ("Every 5 steps", 5),
-        ("Every 10 steps", 10),
-        ("Every 25 steps", 25),
-        ("Every 50 steps", 50),
-        ("None", -1)
-    ]
-
     #: Runtime state
     Running, Finished, Waiting = 1, 2, 3
 
     settingsHandler = settings.DomainContextHandler()
 
-    max_iter = settings.Setting(1000)
+    max_iter = settings.Setting(500)
     perplexity = settings.Setting(30)
-    initialization = settings.Setting(PCA)
-    pca_components = settings.Setting(10)
-    refresh_rate = settings.Setting(5)
+    pca_components = settings.Setting(20)
 
     # output embedding role.
     NoRole, AttrRole, AddAttrRole, MetaRole = 0, 1, 2, 3
@@ -179,7 +172,7 @@ class OWtSNE(OWWidget):
 
         self._subset_mask = None  # type: Optional[np.ndarray]
         self._invalidated = False
-        self.effective_matrix = None
+        self.pca_data = None
         self._curve = None
         self._primitive_metas = ()
         self._data_metas = None
@@ -205,22 +198,14 @@ class OWtSNE(OWWidget):
 
         form.addRow(
             "Max iterations:",
-            gui.spin(box, self, "max_iter", 250, 10 ** 4, step=1))
+            gui.spin(box, self, "max_iter", 250, 10**4, step=10))
 
         form.addRow(
             "Perplexity:",
             gui.spin(box, self, "perplexity", 1, 99, step=1))
 
-        # form.addRow(
-        #     "Initialization:",
-        #     gui.radioButtons(box, self, "initialization", btnLabels=("PCA", "Random"),
-        #                      callback=self.__invalidate_embedding))
-
         box.layout().addLayout(form)
-        # form.addRow(
-        #     "Refresh:",
-        #     gui.comboBox(box, self, "refresh_rate", items=[t for t, _ in OWtSNE.RefreshRate],
-        #                  callback=self.__invalidate_refresh))
+
         gui.separator(box, 10)
         self.runbutton = gui.button(box, self, "Run", callback=self._toggle_run)
 
@@ -287,7 +272,6 @@ class OWtSNE(OWWidget):
         self.graph.attr_shape = None
         self.graph.attr_size = None
         self.graph.attr_label = None
-        self.models[2][:] = self.models[2][0:1] + ["Stress"] + self.models[2][1:]
 
     def prepare_data(self):
         pass
@@ -355,7 +339,7 @@ class OWtSNE(OWWidget):
         self._clear()
         self.Error.clear()
         self.data = None
-        self.effective_matrix = None
+        self.pca_data = None
         self.embedding = None
         self.init_attr_values()
 
@@ -365,11 +349,7 @@ class OWtSNE(OWWidget):
 
         self.data = self.signal_data
 
-        if self.data.domain.attributes:
-            pca = Orange.projection.PCA(n_components=self.pca_components)
-            model = pca(self.data)
-            self.effective_matrix = model(self.data)
-        else:
+        if not self.data.domain.attributes:
             self.Error.no_attributes()
             return
 
@@ -384,70 +364,59 @@ class OWtSNE(OWWidget):
             self.start()
 
     def start(self):
-        if self.__state == OWtSNE.Running:
+        if not self.data or self.__state == OWtSNE.Running:
             return
-        elif self.__state == OWtSNE.Finished:
-            # Resume/continue from a previous run
-            self.__start()
-        elif self.__state == OWtSNE.Waiting and \
-                self.effective_matrix is not None:
+        elif self.__state in (OWtSNE.Finished, OWtSNE.Waiting):
             self.__start()
 
     def stop(self):
         if self.__state == OWtSNE.Running:
             self.__set_update_loop(None)
 
+    def pca_preprocessing(self):
+        if self.pca_data is not None and \
+                self.pca_data.X.shape[1] == self.pca_components:
+            return
+        pca = Orange.projection.PCA(
+            n_components=self.pca_components, random_state=0)
+        model = pca(self.data)
+        self.pca_data = model(self.data)
+
     def __start(self):
-        embedding = self.embedding
+        self.pca_preprocessing()
+        embedding = 'pca' if self.embedding is None else self.embedding
+        step_size = self.max_iter
 
-        # number of iterations per single GUI update step
-        _, step_size = OWtSNE.RefreshRate[self.refresh_rate]
-
-        ## TODO: refresh rates - fixed to None for now
-        step_size = -1
-
-        if step_size == -1:
-            step_size = self.max_iter
-
-        def update_loop(X, max_iter, step, embedding):
+        def update_loop(data, max_iter, step, embedding):
             """
             return an iterator over successive improved MDS point embeddings.
             """
             # NOTE: this code MUST NOT call into QApplication.processEvents
             done = False
             iterations_done = 0
-            # init = "pca" if self.initialization == OWtSNE.PCA else "random"
-            init = "pca"
 
             while not done:
                 step_iter = min(max_iter - iterations_done, step)
-                tsne = Orange.projection.TSNE(
-                    n_components=2, perplexity=self.perplexity,
-                    n_iter=step_iter, init=init)
-
-                tsnefit = tsne(X)
+                embedding = cached_tsne(data.X, self.perplexity, step_iter, embedding)
                 iterations_done += step_iter
-                embedding = tsnefit.embedding_
-
                 if iterations_done >= max_iter:
                     done = True
 
                 yield embedding, iterations_done / max_iter
 
         self.__set_update_loop(update_loop(
-            self.effective_matrix, self.max_iter, step_size, embedding))
+            self.pca_data, self.max_iter, step_size, embedding))
         self.progressBarInit(processEvents=None)
 
     def __set_update_loop(self, loop):
         """
         Set the update `loop` coroutine.
 
-        The `loop` is a generator yielding `(embedding, stress, progress)`
+        The `loop` is a generator yielding `(embedding, progress)`
         tuples where `embedding` is a `(N, 2) ndarray` of current updated
-        MDS points, `stress` is the current stress and `progress` a float
-        ratio (0 <= progress <= 1)
+        MDS points, and `progress` a float ratio (0 <= progress <= 1)
 
-        If an existing update coroutine loop is already in palace it is
+        If an existing update coroutine loop is already in place it is
         interrupted (i.e. closed).
 
         .. note::
@@ -507,26 +476,6 @@ class OWtSNE(OWWidget):
             self.__timer.start()
 
         self.__in_next_step = False
-
-    def __invalidate_embedding(self):
-        # reset/invalidate the MDS embedding, to the default initialization
-        # (Random or PCA), restarting the optimization if necessary.
-        if self.embedding is None:
-            return
-        state = self.__state
-        if self.__update_loop is not None:
-            self.__set_update_loop(None)
-
-        if self.initialization == OWtSNE.PCA:
-            self.embedding = self.effective_matrix.X[:, :2]
-        else:
-            self.embedding = np.random.rand(len(self.effective_matrix), 2)
-
-        self._update_plot()
-
-        # restart the optimization if it was interrupted.
-        if state == OWtSNE.Running:
-            self.__start()
 
     def __invalidate_refresh(self):
         state = self.__state
