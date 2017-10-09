@@ -123,7 +123,7 @@ def scnorm(data, subgroup_frac = 0.25, K = 10):
         # Select best model and use normalized values
         Dp = PolynomialFeatures(degree=degree_best).fit_transform(np.log(group_D))
         log_predicted_expression = submodels[q_best, degree_best].predict(Dp)
-        gene_expression = sp.stats.scoreatpercentile(group_Y, 100 * q_best)
+        gene_expression = sp.stats.scoreatpercentile(np.log(group_Y), 100 * q_best)
         size_factors = np.exp(log_predicted_expression) / np.exp(gene_expression)
         new_data[:, group_vars].X[nz] = new_data[:, group_vars].X[nz] / size_factors
 
