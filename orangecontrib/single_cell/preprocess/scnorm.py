@@ -1,7 +1,9 @@
 import numpy as np
 import scipy as sp
+import itertools as it
 from Orange.regression import Learner, Model, SklLearner
 from statsmodels.regression.quantile_regression import QuantReg
+from sklearn.preprocessing import PolynomialFeatures
 
 
 class QuantRegLearner(Learner):
@@ -40,68 +42,93 @@ class QuantRegModel(Model):
         return 'QuantRegModel {}'.format(self.model)
 
 
+# TODO: Split genes into K groups using K-medioids and merge groups smaller than 100 genes
 
-def scnorm(data):
+def scnorm(data, subgroup_frac = 0.25, K = 10):
     """
-    ScNorm normalization method
+    ScNorm normalization method.
+
     :param data: Orange data Table with cells in rows and genes in colums.
+    :param subgroup_frac: Subgroup fraction.
+    :param K: number of groups.
     :return:
     """
 
+    # Copy data to be transformed
+    new_data = data.copy()
+
+    # Fixed algorithm parameters
+    q_range = np.linspace(0.05, 0.95, 19)
+    degree_range = np.arange(1, 7)
+
     # Calculate sequencing depth for each cell
-    K = 10
     n, m = data.X.shape
     D = data.X.sum(axis=1).reshape((n, 1))
 
     # Fit a quantile regression model for each gene based on sequencing depth
-    depth_models = dict()
     model_slopes = dict()
     median_expressions = dict()
     for var in data.domain.attributes:
         Y = data.get_column_view(var)[0].reshape((n, 1))
         rows = np.nonzero(Y)[0]
         if len(rows) > 1:
-            depth_models[var] = QuantRegLearner().fit(np.log(D[rows]),
-                                                      np.log(Y[rows]),
-                                                      W=None)
-            model_slopes[var] = depth_models[var].params[0]
+            Dp = PolynomialFeatures(degree=1).fit_transform(np.log(D[rows]))
+            depth_model = QuantRegLearner().fit(Dp, np.log(Y[rows]), W=None)
+            model_slopes[var] = depth_model.params[1]
             median_expressions[var] = np.median(Y[rows])
 
 
     # Partitioning of genes into equally-sized groups
-    # TODO: Split genes into K groups using K-medioids
-    G = np.zeros((m, K))
-    exps = np.array(list(map(lambda v: median_expressions[v], data.domain.attributes)))
-    slopes = np.array(list(map(lambda v: slopes[v], data.domain.attributes)))
+    valid_vars = list(model_slopes.keys())
+    exps = np.array(list(map(lambda v: median_expressions[v], valid_vars)))
     percentiles = np.array(list(map(lambda e: sp.stats.percentileofscore(exps, e), exps)))
     groups = np.array(K * percentiles / 100.0, dtype=int)
     groups[groups == K] = K - 1
-    for i, j in enumerate(groups): G[i, j] = 1
 
-    # Debug: plot
-    si = np.argmax(slopes)
-    var = data.domain.attributes[si]
-    Y = data.get_column_view(var)[0].reshape((n, 1))
-    rows = np.nonzero(Y)[0]
-    logy = depth_models[var].predict(np.log(D[rows]))
-    plt.plot(np.log(D[rows]), np.log(Y[rows]), "k.")
-    plt.plot(np.log(D[rows]), logy, "b-")
-    plt.plot(np.log(D[rows]), slopes[si] * np.log(D[rows]), "--", color="gray")
-    plt.xlabel("Log sequencing depth")
-    plt.ylabel("Log expression")
-    plt.title(var.name)
-    plt.show()
+    # Non-zero slopes
+    slopes = np.array(list(map(lambda v: model_slopes[v], valid_vars)))
 
-    # TODO: Process each group to compute its size factors
-    Sf = np.zeros((n, K))  # Size factors to be determined
+    # Process each group independently
+    for k in range(K):
+        print("Processing group %d ..." % k)
+        group_slopes = slopes[groups == k]
+        group_median = np.median(group_slopes)
+        group_inxs = np.argsort(np.absolute(group_slopes - group_median))[:max(2, int(subgroup_frac * len(group_slopes)))]
+        group_vars = [valid_vars[i] for i in np.where(groups == k)[0][group_inxs]]
+        group_counts = data[:, group_vars].X
 
-    # Return a normalized matrix
-    Xnew = data.X * data.Sf.dot(G.T)
-    return Table.from_numpy(X=Xnew,
-                            Y=data.Y,
-                            metas=data.metas,
-                            W=data.W,
-                            domain=data.domain)
+        # Fill submodel data
+        nz = np.nonzero(group_counts)
+        group_D = np.zeros((len(nz[0]), 1))
+        group_Y = np.zeros((len(nz[0]), 1))
+        for i, (r, c) in enumerate(zip(*nz)):
+            group_D[i] = D[r]
+            group_Y[i] = group_counts[r, c]
+
+        # Fit submodels for different quantiles and select best model
+        submodels = dict()
+        q_best = degree_best = q_distance = float("inf")
+        for q, degree in it.product(q_range, degree_range):
+            Dp = PolynomialFeatures(degree=degree).fit_transform(np.log(group_D))
+            submodels[q, degree] = QuantRegLearner(quantile=q).fit(Dp,
+                                                                   np.log(group_Y),
+                                                                   W=None)
+            curr_dist = np.absolute(group_median - submodels[q, degree].params[1])
+            if curr_dist < q_distance:
+                q_distance = curr_dist
+                q_best = q
+                degree_best = degree
+        print("Best model parameters (q=%.2f, d=%d)" % (q_best, degree_best))
+
+        # Select best model and use normalized values
+        Dp = PolynomialFeatures(degree=degree_best).fit_transform(np.log(group_D))
+        log_predicted_expression = submodels[q_best, degree_best].predict(Dp)
+        gene_expression = sp.stats.scoreatpercentile(group_Y, 100 * q_best)
+        size_factors = np.exp(log_predicted_expression) / np.exp(gene_expression)
+        new_data[:, group_vars].X[nz] = new_data[:, group_vars].X[nz] / size_factors
+
+    # Return data with a normalized matrix
+    return new_data
 
 
 
@@ -114,6 +141,11 @@ if __name__ == "__main__":
     data = data[:, cols]
     data.X *= np.random.rand(*data.X.shape)
 
-    learner = QuantRegLearner()
-    X, y = data.X[:, [1,3]], data.X[:, 5:6]
-    model = learner.fit(X, y, W=None)
+    # Normalize original data
+    new_data = scnorm(data, K=1)
+    x = np.log(data.X.ravel() + 1)
+    y = np.log(new_data.X.ravel() + 1)
+
+    plt.figure()
+    plt.plot(x, y, ".")
+    plt.show()
