@@ -59,7 +59,9 @@ def scnorm(data, subgroup_frac = 0.25, K = 10):
     new_data = data.copy()
 
     # Diagnostic gene metadata
-    gene_domain = Domain(attributes=[ContinuousVariable(name="Slope")],
+    gene_domain = Domain(attributes=[ContinuousVariable(name="Slope"),
+                                     ContinuousVariable(name="Median expr"),
+                                     ContinuousVariable(name="Percentile")],
                          metas=[StringVariable(name="Gene name"),
                                 DiscreteVariable(name="Group",
                                                  values=[str(i) for i in range(K)])])
@@ -94,6 +96,15 @@ def scnorm(data, subgroup_frac = 0.25, K = 10):
 
     # Non-zero slopes
     slopes = np.array(list(map(lambda v: model_slopes[v], valid_vars)))
+
+    # Fill-in gene metadata
+    for vi, var in enumerate(valid_vars):
+        gene_data.append(Instance(domain=gene_domain,
+                                  data=[slopes[vi],
+                                        exps[vi],
+                                        percentiles[vi],
+                                        var.name,
+                                        str(groups[vi])]))
 
     # Process each group independently
     for k in range(K):
@@ -150,11 +161,6 @@ def scnorm(data, subgroup_frac = 0.25, K = 10):
         new_X = new_data.X[:, orig_cols].copy()
         new_X[nz] = new_X[nz] / size_factors
         new_data.X[:, orig_cols] = new_X
-
-        # Fill-in gene metadata
-        for vi, var in enumerate(group_vars):
-            gene_data.append(Instance(domain=gene_domain,
-                                      data=[group_slopes[vi], var.name, k]))
 
     # Return data with a normalized matrix
     return new_data, gene_data
