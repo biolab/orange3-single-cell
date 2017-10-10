@@ -67,9 +67,13 @@ def scnorm(data, subgroup_frac = 0.25, K = 10):
                                                  values=[str(i) for i in range(K)])])
     gene_data = Table.from_domain(gene_domain)
 
+    # Returned diagnostic data
+    diagnostic_data = dict()
+
     # Fixed algorithm parameters
     q_range = np.linspace(0.05, 0.95, 19)
-    degree_range = np.arange(1, 7)
+    degree_range = np.arange(1, 2)
+    # degree_range = np.arange(1, 7) # Note: What is a slope in >1 degree polynomial?
 
     # Calculate sequencing depth for each cell
     n, m = data.X.shape
@@ -148,6 +152,7 @@ def scnorm(data, subgroup_frac = 0.25, K = 10):
 
         # Select best model with closest distance to slope
         (q_best, degree_best), (_, model_best) = sorted(submodels.items(), key=lambda tup: tup[1])[0]
+        diagnostic_data[k] = model_best
         print("Best model parameters (q=%.2f, d=%d)" % (q_best, degree_best))
 
         # Select best model and use normalized values
@@ -163,28 +168,88 @@ def scnorm(data, subgroup_frac = 0.25, K = 10):
         new_data.X[:, orig_cols] = new_X
 
     # Return data with a normalized matrix
-    return new_data, gene_data
+    return new_data, gene_data, diagnostic_data
 
 
-def test():
-    from Orange.data.table import Table
+def diagnostic_plots(data, normed_data, gene_data, diagnostic_data):
+    """
+    Diagnostic plots for a real dataset.
+    :param data:
+    :param normed_data:
+    :param gene_data:
+    :param diagnostic_data:
+    :return:
+    """
     import matplotlib.pyplot as plt
-    test_file = "/Users/martin/Dev/data/singlecell/zhang2017/tables/matrix_counts_sample.tab"
-    data = Table(test_file)
-    data.X *= np.random.rand(*data.X.shape)
+    from scipy.stats import gaussian_kde
 
+    # Diagnostic plots
+    n, m = data.X.shape
+    logD = np.log(data.X.sum(axis=1).reshape((n, 1)))
+    Dp = PolynomialFeatures(degree=1).fit_transform(logD)
 
-    # Normalize original data
-    normed_data, gene_data = scnorm(data, K=3)
-    print(np.linalg.norm(normed_data.X - data.X))
+    # Plot a gene group
+    Ks = [2, 5, 8]
+    colors = ("blue", "gray", "green")
 
-    x = np.log(data.X.ravel() + 1)
-    y = np.log(normed_data.X.ravel() + 1)
-
+    # Original data
     plt.figure()
-    plt.plot(x, y, ".")
+    for k, color in zip(Ks, colors):
+        groups, _ = gene_data.get_column_view("Group")
+        feats = gene_data.get_column_view("Gene name")[0][groups == k]
+        Yp = diagnostic_data[k].predict(Dp)
+        for f in feats:
+            logY = np.log(data[:, f].X.ravel())
+            plt.plot(logD, logY, ".", color=color)
+        plt.plot(logD, Yp, "-", label=str("k=%d" % k), color=color)
+    plt.title("Original data")
+    plt.xlabel("Log sequencing depth")
+    plt.ylabel("Log expression")
+
+    # Normed data
+    plt.figure()
+    for k, color in zip(Ks, colors):
+        groups, _ = gene_data.get_column_view("Group")
+        feats = gene_data.get_column_view("Gene name")[0][groups == k]
+        group_data = normed_data[:, feats].X
+        nz = np.nonzero(group_data)
+        Dfit = np.array([logD[r] for r, _ in zip(*nz)]).reshape((len(nz[0]), 1))
+        Yfit = np.array([np.log(group_data[r, c]) for r, c in zip(*nz)]).reshape((len(nz[0]), 1))
+
+        Dp_fit = PolynomialFeatures(degree=1).fit_transform(Dfit)
+        model = QuantRegLearner(quantile=0.5).fit(X=Dp_fit, Y=Yfit, W=None)
+        Yp = model.predict(Dp_fit)
+
+        plt.plot(Dfit.ravel(), Yfit.ravel(), ".", color=color)
+        plt.plot(Dfit.ravel(), Yp.ravel(), "-", label=str("k=%d" % k), color=color)
+    plt.title("Normalized data")
+    plt.xlabel("Log sequencing depth")
+    plt.ylabel("scNorm expression")
+
+    # Histogram of slopes
+    plt.figure()
+    plt.title("Slope density per group")
+    plt.xlabel("Slope")
+    plt.ylabel("Density")
+    all_slopes = gene_data.get_column_view("Slope")[0]
+    for k, color in zip(Ks, colors):
+        groups, _ = gene_data.get_column_view("Group")
+        slopes = all_slopes[groups == k]
+        density = gaussian_kde(slopes)
+        xs = np.linspace(-2, 2, 100)
+        ys = density(xs)
+        ys = ys / ys.sum()
+        plt.plot(xs, ys, "-", color=color)
     plt.show()
 
+def test():
+    n_genes = 1000
+    test_file = "/Users/martin/Dev/data/singlecell/bacher2017/H1_data.csv"
+    data = Table(test_file)[:, :n_genes]
+
+    # Normalize original data
+    normed_data, gene_data, diagnostic_data = scnorm(data, K=10)
+    diagnostic_plots(data, normed_data, gene_data, diagnostic_data)
 
 if __name__ == "__main__":
     test()
