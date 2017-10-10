@@ -2,6 +2,7 @@ import numpy as np
 import scipy as sp
 import itertools as it
 from Orange.regression import Learner, Model, SklLearner
+from Orange.data import Table, Domain, StringVariable, ContinuousVariable, DiscreteVariable, Instance
 from statsmodels.regression.quantile_regression import QuantReg
 from sklearn.preprocessing import PolynomialFeatures
 
@@ -57,6 +58,13 @@ def scnorm(data, subgroup_frac = 0.25, K = 10):
     # Copy data to be transformed
     new_data = data.copy()
 
+    # Diagnostic gene metadata
+    gene_domain = Domain(attributes=[ContinuousVariable(name="Slope")],
+                         metas=[StringVariable(name="Gene name"),
+                                DiscreteVariable(name="Group",
+                                                 values=[str(i) for i in range(K)])])
+    gene_data = Table.from_domain(gene_domain)
+
     # Fixed algorithm parameters
     q_range = np.linspace(0.05, 0.95, 19)
     degree_range = np.arange(1, 7)
@@ -76,7 +84,6 @@ def scnorm(data, subgroup_frac = 0.25, K = 10):
             depth_model = QuantRegLearner().fit(Dp, np.log(Y[rows]), W=None)
             model_slopes[var] = depth_model.params[1]
             median_expressions[var] = np.median(Y[rows])
-
 
     # Partitioning of genes into equally-sized groups
     valid_vars = list(model_slopes.keys())
@@ -135,7 +142,7 @@ def scnorm(data, subgroup_frac = 0.25, K = 10):
         # Select best model and use normalized values
         Dp = PolynomialFeatures(degree=degree_best).fit_transform(np.log(D_all))
         log_predicted_expression = model_best.predict(Dp)
-        gene_expression = sp.stats.scoreatpercentile(np.log(Y_all), 100 * q_best)
+        gene_expression = sp.stats.scoreatpercentile(np.log(Y_all), 100 * q_best)   # Note: this returns only one value
         size_factors = np.exp(log_predicted_expression) / np.exp(gene_expression)
 
         # Fill the values in the original domain
@@ -144,8 +151,13 @@ def scnorm(data, subgroup_frac = 0.25, K = 10):
         new_X[nz] = new_X[nz] / size_factors
         new_data.X[:, orig_cols] = new_X
 
+        # Fill-in gene metadata
+        for vi, var in enumerate(group_vars):
+            gene_data.append(Instance(domain=gene_domain,
+                                      data=[group_slopes[vi], var.name, k]))
+
     # Return data with a normalized matrix
-    return new_data
+    return new_data, gene_data
 
 
 def test():
@@ -157,7 +169,7 @@ def test():
 
 
     # Normalize original data
-    normed_data = scnorm(data, K=10)
+    normed_data, gene_data = scnorm(data, K=3)
     print(np.linalg.norm(normed_data.X - data.X))
 
     x = np.log(data.X.ravel() + 1)
