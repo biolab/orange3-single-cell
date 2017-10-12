@@ -21,8 +21,8 @@ from Orange.widgets.utils.sql import check_sql_input
 from Orange.canvas import report
 from Orange.widgets.visualize.owscatterplotgraph import OWScatterPlotGraph, InteractiveViewBox
 from Orange.widgets.widget import Msg, OWWidget, Input, Output
-from Orange.widgets.utils.annotated_data import (create_annotated_table,
-                                                 ANNOTATED_DATA_SIGNAL_NAME)
+from Orange.widgets.utils.annotated_data import (
+    create_annotated_table, create_groups_table, ANNOTATED_DATA_SIGNAL_NAME)
 
 
 RE_FIND_INDEX = r"(^{} \()(\d{{1,}})(\)$)"
@@ -557,8 +557,12 @@ class OWtSNE(OWWidget):
             selected = output[selection]
         else:
             selected = None
+        if self.graph.selection is not None and np.max(self.graph.selection) > 1:
+            annotated = create_groups_table(output, self.graph.selection)
+        else:
+            annotated = create_annotated_table(output, selection)
         self.Outputs.selected_data.send(selected)
-        self.Outputs.annotated_data.send(create_annotated_table(output, selection))
+        self.Outputs.annotated_data.send(annotated)
 
     def onDeleteWidget(self):
         super().onDeleteWidget()
