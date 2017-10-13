@@ -43,14 +43,156 @@ class QuantRegModel(Model):
         return 'QuantRegModel {}'.format(self.model)
 
 
-# TODO: Split genes into K groups using K-medioids and merge groups smaller than 100 genes
+class ScNormModel:
+    """
+    Single cell RNA-seq normalization based on Quantile normalization.
+    Genes are split in K groups based on quantile linear regression slopes.
+    The data is corrected such that the expression does not depend on sequencing depth.
 
-def scnorm(data, subgroup_frac = 0.25, K = 10):
+    Bacher, Rhonda, et al. "SCnorm: robust normalization of single-cell RNA-seq data."
+    Nature Methods 14.6 (2017): 584-586.
+    """
+
+    def __init__(self, p_subgroup=0.25, K=10, n_genes=None):
+        """
+        :param p_subgroup: Proportion of genes within a subgroup.
+        :param n_genes: Number of genes to use for fitting of slopes.
+        :param K: number of groups.
+        """
+        self.p_subgroup = p_subgroup
+        self.n_genes = n_genes
+        self.K = K
+
+        # Fixed hyperparameters
+        self.q_range = np.linspace(0.05, 0.95, 19)
+
+        # Construct a dict of group-specific models,
+        # characterized by gene median expression
+        self.group_models = dict()
+
+
+    def fit(self, X, Y=None):
+        """
+        Determine groups of genes based on quantile regression slopes.
+        :param X: Cell-gene expression matrix with raw counts.
+        :param Y: Unused.
+        :return:
+        """
+
+        # Remove genes expressed in less than two cells
+        gen_sum = np.array((X > 0), dtype=int).sum(axis=0).ravel()
+        X = X[:, gen_sum > 1]
+
+        # Calculate sequencing depth for each cell in the training set
+        n, m = X.shape
+        cell_sum = X.sum(axis=1).reshape((n, 1))
+
+        # Filter genes for speed (use groups based on medians)
+        X[X == 0] = np.nan
+        med_exprs = np.nanmedian(X, axis=0)
+
+        # Partitioning of genes into equally-sized groups based on percentile of median expression
+        percentiles = np.array(list(map(lambda e: sp.stats.percentileofscore(med_exprs, e), med_exprs)))
+        groups = np.array(self.K * percentiles / 100.0, dtype=int)
+        groups[groups == self.K] = self.K - 1
+
+        # Process each group independently
+        # If a subset of genes is specified, use an equal number of genes closest to
+        # the group median
+        for k in range(self.K):
+            group_cols = np.where(groups == k)[0]
+            group_med_expr = med_exprs[group_cols]
+
+            # Sub-sample group if needed
+            group_protyps = group_cols
+            if self.n_genes is not None:
+                n_group = max(int(self.n_genes / self.K), 3)
+                dist = np.absolute(group_med_expr - np.median(group_med_expr))
+                group_protyps = group_cols[np.argsort(dist)[:n_group]]
+
+            # Compute slopes for selected genes
+            group_slopes = np.zeros((len(group_protyps),))
+            for ji, j in enumerate(group_protyps):
+                Y = X[:, j]
+                rows = np.where(np.isnan(Y) == False)[0]
+                assert len(rows) >= 2
+                Dp = PolynomialFeatures(degree=1).fit_transform(np.log(cell_sum[rows]))
+                depth_model = QuantRegLearner().fit(Dp, np.log(Y[rows]), W=None)
+                group_slopes[j] = depth_model.params[1]
+
+            # Convert to long format (for sub-group)
+            nz_sub = np.where(np.isnan(X[:, group_protyps]) == False)
+            D_sub = np.zeros((len(nz_sub[0]), 1))
+            Y_sub = np.zeros((len(nz_sub[0]), 1))
+            for i, (r, c) in enumerate(zip(*nz_sub)):
+                D_sub[i] = cell_sum[r]
+                Y_sub[i] = X[r, c]
+
+            # Compute a model for the whole group and choose one
+            # with best matching to the group median slope
+            group_med_slope = np.median(group_slopes)
+            submodels = dict()
+            for q in self.q_range:
+                Dp = PolynomialFeatures(degree=1).fit_transform(np.log(D_sub))
+                model = QuantRegLearner(quantile=q).fit(Dp, np.log(Y_sub), W=None)
+                model_dist = np.absolute(group_med_slope - model.params[1])
+                submodels[q] = model_dist, model
+
+            q_best, (_, model_best) = sorted(submodels.items(), key=lambda tup: tup[1])[0]
+            group_quantile = sp.stats.scoreatpercentile(np.log(Y_sub), 100 * q_best)
+            self.group_models[k] = (model_best, group_med_expr, group_quantile)
+
+
+    def transform(self, data):
+        """
+        Map new data to groups based on median expressions.
+        Correct values using previously fit models.
+        :param data: Orange.data.Table with cells in rows and genes in columns.
+        :return:
+        """
+        cell_sum = data.X.sum(axis=1)
+
+        group_keys = sorted(self.group_models.keys())
+        group_expr_med  = np.array(list(map(lambda ky: self.group_models[ky][1], group_keys)))
+
+        X_new = data.X.copy()
+        X_new[np.where(X_new) == 0] = np.nan
+
+        data_expr_med = np.nanmedian(X_new, axis=0)
+        data_groups = np.array(list(map(lambda dm:
+                                        group_keys[np.argmin((group_expr_med - dm) ** 2)],
+                                        data_expr_med)))
+
+        for gky in group_keys:
+            use_cols = np.where(data_groups == gky)[0]
+            inxs = np.nonzero(data.X[:, use_cols])
+            D_sub = np.zeros((len(inxs[0]), 1))
+            for i, (r, c) in enumerate(zip(*inxs)):
+                D_sub[i] = cell_sum[r]
+
+            model, _, quantile = self.group_models[gky]
+            predicted = model.predict(np.log(D_sub))
+            size_factors = np.exp(predicted) / np.exp(quantile)
+            X_new[:, use_cols][inxs] /= size_factors
+
+
+        X_new[np.isnan(X_new)] = 0
+        return Table.from_numpy(domain=data.domain,
+                                X=X_new,
+                                Y=data.Y,
+                                metas=data.metas,
+                                W=data.W)
+
+
+
+
+def scnorm(data, p_subgroup = 0.25, K = 10, p_genes=0.1):
     """
     ScNorm normalization method.
 
     :param data: Orange data Table with cells in rows and genes in colums.
-    :param subgroup_frac: Subgroup fraction.
+    :param p_subgroup: Proportion of genes within a subgroup.
+    :param p_genes: Proportion of genes to use for fitting of slopes.
     :param K: number of groups.
     :return:
     """
@@ -121,7 +263,7 @@ def scnorm(data, subgroup_frac = 0.25, K = 10):
         group_counts = data[:, group_vars].X
 
         # Select subgroup_frac (default 25%) genes for faster fitting
-        n_subgroup = max(2, int(subgroup_frac * len(group_slopes)))
+        n_subgroup = max(2, int(p_subgroup * len(group_slopes)))
         subgroup_inxs = group_inxs[np.argsort(np.absolute(group_slopes - group_median))[:n_subgroup]]
         subgroup_vars = [valid_vars[i] for i in subgroup_inxs]
         subgroup_counts = data[:, subgroup_vars].X
