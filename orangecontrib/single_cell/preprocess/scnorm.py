@@ -118,7 +118,7 @@ class ScNormModel:
                 assert len(rows) >= 2
                 Dp = PolynomialFeatures(degree=1).fit_transform(np.log(cell_sum[rows]))
                 depth_model = QuantRegLearner().fit(Dp, np.log(Y[rows]), W=None)
-                group_slopes[j] = depth_model.params[1]
+                group_slopes[ji] = depth_model.params[1]
 
             # Convert to long format (for sub-group)
             nz_sub = np.where(np.isnan(X[:, group_protyps]) == False)
@@ -140,7 +140,8 @@ class ScNormModel:
 
             q_best, (_, model_best) = sorted(submodels.items(), key=lambda tup: tup[1])[0]
             group_quantile = sp.stats.scoreatpercentile(np.log(Y_sub), 100 * q_best)
-            self.group_models[k] = (model_best, group_med_expr, group_quantile)
+            group_median = np.median(group_med_expr)
+            self.group_models[k] = (model_best, group_median, group_quantile)
 
 
     def transform(self, data):
@@ -156,7 +157,7 @@ class ScNormModel:
         group_expr_med  = np.array(list(map(lambda ky: self.group_models[ky][1], group_keys)))
 
         X_new = data.X.copy()
-        X_new[np.where(X_new) == 0] = np.nan
+        X_new[np.where(X_new == 0)] = np.nan
 
         data_expr_med = np.nanmedian(X_new, axis=0)
         data_groups = np.array(list(map(lambda dm:
@@ -171,7 +172,8 @@ class ScNormModel:
                 D_sub[i] = cell_sum[r]
 
             model, _, quantile = self.group_models[gky]
-            predicted = model.predict(np.log(D_sub))
+            Dp = PolynomialFeatures(degree=1).fit_transform(np.log(D_sub))
+            predicted = model.predict(Dp)
             size_factors = np.exp(predicted) / np.exp(quantile)
             X_new[:, use_cols][inxs] /= size_factors
 
@@ -385,13 +387,29 @@ def diagnostic_plots(data, normed_data, gene_data, diagnostic_data):
     plt.show()
 
 def test():
+    import matplotlib.pyplot as plt
+
     n_genes = 1000
     test_file = "/Users/martin/Dev/data/singlecell/bacher2017/H1_data.csv"
     data = Table(test_file)[:, :n_genes]
 
+    model = ScNormModel(K=5)
+    model.fit(data.X)
+    normed_data = model.transform(data)
+
+    xs = np.log(data.X.ravel() + 1)
+    ys = np.log(normed_data.X.ravel() + 1)
+
+    plt.figure()
+    plt.plot(xs, ys, ".")
+    plt.show()
+
+    print("Difference: %f" % np.linalg.norm(data.X - normed_data.X))
+
+
     # Normalize original data
-    normed_data, gene_data, diagnostic_data = scnorm(data, K=10)
-    diagnostic_plots(data, normed_data, gene_data, diagnostic_data)
+    # normed_data, gene_data, diagnostic_data = scnorm(data, K=10)
+    # diagnostic_plots(data, normed_data, gene_data, diagnostic_data)
 
 if __name__ == "__main__":
     test()
