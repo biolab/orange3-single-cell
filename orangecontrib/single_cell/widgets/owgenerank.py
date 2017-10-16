@@ -322,7 +322,7 @@ class OWRank(OWWidget):
         self.mainArea.layout().addWidget(view)
         view.setModel(model)
         view.setColumnWidth(0, 30)
-        view.selectionModel().selectionChanged.connect(self.commit)
+        view.selectionModel().selectionChanged.connect(self.on_select)
 
         def _set_select_manual():
             self.setSelectionMethod(OWRank.SelectManual)
@@ -443,7 +443,7 @@ class OWRank(OWWidget):
         self.setStatusMessage('Running')
         self.updateScores()
         self.setStatusMessage('')
-        self.commit()
+        self.on_select()
 
     @Inputs.scorer
     def set_learner(self, scorer, id):
@@ -551,12 +551,18 @@ class OWRank(OWWidget):
         self.autoSelection()
         self.Outputs.scores.send(self.create_scores_table(labels))
 
+    def on_select(self):
+        # Save indices of attributes in the original, unsorted domain
+        self.selected_rows = self.ranksModel.mapToSourceRows([
+            i.row() for i in self.ranksView.selectionModel().selectedRows(0)])
+        self.commit()
+
     def setSelectionMethod(self, method):
         if self.selectionMethod != method:
             self.selectionMethod = method
             self.selectButtons.button(method).setChecked(True)
         self.autoSelection()
-        self.commit()
+        self.on_select()
 
     def autoSelection(self):
         selModel = self.ranksView.selectionModel()
@@ -613,16 +619,11 @@ class OWRank(OWWidget):
             self.report_items("Output", self.out_domain_desc)
 
     def commit(self):
-        # Save indices of attributes in the original, unsorted domain
-        self.selected_rows = self.ranksModel.mapToSourceRows([
-            i.row() for i in self.ranksView.selectionModel().selectedRows(0)])
-
         selected_attrs = []
         if self.data is not None:
             attributes = self.data.domain.attributes
             selected_attrs = [attributes[i] for i in self.selected_rows]
-
-        if self.data is None or not selected_attrs:
+        if not selected_attrs:
             self.Outputs.reduced_data.send(None)
             self.out_domain_desc = None
         else:
