@@ -120,13 +120,11 @@ class ScNormModel:
                 depth_model = QuantRegLearner().fit(Dp, np.log(Y[rows]), W=None)
                 group_slopes[ji] = depth_model.params[1]
 
-            # Convert to long format (for sub-group)
-            nz_sub = np.where(np.isnan(X[:, group_protyps]) == False)
-            D_sub = np.zeros((len(nz_sub[0]), 1))
-            Y_sub = np.zeros((len(nz_sub[0]), 1))
-            for i, (r, c) in enumerate(zip(*nz_sub)):
-                D_sub[i] = cell_sum[r]
-                Y_sub[i] = X[r, c]
+            # Convert to long format
+            X_group = X[:, group_protyps]
+            use_rows, use_cols = np.where(np.logical_not(np.isnan(X_group)))
+            D_sub = cell_sum[use_rows].reshape((len(use_rows), 1))
+            Y_sub = X_group[(use_rows, use_cols)].reshape((len(use_rows), 1))
 
             # Compute a model for the whole group and choose one
             # with best matching to the group median slope
@@ -156,27 +154,30 @@ class ScNormModel:
         group_keys = sorted(self.group_models.keys())
         group_expr_med  = np.array(list(map(lambda ky: self.group_models[ky][1], group_keys)))
 
+        # Temporary use nan to compute non-zero median
         X_new = data.X.copy()
         X_new[np.where(X_new == 0)] = np.nan
-
         data_expr_med = np.nanmedian(X_new, axis=0)
         data_groups = np.array(list(map(lambda dm:
                                         group_keys[np.argmin((group_expr_med - dm) ** 2)],
                                         data_expr_med)))
 
         for gky in group_keys:
-            use_cols = np.where(data_groups == gky)[0]
-            inxs = np.nonzero(data.X[:, use_cols])
-            D_sub = np.zeros((len(inxs[0]), 1))
-            for i, (r, c) in enumerate(zip(*inxs)):
-                D_sub[i] = cell_sum[r]
+            # Extract values for group
+            group_cols = np.where(data_groups == gky)[0]
+            use_rows, use_cols = inxs = np.nonzero(data.X[:, group_cols])
+            D_sub = cell_sum[use_rows].reshape((len(use_rows), 1))
 
+            # Predict new values
             model, _, quantile = self.group_models[gky]
             Dp = PolynomialFeatures(degree=1).fit_transform(np.log(D_sub))
             predicted = model.predict(Dp)
             size_factors = np.exp(predicted) / np.exp(quantile)
-            X_new[:, use_cols][inxs] /= size_factors
 
+            # Assign to X_new (cannot assign values to double indexing X[...][...])
+            X_tmp = X_new[:, group_cols].copy()
+            X_tmp[inxs] = X_tmp[inxs] / size_factors
+            X_new[:, group_cols] = X_tmp
 
         X_new[np.isnan(X_new)] = 0
         return Table.from_numpy(domain=data.domain,
@@ -405,7 +406,6 @@ def test():
     plt.show()
 
     print("Difference: %f" % np.linalg.norm(data.X - normed_data.X))
-
 
     # Normalize original data
     # normed_data, gene_data, diagnostic_data = scnorm(data, K=10)
