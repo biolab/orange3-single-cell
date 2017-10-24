@@ -52,15 +52,16 @@ class ScNormModel:
     Nature Methods 14.6 (2017): 584-586.
     """
 
-    def __init__(self, p_subgroup=0.25, K=10, n_genes=None):
+    def __init__(self, p_subgroup=None, K=10):
         """
-        :param p_subgroup: Proportion of genes within a subgroup.
-        :param n_genes: Number of genes to use for fitting of slopes.
-        :param K: number of groups.
+        :param p_subgroup: (float) Proportion of genes within a subgroup (if set).
+        :param K: (int) number of groups.
         """
+        if p_subgroup is not None:
+            assert 0 < p_subgroup <= 1
         self.p_subgroup = p_subgroup
-        self.n_genes = n_genes
         self.K = K
+
 
         # Fixed hyperparameters
         self.q_range = np.linspace(0.05, 0.95, 19)
@@ -102,10 +103,11 @@ class ScNormModel:
             group_cols = np.where(groups == k)[0]
             group_med_expr = med_exprs[group_cols]
 
-            # Sub-sample group if needed ; n_group genes closest to group median are taken
+            # Sub-sample group if needed
+            # max(3, n_group) genes closest to group median are taken
             group_protyps = group_cols
-            if self.n_genes is not None:
-                n_group = max(int(self.n_genes / self.K), 3)
+            if self.p_subgroup is not None:
+                n_group = max(int(self.p_subgroup * len(group_protyps)), 3)
                 dist = np.absolute(group_med_expr - np.median(group_med_expr))
                 group_protyps = group_cols[np.argsort(dist)[:n_group]]
 
