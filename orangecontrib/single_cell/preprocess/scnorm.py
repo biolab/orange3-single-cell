@@ -198,24 +198,3 @@ class ScNormModel:
                                 Y=data.Y,
                                 metas=data.metas,
                                 W=data.W)
-
-
-
-
-def test():
-    n_genes = 1000
-    test_file = "/Users/martin/Dev/data/singlecell/bacher2017/H1_data.csv"
-    data = Table(test_file)[:, :n_genes]
-
-    model = ScNormModel(K=5)
-    model.fit(data.X)
-    normed_data = model.transform(data)
-
-    xs = np.log(data.X.ravel() + 1)
-    ys = np.log(normed_data.X.ravel() + 1)
-
-    print("Difference: %f" % np.linalg.norm(data.X - normed_data.X))
-    print("Sp. correlation: %f (%f)" % spstats.spearmanr(xs, ys))
-
-if __name__ == "__main__":
-    test()
