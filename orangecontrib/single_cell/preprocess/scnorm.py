@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.stats as spstats
 from Orange.regression import Learner, Model, SklLearner
-from Orange.data import Table
+from Orange.data import Table, ContinuousVariable, Domain
 from statsmodels.regression.quantile_regression import QuantReg
 from sklearn.preprocessing import PolynomialFeatures
 
@@ -34,7 +34,6 @@ class QuantRegModel(Model):
     def __init__(self, model, params):
         self.model = model
         self.params = params
-        super().__init__()
 
     def predict(self, X):
         return self.model.predict(X)
@@ -169,7 +168,7 @@ class ScNormModel:
         Map new data to groups based on median expressions.
         Correct values using previously fit models.
         :param data: Orange.data.Table with cells in rows and genes in columns.
-        :return: Orange.data.Table with normalized values.
+        :return: Orange.data.Table with normalized values and meta data.
         """
         X_new = data.X.copy()
         cell_sum = data.X.sum(axis=1)
@@ -193,8 +192,17 @@ class ScNormModel:
             X_tmp[inxs] = X_tmp[inxs] / size_factors
             X_new[:, group_cols] = X_tmp
 
-        return Table.from_numpy(domain=data.domain,
+        # Construct new data table
+        new_data = Table.from_numpy(domain=data.domain,
                                 X=X_new,
                                 Y=data.Y,
                                 metas=data.metas,
                                 W=data.W)
+        new_domain = Domain(attributes=data.domain.attributes,
+                            class_vars=data.domain.class_vars,
+                            metas=list(data.domain.metas)
+                                  + [ContinuousVariable(name="log seq depth")])
+        new_data = new_data.transform(new_domain)
+        col_view = new_data.get_column_view("log seq depth")[0]
+        col_view[:] = np.log(cell_sum)
+        return new_data
