@@ -2,8 +2,12 @@ import numpy as np
 import scipy.stats as spstats
 from Orange.regression import Learner, Model, SklLearner
 from Orange.data import Table, ContinuousVariable, Domain
+from Orange.preprocess.preprocess import Preprocess
 from statsmodels.regression.quantile_regression import QuantReg
 from sklearn.preprocessing import PolynomialFeatures
+
+from orangecontrib.single_cell.preprocess.scnormalize import ScShared
+
 
 
 class QuantRegLearner(Learner):
@@ -42,6 +46,27 @@ class QuantRegModel(Model):
         return 'QuantRegModel {}'.format(self.model)
 
 
+class ScNormPreprocessor(Preprocess):
+    def __init__(self, p_subgroup=None, K=10, equalize_var=None, log_base=None):
+        if p_subgroup is not None:
+            assert 0 < p_subgroup <= 1
+        self.p_subgroup = p_subgroup
+        self.K = K
+        self.equalize_var = equalize_var
+        self.log_base = log_base
+
+    def __call__(self, data):
+        proj = ScNormModel(K=self.K, p_subgroup=self.p_subgroup, log_base=self.log_base)
+        Y = data.get_column_view(self.equalize_var)[0] if self.equalize_var is not None else None
+        proj.fit(data.X, Y)
+        normalized_domain = Domain(
+            [var.copy(compute_value=ScShared(proj, variable=var))
+             for var in data.domain.attributes],
+            data.domain.class_vars, data.domain.metas)
+
+        return data.transform(normalized_domain)
+
+
 class ScNormModel:
     """
     Single cell RNA-seq normalization based on Quantile normalization.
@@ -52,7 +77,7 @@ class ScNormModel:
     Nature Methods 14.6 (2017): 584-586.
     """
 
-    def __init__(self, p_subgroup=None, K=10):
+    def __init__(self, p_subgroup=None, K=10, log_base=None):
         """
         :param p_subgroup: (float) Proportion of genes within a subgroup (if set).
         :param K: (int) number of groups.
@@ -61,7 +86,7 @@ class ScNormModel:
             assert 0 < p_subgroup <= 1
         self.p_subgroup = p_subgroup
         self.K = K
-
+        self.log_base = log_base
 
         # Fixed hyperparameters
         self.q_range = np.linspace(0.05, 0.95, 19)
@@ -165,6 +190,14 @@ class ScNormModel:
         return gen_groups
 
 
+    def __call__(self, data):
+        """
+        :param data: Data to be transformed.
+        :return:
+        """
+        return self.transform(data)
+
+
     def transform(self, data):
         """
         Map new data to groups based on median expressions.
@@ -193,6 +226,11 @@ class ScNormModel:
             X_tmp = X_new[:, group_cols].copy()
             X_tmp[inxs] = X_tmp[inxs] / size_factors
             X_new[:, group_cols] = X_tmp
+
+
+        # Apply log transform
+        if self.log_base is not None:
+            X_new = np.log(1 + X_new) / np.log(self.log_base)
 
         # Construct new data table
         new_data = Table.from_numpy(domain=data.domain,
