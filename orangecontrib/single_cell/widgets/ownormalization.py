@@ -15,13 +15,13 @@ class OWNormalization(widget.OWWidget):
     icon = 'icons/Normalization.svg'
     priority = 110
 
-
     # Default grouping model
-    GROUPING_CELL_GROUP = "None"
+    GROUPING_CELL_GROUP = "(One group per cell)"
 
     # Normalization models
-    MODEL_CELL_MEDIAN = 0
-    MODEL_SCNORM = 1
+    MODEL_NONE = 0
+    MODEL_CELL_MEDIAN = 1
+    MODEL_SCNORM = 2
 
     inputs = [("Data", Table, 'set_data')]
     outputs = [("Data", Table), ("Preprocessor", Preprocess)]
@@ -34,7 +34,6 @@ class OWNormalization(widget.OWWidget):
     autocommit = settings.Setting(True)
 
     model_select = settings.Setting(MODEL_CELL_MEDIAN)
-    normalize_cells = settings.Setting(True)
     log_check = settings.Setting(True)
     log_base = settings.Setting(2)
 
@@ -55,7 +54,8 @@ class OWNormalization(widget.OWWidget):
             master=self,
             value="model_select",
             callback=self.on_changed,
-            btnLabels=("Equalize group median expression",
+            btnLabels=("None",
+                       "Equalize group median expression",
                        "Gene group quantile regression (scNorm)"))
         model_selection.layout().setSpacing(7)
 
@@ -119,14 +119,16 @@ class OWNormalization(widget.OWWidget):
     def commit(self):
         log_base = self.log_base if self.log_check else None
         library_var = None
-        if self.data is not None and \
-                self.normalize_cells and \
-                self.selected_attr in self.data.domain:
+        if self.data is not None and self.selected_attr in self.data.domain:
             library_var = self.data.domain[self.selected_attr]
 
-        if self.model_select == self.MODEL_CELL_MEDIAN:
+        if self.model_select == self.MODEL_NONE:
+            pp = SCNormalizer(equalize_var=None,
+                              normalize_cells=False,
+                              log_base=log_base)
+        elif self.model_select == self.MODEL_CELL_MEDIAN:
             pp = SCNormalizer(equalize_var=library_var,
-                              normalize_cells=self.normalize_cells,
+                              normalize_cells=True,
                               log_base=log_base)
         elif self.model_select == self.MODEL_SCNORM:
             pp = ScNormPreprocessor(equalize_var=library_var,
