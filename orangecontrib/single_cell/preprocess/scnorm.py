@@ -96,9 +96,13 @@ class ScNormModel:
         self.group_models = dict()
 
 
+    # TODO: implement grouping of cells by Y
     def fit(self, X, Y=None):
         """
         Determine groups of genes based on quantile regression slopes.
+        Group is defined by an integer in range [0, K]. Not all values in [0, K] if be used
+        if there is a too small number of genes or too many genes with equal median expressions.
+
         :param X: Cell-gene expression matrix with raw counts.
         :param Y: Unused.
         :return:
@@ -124,7 +128,7 @@ class ScNormModel:
         # Process each group independently
         # If a subset of genes is specified, use an equal number of genes closest to
         # the group median
-        for k in range(self.K):
+        for k in set(groups):
             group_cols = np.where(groups == k)[0]
             group_med_expr = med_exprs[group_cols]
 
@@ -170,7 +174,7 @@ class ScNormModel:
 
     def group_genes(self, data):
         """
-        Map genes to groups.
+        Map genes to groups. Return nan for an all-zero gene.
         :param data:
         :return:
         """
@@ -183,9 +187,11 @@ class ScNormModel:
 
         gen_expr_med = np.nanmedian(X_new, axis=0)
         gen_groups = np.array(list(map(lambda dm:
+                                        float("nan") if np.isnan(dm) else
                                         group_keys[np.argmin((group_expr_med - dm) ** 2)],
                                         gen_expr_med)))
 
+        # Must set X_new back to zero
         X_new[np.where(np.isnan(X_new))] = 0
         return gen_groups
 
