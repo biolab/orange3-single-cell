@@ -55,7 +55,8 @@ class OWNormalization(widget.OWWidget):
             master=self,
             value="model_select",
             callback=self.on_changed,
-            btnLabels=("Median", "scNorm"))
+            btnLabels=("Equalize group median expression",
+                       "Gene group quantile regression (scNorm)"))
         model_selection.layout().setSpacing(7)
 
         # Cell grouping
@@ -72,10 +73,14 @@ class OWNormalization(widget.OWWidget):
 
         # ScNorm specific
         # Steps and parameters
-        self.scnorm_spin_n = gui.spin(box0, self, "scnorm_num_groups", 1, 20, step=1, label="Max. num. of gene groups: ",
-                 alignment=Qt.AlignRight, callback=self.on_changed, checkCallback=self.on_changed, controlWidth=60)
+        self.scnorm_spin_n = gui.spin(box0, self, "scnorm_num_groups", 1, 20, step=1, label="Max. gene groups: ",
+                                        alignment=Qt.AlignRight, callback=self.on_changed,
+                                        checkCallback=self.on_changed, controlWidth=60)
         self.scnorm_spin_p = gui.spin(box0, self, "scnorm_p_subgroup", 0, 100, step=1, label="Prototype genes (%): ",
-                 alignment=Qt.AlignRight, callback=self.on_changed, checkCallback=self.on_changed, controlWidth=60)
+                                      tooltip="Fraction of prototype genes to fit expression in each group. " +
+                                              "Smaller values imply faster execution, but lower accuracy",
+                                      alignment=Qt.AlignRight, callback=self.on_changed,
+                                      checkCallback=self.on_changed, controlWidth=60)
 
         # Steps and parameters
         box1 = gui.widgetBox(self.controlArea, 'Further steps and parameters')
