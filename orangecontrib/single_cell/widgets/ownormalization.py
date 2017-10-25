@@ -72,7 +72,7 @@ class OWNormalization(widget.OWWidget):
 
         # ScNorm specific
         # Steps and parameters
-        self.scnorm_spin_n = gui.spin(box0, self, "scnorm_num_groups", 1, 20, step=1, label="Num. of gene groups: ",
+        self.scnorm_spin_n = gui.spin(box0, self, "scnorm_num_groups", 1, 20, step=1, label="Max. num. of gene groups: ",
                  alignment=Qt.AlignRight, callback=self.on_changed, checkCallback=self.on_changed, controlWidth=60)
         self.scnorm_spin_p = gui.spin(box0, self, "scnorm_p_subgroup", 0, 100, step=1, label="Prototype genes (%): ",
                  alignment=Qt.AlignRight, callback=self.on_changed, checkCallback=self.on_changed, controlWidth=60)
@@ -146,7 +146,6 @@ if __name__ == "__main__":
 
     # Load test file from arguments
     test_file = argv[1] if len(argv) >= 2 else "matrix_counts_sample.tab"
-    test_file = "/Users/martin/Dev/data/singlecell/bacher2017/H1_data.csv"
     table = Table(test_file)[:100, :100]
     ow.set_data(table)
 
