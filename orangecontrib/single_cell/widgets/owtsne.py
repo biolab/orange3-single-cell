@@ -9,6 +9,11 @@ from AnyQt.QtWidgets import QFormLayout, QApplication
 from AnyQt.QtGui import QPainter
 from AnyQt.QtCore import Qt, QTimer
 
+try:
+    from MulticoreTSNE import MulticoreTSNE
+except ImportError:
+    MulticoreTSNE = None
+
 import Orange.data
 from Orange.data import Domain, Table, ContinuousVariable
 import Orange.projection
@@ -64,12 +69,26 @@ def get_unique_names(names, proposed):
 ###
 ###
 
+
 @memory.cache
-def cached_tsne(X, perplexity, iter, init):
-    tsne = Orange.projection.TSNE(n_components=2, perplexity=perplexity,
-                                  n_iter=iter, init=init, random_state=0)
+def cached_sklearn_tsne(X, perplexity, iter, init):
+    tsne = Orange.projection.TSNE(perplexity=perplexity, n_iter=iter,
+                                  early_exaggeration=1, n_iter_without_progress=50,
+                                  init=init, angle=.8, random_state=0)
     tsnefit = tsne.fit(X)
-    return tsnefit.embedding_
+    return tsnefit.embedding_.astype(np.float32)  # Takes half the cache space
+
+
+@memory.cache
+def multicore_tsne(X, perplexity, iter, init):
+    tsne = MulticoreTSNE(n_iter=iter, perplexity=perplexity,
+                         angle=.8, n_jobs=-1, early_exaggeration=1,
+                         init=init, random_state=0)
+    return tsne.fit_transform(X).astype(np.float32)
+
+
+compute_tsne_embedding = multicore_tsne if MulticoreTSNE else cached_sklearn_tsne
+
 
 class MDSInteractiveViewBox(InteractiveViewBox):
     def _dragtip_pos(self):
@@ -136,7 +155,7 @@ class OWtSNE(OWWidget):
 
     settingsHandler = settings.DomainContextHandler()
 
-    max_iter = settings.Setting(500)
+    max_iter = settings.Setting(300)
     perplexity = settings.Setting(30)
     pca_components = settings.Setting(20)
 
@@ -182,8 +201,8 @@ class OWtSNE(OWWidget):
 
         self.__update_loop = None
         # timer for scheduling updates
-        self.__timer = QTimer(self, singleShot=True, interval=0)
-        self.__timer.timeout.connect(self.__next_step)
+        self.__timer = QTimer(self, singleShot=True, interval=1,
+                              timeout=self.__next_step)
         self.__state = OWtSNE.Waiting
         self.__in_next_step = False
         self.__draw_similar_pairs = False
@@ -198,11 +217,11 @@ class OWtSNE(OWWidget):
 
         form.addRow(
             "Max iterations:",
-            gui.spin(box, self, "max_iter", 250, 10**4, step=10))
+            gui.spin(box, self, "max_iter", 250, 2000, step=50))
 
         form.addRow(
             "Perplexity:",
-            gui.spin(box, self, "perplexity", 1, 99, step=1))
+            gui.spin(box, self, "perplexity", 1, 100, step=1))
 
         box.layout().addLayout(form)
 
@@ -301,7 +320,13 @@ class OWtSNE(OWWidget):
             self.Error.not_enough_rows.clear()
 
         self.signal_data = data
-        self._invalidated = True
+        if self.data and data and np.array_equal(self.data.X, data.X):
+            self.closeContext()
+            self.data = data
+            self.init_attr_values()
+            self.openContext(self.data)
+        else:
+            self._invalidated = True
 
         if data is not None:
             self._primitive_metas = tuple(a for a in data.domain.metas
@@ -384,7 +409,7 @@ class OWtSNE(OWWidget):
 
     def __start(self):
         self.pca_preprocessing()
-        embedding = 'pca' if self.embedding is None else self.embedding
+        embedding = 'random' if self.embedding is None else self.embedding
         step_size = self.max_iter
 
         def update_loop(data, max_iter, step, embedding):
@@ -397,7 +422,8 @@ class OWtSNE(OWWidget):
 
             while not done:
                 step_iter = min(max_iter - iterations_done, step)
-                embedding = cached_tsne(data.X, self.perplexity, step_iter, embedding)
+                embedding = compute_tsne_embedding(
+                    data.X, self.perplexity, step_iter, embedding)
                 iterations_done += step_iter
                 if iterations_done >= max_iter:
                     done = True
@@ -461,7 +487,6 @@ class OWtSNE(OWWidget):
         except StopIteration:
             self.__set_update_loop(None)
             self.unconditional_commit()
-            self._update_plot()
         except MemoryError:
             self.Error.out_of_memory()
             self.__set_update_loop(None)
@@ -491,7 +516,6 @@ class OWtSNE(OWWidget):
 
     def handleNewSignals(self):
         if self._invalidated:
-            self._invalidated = False
             self._initialize()
             self.start()
 
@@ -499,14 +523,14 @@ class OWtSNE(OWWidget):
                 self.data is not None:
             self._subset_mask = np.in1d(self.data.ids, self.subset_data.ids)
 
-        self._update_plot(new=True)
+        if self._invalidated:
+            self._invalidated = False
+        else:
+            self._update_plot(new=True)
         self.unconditional_commit()
 
     def _invalidate_output(self):
         self.commit()
-
-    def _on_connected_changed(self):
-        self._update_plot()
 
     def _update_plot(self, new=False):
         self._clear_plot()
