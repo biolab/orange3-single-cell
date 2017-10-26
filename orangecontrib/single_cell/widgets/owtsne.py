@@ -390,6 +390,7 @@ class OWtSNE(OWWidget):
 
     def start(self):
         if not self.data or self.__state == OWtSNE.Running:
+            self._update_plot()
             return
         elif self.__state in (OWtSNE.Finished, OWtSNE.Waiting):
             self.__start()
