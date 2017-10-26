@@ -78,11 +78,12 @@ def cached_sklearn_tsne(X, perplexity, iter, init):
     return tsnefit.embedding_.astype(np.float32)  # Takes half the cache space
 
 
+@memory.cache
 def multicore_tsne(X, perplexity, iter, init):
     tsne = MulticoreTSNE(n_iter=iter, perplexity=perplexity,
                          angle=.8, n_jobs=-1, early_exaggeration=1,
                          init=init, random_state=0)
-    return tsne.fit_transform(X)
+    return tsne.fit_transform(X).astype(np.float32)
 
 
 compute_tsne_embedding = multicore_tsne if MulticoreTSNE else cached_sklearn_tsne
@@ -153,7 +154,7 @@ class OWtSNE(OWWidget):
 
     settingsHandler = settings.DomainContextHandler()
 
-    max_iter = settings.Setting(250)
+    max_iter = settings.Setting(300)
     perplexity = settings.Setting(30)
     pca_components = settings.Setting(20)
 
@@ -215,11 +216,11 @@ class OWtSNE(OWWidget):
 
         form.addRow(
             "Max iterations:",
-            gui.spin(box, self, "max_iter", 250, 1000, step=50))
+            gui.spin(box, self, "max_iter", 250, 2000, step=50))
 
         form.addRow(
             "Perplexity:",
-            gui.spin(box, self, "perplexity", 1, 100, step=5))
+            gui.spin(box, self, "perplexity", 1, 100, step=1))
 
         box.layout().addLayout(form)
 
