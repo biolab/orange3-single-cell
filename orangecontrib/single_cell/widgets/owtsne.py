@@ -509,7 +509,6 @@ class OWtSNE(OWWidget):
 
     def handleNewSignals(self):
         if self._invalidated:
-            self._invalidated = False
             self._initialize()
             self.start()
 
@@ -517,7 +516,10 @@ class OWtSNE(OWWidget):
                 self.data is not None:
             self._subset_mask = np.in1d(self.data.ids, self.subset_data.ids)
 
-        self._update_plot(new=True)
+        if self._invalidated:
+            self._invalidated = False
+        else:
+            self._update_plot(new=True)
         self.unconditional_commit()
 
     def _invalidate_output(self):
