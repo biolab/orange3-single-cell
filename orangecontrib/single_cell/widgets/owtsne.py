@@ -69,6 +69,7 @@ def get_unique_names(names, proposed):
 ###
 ###
 
+
 @memory.cache
 def cached_sklearn_tsne(X, perplexity, iter, init):
     tsne = Orange.projection.TSNE(perplexity=perplexity, n_iter=iter,
@@ -319,7 +320,13 @@ class OWtSNE(OWWidget):
             self.Error.not_enough_rows.clear()
 
         self.signal_data = data
-        self._invalidated = True
+        if self.data and data and np.array_equal(self.data.X, data.X):
+            self.closeContext()
+            self.data = data
+            self.init_attr_values()
+            self.openContext(self.data)
+        else:
+            self._invalidated = True
 
         if data is not None:
             self._primitive_metas = tuple(a for a in data.domain.metas
