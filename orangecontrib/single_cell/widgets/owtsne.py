@@ -525,9 +525,6 @@ class OWtSNE(OWWidget):
     def _invalidate_output(self):
         self.commit()
 
-    def _on_connected_changed(self):
-        self._update_plot()
-
     def _update_plot(self, new=False):
         self._clear_plot()
 
