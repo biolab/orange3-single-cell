@@ -266,8 +266,8 @@ class TableModel(PyTableModel):
 
 
 class OWRank(OWWidget):
-    name = "Gene Rank"
-    description = "Rank and filter genes (features) by their relevance."
+    name = "Score Genes"
+    description = "Score and filter genes (features) by their relevance."
     icon = "icons/GeneRank.svg"
     priority = 1102
 
