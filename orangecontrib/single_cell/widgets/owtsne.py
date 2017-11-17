@@ -119,14 +119,13 @@ class OWMDSGraph(OWScatterPlotGraph):
                 return np.zeros_like(a)
 
         self.master.Information.missing_size.clear()
-        size_index = self.get_size_index()
-        if size_index == -1:
+        if self.attr_size is None:
             size_data = np.full((self.n_points,), self.point_width,
                                 dtype=float)
         else:
             size_data = \
                 self.MinShapeSize + \
-                self.scaled_data[size_index, self.valid_data] * \
+                self.scaled_data.get_column_view(self.attr_size)[0][self.valid_data] * \
                 self.point_width
         nans = np.isnan(size_data)
         if np.any(nans):
