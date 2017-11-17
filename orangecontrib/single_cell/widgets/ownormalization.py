@@ -8,7 +8,7 @@ from orangecontrib.single_cell.preprocess.scnormalize import SCNormalizer
 
 
 class OWNormalization(widget.OWWidget):
-    name = 'Normalization'
+    name = 'Normalize'
     description = ('Basic normalization of single cell count data')
     icon = 'icons/Normalization.svg'
     priority = 110
