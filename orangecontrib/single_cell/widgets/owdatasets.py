@@ -6,7 +6,7 @@ import Orange.widgets.data.owdatasets
 
 
 class OWscDataSets(Orange.widgets.data.owdatasets.OWDataSets):
-    name = "Data Sets"
+    name = "Single Cell Datasets"
     description = "Load a data set from an online repository"
     icon = "icons/DataSets.svg"
     priority = 20
