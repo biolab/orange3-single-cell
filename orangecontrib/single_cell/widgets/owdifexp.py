@@ -11,7 +11,7 @@ from Orange.widgets.utils.sql import check_sql_input
 
 
 class OWDifferentialExpression(widget.OWWidget):
-    name = "Differential Expression"
+    name = "Cluster Variation"
     description = "Compare expressions in groups of samples"
     icon = "icons/DifferentialExpression.svg"
     priority = 111
