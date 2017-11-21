@@ -1,0 +1,17 @@
+[run]
+source =
+    orangecontrib/single_cell
+omit =
+    orangecontrib/single_cell/tutorials/*
+    orangecontrib/single_cell/tests/*
+    orangecontrib/single_cell/__init__.py
+    orangecontrib/single_cell/__main__.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    raise NotImplementedError
+    if __name__ == .__main__.:
+
+[html]
+directory = coverage_html_report
