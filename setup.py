@@ -3,7 +3,8 @@
 from os import path, walk
 
 import sys
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, Command
+import subprocess
 
 NAME = "Orange3-SingleCell"
 
@@ -84,8 +85,40 @@ def include_documentation(local_dir, install_dir):
                           [path.join(dirpath, f) for f in files]))
     DATA_FILES.extend(doc_files)
 
+
+class CoverageCommand(Command):
+    """A setup.py coverage subcommand developers can run locally."""
+    description = "run code coverage"
+    user_options = []
+    initialize_options = finalize_options = lambda self: None
+
+    def check_requirements(self):
+
+        try:
+            import coverage
+        except ImportError as e:
+            raise e
+
+    def run(self):
+        """Check coverage on current workdir"""
+        self.check_requirements()
+
+        sys.exit(subprocess.call(r'''
+        coverage run setup.py test
+        echo; echo
+        coverage report
+        coverage html &&
+            { echo; echo "See also: file://$(pwd)/coverage_html_report/index.html"; echo; }
+        ''', shell=True, cwd=path.dirname(path.abspath(__file__))))
+
+
 if __name__ == '__main__':
     include_documentation('doc/build/html', 'help/orange3-single_cell')
+
+    cmdclass = {
+        'coverage': CoverageCommand,
+    }
+
     setup(
         name=NAME,
         version=VERSION,
@@ -106,4 +139,5 @@ if __name__ == '__main__':
         test_suite=TEST_SUITE,
         include_package_data=True,
         zip_safe=False,
+        cmdclass=cmdclass
     )
