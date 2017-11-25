@@ -3,6 +3,7 @@ import scipy.sparse as sp
 
 from Orange.data import Domain, Table
 from Orange.data.util import SharedComputeValue
+from Orange.statistics.util import nansum, nanmedian
 from Orange.preprocess.preprocess import Preprocess
 
 __all__ = ["SCNormalizer"]
@@ -41,7 +42,7 @@ class SCNormalizer(Preprocess):
 class ScNormalizeModel:
     """
     Implements model fitting and transformation.
-    Parameters infered from data are stored inside an instance of this class.
+    Parameters inferred from data are stored inside an instance of this class.
      A simple ad-hoc normalization to provide basic raw count pre-processing.
     """
 
@@ -70,12 +71,12 @@ class ScNormalizeModel:
             libraries = {lib: np.where(Y == lib)[0] for lib in set(Y)}
             lib_sizes = {}
             for lib, rows in libraries.items():
-                lib_sizes[lib] = np.median(X[rows, :].sum(axis=1))
+                lib_sizes[lib] = nanmedian(nansum(X[rows, :], axis=1))
             self.target_row_mean = min(lib_sizes.values())
             for lib in libraries:
                 self.size_factors[lib] = self.target_row_mean / lib_sizes[lib]
         else:
-            self.target_row_mean = np.median(X.sum(axis=1))
+            self.target_row_mean = nanmedian(nansum(X, axis=1))
 
     def __call__(self, data):
         """
@@ -98,9 +99,12 @@ class ScNormalizeModel:
         # Normalize cell profiles
         if self.normalize_cells:
             # Each cell is normalized independently by default
-            rs = np.array(Xeq.sum(axis=1))
-            rs[rs == 0] = 1
-            rsm = np.ones((n, )) * self.target_row_mean
+            if sp.isspmatrix(Xeq):
+                rs = Xeq.sum(axis=1).astype(float)
+            else:
+                rs = nansum(Xeq, axis=1).astype(float)
+            rs[rs == 0] = 1.0
+            rsm = np.ones((n, ), dtype=float) * self.target_row_mean
             factors = rsm / rs
 
             # Override with library size factor, if provided. Else, each row is
@@ -111,7 +115,7 @@ class ScNormalizeModel:
                 inxs = np.logical_not(np.isnan(vals))
                 factors[inxs] = vals[inxs]
 
-            Xd = sp.dia_matrix((factors.ravel(), 0), shape=(n, n))
+            Xd = sp.dia_matrix((factors.ravel(), 0), shape=(n, n), dtype=float)
             Xeq = Xd.dot(Xeq)
 
         # Log transform log(1 + x)

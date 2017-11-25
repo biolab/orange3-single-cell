@@ -7,7 +7,6 @@ from Orange.data import Table
 
 from orangecontrib.single_cell.preprocess.scnormalize import SCNormalizer
 
-
 class ScNormalizeTest(unittest.TestCase):
 
     def setUp(self):
@@ -63,3 +62,20 @@ class ScNormalizeTest(unittest.TestCase):
         data3 = self.iris.transform(data2.domain)
         np.testing.assert_almost_equal(data.X, data3.X)
         np.testing.assert_array_equal(data.ids, data3.ids)
+
+    def test_normalize_nans(self):
+        # Fit with projector
+        pp = SCNormalizer(log_base=None,
+                          normalize_cells=True,
+                          equalize_var="iris")
+        data = self.iris.copy()
+        data_nan = self.iris.copy()
+        for j in range(data_nan.X.shape[1]):
+            data.X[j, j] = 0
+            data_nan.X[j, j] = np.nan
+
+        data1 = pp(data)
+        data2 = pp(data_nan)
+
+        self.assertEqual(np.nansum(data2.X), np.sum(data1.X))
+
