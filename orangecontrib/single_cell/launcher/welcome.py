@@ -845,8 +845,15 @@ class SingleLinkPage(QFrame):
         else:
             super().mousePressEvent(event)
 
+
 def resource_path(name):
     return pkg_resources.resource_filename(config.__name__, name)
+
+
+def sc_icon(filename):
+    return QIcon(pkg_resources.resource_filename(
+        "orangecontrib.single_cell.launcher", "icons/"+filename))
+
 
 def welcome_dialog_paged(self):
     """
@@ -886,7 +893,7 @@ def welcome_dialog_paged(self):
     main.activated.connect(lambda: openselectedbutton.click())
 
     PageWelcome = dlg.addPage(
-        canvas_icons("orange-canvas.svg"), "Welcome", main
+        sc_icon("Welcome.svg"), "Welcome", main
     )
     examples = workflows.example_workflows()
     items = [previewmodel.PreviewItem(path=t.abspath()) for t in examples]
@@ -896,7 +903,7 @@ def welcome_dialog_paged(self):
     browser.setModel(model)
 
     PageTemplates = dlg.addPage(
-        self.examples_action.icon(), "Templates", browser
+        sc_icon("Templates.svg"), "Templates", browser
     )
     browser.activated.connect(lambda: openselectedbutton.click())
 

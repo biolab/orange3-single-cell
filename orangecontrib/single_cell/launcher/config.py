@@ -34,19 +34,19 @@ def welcome_screen_specs():
     items = [
         WelcomeScreenSpecs.Item(
             path=resource_filename("110-file-and-data-table-widget.ows"),
-            icon="canvas_icons:orange-canvas.svg",
+            icon=image_filename("CellTypeDiscovery.svg"),
             text="Cell Type Discovery",
             tooltip="Something to do with latin",
         ),
         WelcomeScreenSpecs.Item(
             path=resource_filename("310-clustering.ows"),
-            icon="canvas_icons:orange-canvas.svg",
+            icon=image_filename("Biomarkers.svg"),
             text="Biomarkers",
             tooltip="And now for something completely different"
         ),
         WelcomeScreenSpecs.Item(
             path=resource_filename("450-cross-validation.ows"),
-            icon="canvas_icons:orange-canvas.svg",
+            icon=image_filename("PopulationPrediction.svg"),
             text="Population Prediction",
             tooltip=(
                 '<p style="color: #555;">'
