@@ -486,10 +486,12 @@ class FancyWelcomeScreen(QWidget):
             try:
                 if event.type() == QEvent.Enter:
                     self.__active = True
+                    self.setCursor(Qt.PointingHandCursor)
                     self.update()
                     return True
                 elif event.type() == QEvent.Leave:
                     self.__active = False
+                    self.unsetCursor()
                     self.update()
                     return True
             except Exception as ex:
@@ -571,7 +573,7 @@ class FancyWelcomeScreen(QWidget):
         item.setToolTip(tip)
 
     def setCurrentIndex(self, index):
-        pass
+        self.__currentIndex = index
 
     def currentIndex(self):
         return self.__currentIndex
@@ -702,6 +704,13 @@ def welcome_dialog_paged(self):
     dlg.setWindowModality(Qt.ApplicationModal)
     dlg.setAttribute(Qt.WA_DeleteOnClose)
     dlg.layout().setSizeConstraint(QVBoxLayout.SetFixedSize)
+    dlg.setStyleSheet("""
+        TabView::item:selected {
+               background: qradialgradient(cx: 0.5, cy: 0.33, radius: 0.5, fx: 0.5, fy: 0.33,
+                                           stop:0 rgb(255, 229, 197),
+                                           stop:1 rgb(243, 171, 86));
+        }
+    """)
     main = FancyWelcomeScreen()
     spec = welcome_screen_specs()
     if spec.image:
