@@ -1,8 +1,12 @@
+from Orange.canvas.application.workflows import list_schemes, ExampleWorkflow
+
+
 class SCOrangeLauncher:
     def launch(self):
         self.fix_application_name()
         self.fix_application_dirs()
         self.replace_welcome_screen()
+        self.replace_example_workflows()
 
         self.fix_tsne_category()
 
@@ -78,6 +82,17 @@ class SCOrangeLauncher:
         from orangecontrib.single_cell.launcher.welcome import welcome_dialog_paged
 
         CanvasMainWindow.welcome_dialog = welcome_dialog_paged
+
+    def replace_example_workflows(self):
+        from Orange.canvas.application import workflows
+
+        def example_workflows():
+            from orangecontrib.single_cell import tutorials
+            workflows = list_schemes(tutorials)
+            workflows = [ExampleWorkflow(wf, tutorials, "scOrange")
+                         for wf in workflows]
+            return workflows
+        workflows.example_workflows = example_workflows
 
     def fix_tsne_category(self):
         from Orange.canvas import registry
