@@ -24,9 +24,9 @@ def welcome_screen_specs():
     -------
     spec : WelcomeScreenSpecs
     """
-    def resource_filename(filename):
+    def workflow_filename(filename):
         return pkg_resources.resource_filename(
-            "Orange.canvas.application.workflows", filename)
+            "orangecontrib.single_cell.tutorials", filename)
 
     def image_filename(filename):
         return pkg_resources.resource_filename(
@@ -34,32 +34,25 @@ def welcome_screen_specs():
 
     items = [
         WelcomeScreenSpecs.Item(
-            path=resource_filename("110-file-and-data-table-widget.ows"),
+            path=workflow_filename("ShowCase-CellType.ows"),
             icon=image_filename("CellTypeDiscovery.svg"),
             active_icon=image_filename("CellTypeDiscoveryColor.svg"),
             text="Cell Type Discovery",
-            tooltip="Something to do with latin",
+            tooltip="Use k-means clustering and tSNE to observe cell types",
         ),
         WelcomeScreenSpecs.Item(
-            path=resource_filename("310-clustering.ows"),
+            path=workflow_filename("ShowCase-Markers.ows"),
             icon=image_filename("Biomarkers.svg"),
             active_icon=image_filename("BiomarkersColor.svg"),
             text="Biomarkers",
-            tooltip="And now for something completely different"
+            tooltip="Visualize markers on tSNE plot"
         ),
         WelcomeScreenSpecs.Item(
-            path=resource_filename("450-cross-validation.ows"),
+            path=workflow_filename("ShowCase-Prediction.ows"),
             icon=image_filename("PopulationPrediction.svg"),
             active_icon=image_filename("PopulationPredictionColor.svg"),
             text="Population Prediction",
-            tooltip=(
-                '<p style="color: #555;">'
-                '<div style="font-size: large; white-space: nowrap;" >'
-                'And now for something <b>completely different</b><hr/>'
-                '</div>'
-                '&hellip;'
-                '</p>'
-            )
+            tooltip="Predict population with some widgets"
         )
     ]
     return WelcomeScreenSpecs(
