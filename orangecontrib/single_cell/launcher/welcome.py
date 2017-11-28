@@ -29,7 +29,6 @@ from Orange.canvas.application.canvasmain import canvas_icons, LINKS
 from Orange.canvas.gui.dropshadow import DropShadowFrame
 from Orange.canvas.canvas.items.utils import radial_gradient
 from Orange.canvas.preview import previewbrowser, previewmodel
-from Orange.canvas.registry import NAMED_COLORS
 from Orange.canvas import config
 
 from orangecontrib.single_cell.launcher.config import welcome_screen_specs
@@ -41,9 +40,7 @@ def decorate_welcome_icon(icon, background_color):
     """
     welcome_icon = QIcon()
     sizes = [32, 48, 64, 80, 128, 256]
-    background_color = NAMED_COLORS.get(background_color, background_color)
     background_color = QColor(background_color)
-    grad = radial_gradient(background_color)
     for size in sizes:
         icon_size = QSize(5 * size / 8, 5 * size / 8)
         icon_rect = QRect(QPoint(0, 0), icon_size)
@@ -51,7 +48,7 @@ def decorate_welcome_icon(icon, background_color):
         pixmap.fill(Qt.transparent)
         p = QPainter(pixmap)
         p.setRenderHint(QPainter.Antialiasing, True)
-        p.setBrush(QBrush(grad))
+        p.setBrush(QBrush(background_color))
         p.setPen(Qt.NoPen)
         ellipse_rect = QRect(0, 0, size, size)
         p.drawEllipse(ellipse_rect)
@@ -62,178 +59,6 @@ def decorate_welcome_icon(icon, background_color):
         welcome_icon.addPixmap(pixmap)
 
     return welcome_icon
-
-
-WELCOME_WIDGET_BUTTON_STYLE = \
-"""
-WelcomeActionButton {
-    border: none;
-    icon-size: 75px;
-    /*font: bold italic 14px "Helvetica";*/
-}
-WelcomeActionButton:pressed {
-    background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
-                                      stop: 0 #dadbde, stop: 1 #f6f7fa);
-    border-radius: 10px;
-}
-WelcomeActionButton:focus {
-    background-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
-                                      stop: 0 #dadbde, stop: 1 #f6f7fa);
-    border-radius: 10px;
-}
-"""
-
-
-class WelcomeActionButton(QToolButton):
-    def __init__(self, parent=None):
-        QToolButton.__init__(self, parent)
-
-    def paintEvent(self, event):
-        QToolButton.paintEvent(self, event)
-
-
-class WelcomeDialog(QDialog):
-    """A welcome widget shown at startup presenting a series
-    of buttons (actions) for a beginner to choose from.
-    """
-    triggered = Signal(QAction)
-
-    def __init__(self, *args, **kwargs):
-        QDialog.__init__(self, *args, **kwargs)
-
-        self.__triggeredAction = None
-
-        self.setupUi()
-
-    def setupUi(self):
-        self.setLayout(QVBoxLayout())
-        self.layout().setContentsMargins(0, 0, 0, 0)
-        self.layout().setSpacing(0)
-
-        self.__mainLayout = QVBoxLayout()
-        self.__mainLayout.setContentsMargins(0, 40, 0, 40)
-        self.__mainLayout.setSpacing(65)
-
-        self.layout().addLayout(self.__mainLayout)
-
-        self.setStyleSheet(WELCOME_WIDGET_BUTTON_STYLE)
-
-        bottom_bar = QWidget(objectName="bottom-bar")
-        bottom_bar_layout = QHBoxLayout()
-        bottom_bar_layout.setContentsMargins(20, 10, 20, 10)
-        bottom_bar.setLayout(bottom_bar_layout)
-        bottom_bar.setSizePolicy(QSizePolicy.MinimumExpanding,
-                                 QSizePolicy.Maximum)
-
-        check = QCheckBox(self.tr("Show at startup"), bottom_bar)
-        check.setChecked(False)
-
-        self.__showAtStartupCheck = check
-
-        feedback = QLabel(
-            '<a href="{}">Help us improve!</a>'.format(config.FEEDBACK_URL))
-        feedback.setTextInteractionFlags(Qt.TextBrowserInteraction)
-        feedback.setOpenExternalLinks(True)
-
-        bottom_bar_layout.addWidget(check, alignment=Qt.AlignVCenter | \
-                                    Qt.AlignLeft)
-        bottom_bar_layout.addWidget(feedback, alignment=Qt.AlignVCenter | \
-                                    Qt.AlignRight)
-
-        self.layout().addWidget(bottom_bar, alignment=Qt.AlignBottom,
-                                stretch=1)
-
-        self.setSizeGripEnabled(False)
-        self.setFixedSize(620, 390)
-
-    def setShowAtStartup(self, show):
-        """
-        Set the 'Show at startup' check box state.
-        """
-        if self.__showAtStartupCheck.isChecked() != show:
-            self.__showAtStartupCheck.setChecked(show)
-
-    def showAtStartup(self):
-        """
-        Return the 'Show at startup' check box state.
-        """
-        return self.__showAtStartupCheck.isChecked()
-
-    def addRow(self, actions, background="light-orange"):
-        """Add a row with `actions`.
-        """
-        count = self.__mainLayout.count()
-        self.insertRow(count, actions, background)
-
-    def insertRow(self, index, actions, background="light-orange"):
-        """Insert a row with `actions` at `index`.
-        """
-        widget = QWidget(objectName="icon-row")
-        layout = QHBoxLayout()
-        layout.setContentsMargins(40, 0, 40, 0)
-        layout.setSpacing(65)
-        widget.setLayout(layout)
-
-        self.__mainLayout.insertWidget(index, widget, stretch=10,
-                                       alignment=Qt.AlignCenter)
-
-        for i, action in enumerate(actions):
-            self.insertAction(index, i, action, background)
-
-    def insertAction(self, row, index, action,
-                      background="light-orange"):
-        """Insert `action` in `row` in position `index`.
-        """
-        button = self.createButton(action, background)
-        self.insertButton(row, index, button)
-
-    def insertButton(self, row, index, button):
-        """Insert `button` in `row` in position `index`.
-        """
-        item = self.__mainLayout.itemAt(row)
-        layout = item.widget().layout()
-        layout.insertWidget(index, button)
-        button.triggered.connect(self.__on_actionTriggered)
-
-    def createButton(self, action, background="light-orange"):
-        """Create a tool button for action.
-        """
-        button = WelcomeActionButton(self)
-        button.setDefaultAction(action)
-        button.setText(action.iconText())
-        button.setIcon(decorate_welcome_icon(action.icon(), background))
-        button.setToolTip(action.toolTip())
-        button.setFixedSize(100, 100)
-        button.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
-        font = QFont(button.font())
-        font.setPointSize(13)
-        button.setFont(font)
-
-        return button
-
-    def buttonAt(self, i, j):
-        """Return the button at i-t row and j-th column.
-        """
-        item = self.__mainLayout.itemAt(i)
-        row = item.widget()
-        item = row.layout().itemAt(j)
-        return item.widget()
-
-    def triggeredAction(self):
-        """Return the action that was triggered by the user.
-        """
-        return self.__triggeredAction
-
-    def showEvent(self, event):
-        # Clear the triggered action before show.
-        self.__triggeredAction = None
-        QDialog.showEvent(self, event)
-
-    def __on_actionTriggered(self, action):
-        """Called when the button action is triggered.
-        """
-        self.triggered.emit(action)
-        self.__triggeredAction = action
 
 
 class PagedWidget(QFrame):
@@ -558,19 +383,23 @@ class FancyWelcomeScreen(QWidget):
         An active item in the bottom row of the welcome screen.
         """
         def __init__(self, *args, text="", icon=QIcon(), iconSize=QSize(),
-                     **kwargs):
+                     iconActive=QIcon(), **kwargs):
             self.__iconSize = QSize()
             self.__icon = QIcon()
+            self.__icon_active = QIcon()
             self.__text = ""
+            self.__active = False
             super().__init__(*args, **kwargs)
             self.setAutoFillBackground(True)
             font = self.font()
-            font.setPointSize(21)
+            font.setPointSize(18)
             self.setFont(font)
             self.setAttribute(Qt.WA_SetFont, False)
             self.setText(text)
             self.setIcon(icon)
             self.setIconSize(iconSize)
+            self.setIconActive(iconActive)
+            self.installEventFilter(self)
 
         def iconSize(self):
             if not self.__iconSize.isValid():
@@ -588,7 +417,10 @@ class FancyWelcomeScreen(QWidget):
         iconSize_ = Property(QSize, iconSize, setIconSize, designable=True)
 
         def icon(self):
-            return QIcon(self.__icon)
+            if self.__active:
+                return QIcon(self.__icon_active)
+            else:
+                return QIcon(self.__icon)
 
         def setIcon(self, icon):
             self.__icon = QIcon(icon)
@@ -596,15 +428,17 @@ class FancyWelcomeScreen(QWidget):
 
         icon_ = Property(QIcon, icon, setIcon, designable=True)
 
+        def iconActive(self):
+            return QIcon(self.__icon_active)
+
+        def setIconActive(self, icon):
+            self.__icon_active = QIcon(icon)
+            self.update()
+
+        icon_active_ = Property(QIcon, iconActive, setIconActive, designable=True)
+
         def sizeHint(self):
-            style = self.style()
-            option = QStyleOptionViewItem()
-            self.initStyleOption(option)
-
-            sh = style.sizeFromContents(
-                QStyle.CT_ItemViewItem, option, QSize(), self)
-
-            return sh
+            return QSize(200, 150)
 
         def setText(self, text):
             if self.__text != text:
@@ -625,7 +459,7 @@ class FancyWelcomeScreen(QWidget):
             option.text = self.text()
             option.icon = self.icon()
 
-            option.decorationPosition = QStyleOptionViewItem.Top
+            option.decorationPosition = QStyleOptionViewItem.Middle
             option.decorationAlignment = Qt.AlignCenter
             option.decorationSize = self.iconSize()
             option.displayAlignment = Qt.AlignCenter
@@ -636,16 +470,6 @@ class FancyWelcomeScreen(QWidget):
             )
             option.showDecorationSelected = True
             option.widget = self
-            pos = self.property("-position")
-            if isinstance(pos, int):
-                option.viewItemPosition = pos
-            selected = self.property("-selected")
-
-            if isinstance(selected, bool) and selected:
-                option.state |= QStyle.State_Selected
-                parent = self.parent()
-                if parent is not None and parent.hasFocus():
-                    option.state |= QStyle.State_HasFocus
 
         def paintEvent(self, event):
             style = self.style()  # type: QStyle
@@ -657,6 +481,20 @@ class FancyWelcomeScreen(QWidget):
             option = QStyleOptionViewItem()
             self.initStyleOption(option)
             style.drawControl(QStyle.CE_ItemViewItem, option, painter, self)
+
+        def eventFilter(self, obj, event):
+            try:
+                if event.type() == QEvent.Enter:
+                    self.__active = True
+                    self.update()
+                    return True
+                elif event.type() == QEvent.Leave:
+                    self.__active = False
+                    self.update()
+                    return True
+            except Exception as ex:
+                pass
+            return False
 
     #: Signal emitted when the current selected item in changes.
     currentChanged = Signal(int)
@@ -724,17 +562,16 @@ class FancyWelcomeScreen(QWidget):
         item = self.item(index)
         item.setIcon(icon)
 
+    def setItemActiveIcon(self, index, icon):
+        item = self.item(index)  # type: FancyWelcomeScreen.StartItem
+        item.setIconActive(icon)
+
     def setItemToolTip(self, index, tip):
         item = self.item(index)
         item.setToolTip(tip)
 
     def setCurrentIndex(self, index):
-        if self.__currentIndex != index:
-            for i, item in enumerate(self.__items):
-                item.setProperty("-selected", i == index)
-                item.update()
-            self.__currentIndex = index
-            self.currentChanged.emit(index)
+        pass
 
     def currentIndex(self):
         return self.__currentIndex
@@ -768,7 +605,7 @@ class FancyWelcomeScreen(QWidget):
         if event.button() == Qt.LeftButton:
             index = self.__indexAtPos(event.pos())
             if index != -1:
-                self.setCurrentIndex(index)
+                self.activated.emit(index)
             event.accept()
         else:
             event.ignore()
@@ -881,12 +718,13 @@ def welcome_dialog_paged(self):
         )
 
     def decorate_icon(icon):
-        return decorate_welcome_icon(icon, "antiquewhite")
+        return decorate_welcome_icon(icon, "#6dacb2")
 
     for i, item in zip(range(3), spec.items):
         main.setItemText(i, item.text)
         main.setItemToolTip(i, item.tooltip)
         main.setItemIcon(i, decorate_icon(QIcon(item.icon)))
+        main.setItemActiveIcon(i, decorate_icon(QIcon(item.active_icon)))
         main.item(i).setProperty("path", item.path)
 
     main.setCurrentIndex(0)
