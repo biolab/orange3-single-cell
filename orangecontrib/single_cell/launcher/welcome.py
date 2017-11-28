@@ -459,7 +459,7 @@ class FancyWelcomeScreen(QWidget):
             option.text = self.text()
             option.icon = self.icon()
 
-            option.decorationPosition = QStyleOptionViewItem.Middle
+            option.decorationPosition = QStyleOptionViewItem.Top
             option.decorationAlignment = Qt.AlignCenter
             option.decorationSize = self.iconSize()
             option.displayAlignment = Qt.AlignCenter
