@@ -61,7 +61,11 @@ def welcome_screen_specs():
             StartItem {
                 background-color: rgb(214, 232, 236);
                 color: rgb(109, 172, 178);
-                padding: 200px;
+            }
+
+            StartItem::item {
+                border: 1px solid transparent;
+                padding-top: 1.5em;
             }
             """,
         items=items,
