@@ -7,9 +7,13 @@
 	.st1{fill:#8DCECE;}
 	.st2{fill:none;stroke:#333333;stroke-width:2;stroke-miterlimit:10;}
 </style>
-<rect x="22.5" y="28.9" class="st0" width="16.5" height="9.3"/>
-<rect x="17.1" y="10.9" class="st1" width="21.8" height="9.3"/>
-<polyline class="st2" points="22.5,33.6 8.6,33.6 8.6,15.6 17.1,15.6 "/>
-<polyline class="st2" points="39,28.9 22.5,28.9 22.5,38.2 39,38.2 "/>
-<polyline class="st2" points="39,10.9 17.1,10.9 17.1,20.2 39,20.2 "/>
+<g>
+	<rect x="16.5" y="27.2" class="st0" width="26.8" height="11.9"/>
+	<rect x="16.5" y="9.3" class="st1" width="26.8" height="10.8"/>
+	<g>
+		<polyline class="st2" points="43.3,9.2 16.5,9.2 16.5,20.6 43.3,20.6 		"/>
+		<polyline class="st2" points="16.5,14.7 12.4,14.7 5.7,14.7 5.7,33.1 16.5,33.1 		"/>
+		<polyline class="st2" points="43.3,27.4 16.5,27.4 16.5,38.8 43.3,38.8 		"/>
+	</g>
+</g>
 </svg>
