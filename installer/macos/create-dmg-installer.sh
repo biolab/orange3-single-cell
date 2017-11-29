@@ -73,7 +73,7 @@ cp -a "${RES}"/DS_Store "${TMP_TEMPLATE}"/.DS_Store
 ln -s /Applications/ "${TMP_TEMPLATE}"/Applications
 
 # Copy the .app directory in place
-cp -a "${APP}" "${TMP_TEMPLATE}"/Orange3.app
+cp -a "${APP}" "${TMP_TEMPLATE}"/scOrange.app
 
 # Create a regular .fseventsd/no_log file
 # (see http://hostilefork.com/2009/12/02/trashes-fseventsd-and-spotlight-v100/ )
@@ -83,13 +83,13 @@ touch "${TMP_TEMPLATE}"/.fseventsd/no_log
 
 
 echo "Creating a temporary disk image"
-hdiutil create -format UDRW -volname Orange -fs HFS+ \
+hdiutil create -format UDRW -volname scOrange -fs HFS+ \
        -fsargs "-c c=64,a=16,e=16" \
        -srcfolder "${TMP_TEMPLATE}" \
        "${TMP_DMG}"
 
 # Force detatch an image it it is mounted
-hdiutil detach /Volumes/Orange -force || true
+hdiutil detach /Volumes/scOrange -force || true
 
 # Mount in RW mode
 echo "Mounting temporary disk image"
