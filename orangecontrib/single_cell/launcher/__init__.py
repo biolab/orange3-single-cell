@@ -33,7 +33,7 @@ class SCOrangeLauncher:
             dist = pkg_resources.get_distribution("Orange3-SingleCell")
             version = dist.version
             # Use only major.minor
-            version = ".".join(version.split(".", 2)[:2])
+            #version = ".".join(version.split(".", 2)[:2])
 
             QCoreApplication.setOrganizationDomain("biolab.si")
             QCoreApplication.setApplicationName("scOrange")
@@ -108,7 +108,7 @@ class SCOrangeLauncher:
         sm = SplashScreen.showMessage
 
         def showMessage(self, message, alignment=Qt.AlignLeft, color=Qt.black):
-            sm(self, message, alignment=alignment, color=QColor("#666666"))
+            sm(self, message, alignment=alignment, color=QColor("#4c85c5"))
         SplashScreen.showMessage = showMessage
 
     def fix_tsne_category(self):
