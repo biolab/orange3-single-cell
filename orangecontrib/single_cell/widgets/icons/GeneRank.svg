@@ -1,15 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Generator: Adobe Illustrator 16.0.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
-<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Generator: Adobe Illustrator 22.0.1, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
 <svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
-	 width="48px" height="48px" viewBox="0 0 48 48" enable-background="new 0 0 48 48" xml:space="preserve">
-<g id="zXDtGm_1_">
-</g>
+	 viewBox="0 0 48 48" style="enable-background:new 0 0 48 48;" xml:space="preserve">
+<style type="text/css">
+	.st0{fill:none;stroke:#333333;stroke-width:2;stroke-linecap:round;stroke-miterlimit:10;}
+	.st1{fill:none;stroke:#333333;stroke-linecap:round;stroke-miterlimit:10;}
+	.st2{fill:none;stroke:#333333;stroke-width:2;stroke-miterlimit:10;}
+	.st3{fill:none;stroke:#333333;stroke-miterlimit:10;}
+</style>
 <g>
-	<rect x="9.604" y="7.073" fill="#333333" width="33.083" height="6.104"/>
-	<rect x="9.604" y="16.323" fill="#333333" width="22.959" height="6.104"/>
-	<rect x="9.605" y="25.574" fill="#333333" width="10.207" height="6.104"/>
-	<rect x="9.604" y="34.824" fill="#333333" width="14.833" height="6.104"/>
-	<line fill="#B2B2B2" stroke="#B2B2B2" stroke-width="2" stroke-miterlimit="10" x1="5.312" y1="7.073" x2="5.312" y2="40.928"/>
+	<g>
+		<path class="st0" d="M7.3,29.6c0,0,5.4,2.4,9.2-9s7.4-11,7.4-11s3.2-1,6.8,7.7s3.7,12.1,10,12.1"/>
+		<path class="st0" d="M7.3,9.8c0,0,5.4-2.4,9.2,9s7.4,11,7.4,11s3.2,1,6.8-7.7S34.4,10,40.7,10"/>
+		<line class="st1" x1="8.6" y1="9.6" x2="8.6" y2="29.9"/>
+		<line class="st1" x1="12" y1="11" x2="12" y2="28.4"/>
+		<line class="st1" x1="20.1" y1="12.7" x2="20.1" y2="26.8"/>
+		<line class="st1" x1="23.9" y1="9.6" x2="23.9" y2="29.8"/>
+		<line class="st1" x1="27.6" y1="11.8" x2="27.6" y2="27.7"/>
+		<line class="st1" x1="35.2" y1="12.7" x2="35.2" y2="27.5"/>
+		<line class="st1" x1="38.8" y1="10.1" x2="38.8" y2="29.8"/>
+	</g>
+	<g>
+		<polyline class="st2" points="8.3,35.5 8.3,38.4 39.7,38.4 39.7,35.5 		"/>
+		<line class="st3" x1="24" y1="35.5" x2="24" y2="38.4"/>
+		<line class="st3" x1="32.3" y1="35.5" x2="32.3" y2="38.4"/>
+		<line class="st3" x1="15.7" y1="35.5" x2="15.7" y2="38.4"/>
+	</g>
 </g>
 </svg>
