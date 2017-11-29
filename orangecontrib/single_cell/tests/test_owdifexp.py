@@ -1,6 +1,6 @@
 import unittest
 
-from orangecontrib.single_cell.widgets.owdifexp import OWDifferentialExpression
+from orangecontrib.single_cell.widgets.owclustervariation import OWDifferentialExpression
 from Orange.widgets.tests.base import WidgetTest
 from Orange.data import DiscreteVariable, ContinuousVariable, Domain, Table
 

@@ -49,7 +49,6 @@ class ProblemType:
                 cls.UNSUPERVISED)
 
 
-
 class UnsupervisedScorer(score.Scorer):
     """
     Simple unsupervised scorer for datasets without target variable.
@@ -267,9 +266,9 @@ class TableModel(PyTableModel):
 
 class OWRank(OWWidget):
     name = "Score Genes"
-    description = "Score and filter genes (features) by their relevance."
-    icon = "icons/GeneRank.svg"
-    priority = 1102
+    description = "Score and filter genes by their relevance."
+    icon = "icons/ScoreGenes.svg"
+    priority = 170
 
     buttons_area_orientation = Qt.Vertical
 

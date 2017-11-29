@@ -7,9 +7,9 @@ from Orange.widgets.utils.itemmodels import DomainModel
 
 class OWClusterStatistics(widget.OWWidget):
     name = 'Cluster Statistics'
-    description = ('Compute variant calling statistics for clusters')
+    description = 'Compute variant calling statistics for clusters'
     icon = 'icons/ClusterStatistics.svg'
-    priority = 110
+    priority = 350
 
     inputs = [("Data", Table, 'set_data')]
     outputs = [("Data", Table)]

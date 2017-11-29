@@ -8,8 +8,8 @@ import Orange.widgets.data.owdatasets
 class OWscDataSets(Orange.widgets.data.owdatasets.OWDataSets):
     name = "Single Cell Datasets"
     description = "Load a data set from an online repository"
-    icon = "icons/DataSets.svg"
-    priority = 20
+    icon = "icons/SingleCellDataSets.svg"
+    priority = 150
 
     INDEX_URL = "http://datasets.orange.biolab.si/sc/"
     DATASET_DIR = "sc-datasets"
