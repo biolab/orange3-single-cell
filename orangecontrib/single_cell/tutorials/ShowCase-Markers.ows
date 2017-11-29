@@ -1,34 +1,37 @@
 <?xml version='1.0' encoding='utf-8'?>
-<scheme description="Produce a t-SNE plot and visualize different cell types using a literature-curated set of marker genes." title="Marker and subpopulations" version="2.0">
+<scheme description="Load data and a list of marker genes from our database. Select marker genes of choice. Score cells according to the expression of selected markers, and reveal marker-specific cells in t-SNE cell landscape. Open both Data Table (marker selection) and t-SNE visualization to turn scOrange into interactive gene marker browser." title="Markers and subpopulations" version="2.0">
 	<nodes>
-		<node id="0" name="Data Table" position="(330.0, 364.0)" project_name="Orange3" qualified_name="Orange.widgets.data.owtable.OWDataTable" title="Data Table" version="" />
-		<node id="1" name="Score Cells" position="(450.0, 251.0)" project_name="Orange3-SingleCell" qualified_name="orangecontrib.single_cell.widgets.owscorecells.OWScoreCells" title="Score Cells" version="" />
-		<node id="2" name="t-SNE" position="(572.0, 251.0)" project_name="Orange3-SingleCell" qualified_name="orangecontrib.single_cell.widgets.owtsne.OWtSNE" title="t-SNE" version="" />
-		<node id="3" name="Single Cell Datasets" position="(215.0, 364.0)" project_name="Orange3-SingleCell" qualified_name="orangecontrib.single_cell.widgets.owdatasets.OWscDataSets" title="Single Cell Datasets" version="" />
-		<node id="4" name="Single Cell Datasets" position="(216.0, 242.0)" project_name="Orange3-SingleCell" qualified_name="orangecontrib.single_cell.widgets.owdatasets.OWscDataSets" title="Single Cell Datasets" version="" />
+		<node id="0" name="Data Table" position="(209.0, 310.0)" project_name="Orange3" qualified_name="Orange.widgets.data.owtable.OWDataTable" title="Data Table" version="" />
+		<node id="1" name="Score Cells" position="(357.0, 205.0)" project_name="Orange3-SingleCell" qualified_name="orangecontrib.single_cell.widgets.owscorecells.OWScoreCells" title="Score Cells" version="" />
+		<node id="2" name="t-SNE" position="(464.0, 205.0)" project_name="Orange3-SingleCell" qualified_name="orangecontrib.single_cell.widgets.owtsne.OWtSNE" title="t-SNE" version="" />
+		<node id="3" name="Single Cell Datasets" position="(234.0, 113.0)" project_name="Orange3-SingleCell" qualified_name="orangecontrib.single_cell.widgets.owscdatasets.OWscDataSets" title="Single Cell Datasets (Expression Data)" version="" />
+		<node id="4" name="Single Cell Datasets" position="(87.0, 282.0)" project_name="Orange3-SingleCell" qualified_name="orangecontrib.single_cell.widgets.owscdatasets.OWscDataSets" title="Single Cell Datasets (Markers)" version="" />
 	</nodes>
 	<links>
 		<link enabled="true" id="0" sink_channel="Genes" sink_node_id="1" source_channel="Selected Data" source_node_id="0" />
 		<link enabled="true" id="1" sink_channel="Data" sink_node_id="2" source_channel="Data" source_node_id="1" />
-		<link enabled="true" id="2" sink_channel="Data" sink_node_id="0" source_channel="Data" source_node_id="3" />
-		<link enabled="true" id="3" sink_channel="Data" sink_node_id="1" source_channel="Data" source_node_id="4" />
+		<link enabled="true" id="2" sink_channel="Data" sink_node_id="1" source_channel="Data" source_node_id="3" />
+		<link enabled="true" id="3" sink_channel="Data" sink_node_id="0" source_channel="Data" source_node_id="4" />
 	</links>
 	<annotations>
-		<text font-family="Helvetica" font-size="16" id="0" rect="(301.0, 427.0, 180.0, 101.0)" type="text/plain">2. Click inside a data table to select one or more marker genes.</text>
-		<text font-family="Helvetica" font-size="16" id="1" rect="(541.0, 312.0, 214.0, 146.0)" type="text/plain">3. Visualize the cells using a t-SNE plot. In this case, you should see a nice clustering arrangement of the cells. Use colors to encode selected marker expression intensity and recognize different cell types.
-
-Hint: You can keep both Data Table and t-SNE widget open to interactively select the marker genes and see the plot changing.</text>
-		<text font-family="Helvetica" font-size="16" id="2" rect="(194.0, 83.0, 193.0, 108.0)" type="text/plain">Load the data on bone marrow mononuclear cells with AML (Zheng et. al. 2017).  These data come pre-normalized and contains a variety of cell types.</text>
+		<text font-family="Helvetica" font-size="20" id="0" rect="(22.0, 18.0, 150.0, 32.0)" type="text/plain">(1)</text>
+		<text font-family="Helvetica" font-size="14" id="1" rect="(52.0, 17.0, 150.0, 124.0)" type="text/plain">Load the data on bone marrow mononuclear cells with AML (Zheng et. al. 2017). Data come pre-normalized and contains a variety of cell types.</text>
+		<text font-family="Helvetica" font-size="14" id="2" rect="(163.0, 368.0, 150.0, 96.0)" type="text/plain">Open Data Table widget (double click) and select one or more marker genes (rows).</text>
+		<text font-family="Helvetica" font-size="20" id="3" rect="(133.0, 368.0, 150.0, 32.0)" type="text/plain">(2)</text>
+		<text font-family="Helvetica" font-size="20" id="4" rect="(381.0, 44.0, 150.0, 32.0)" type="text/plain">(3)</text>
+		<text font-family="Helvetica" font-size="20" id="5" rect="(331.0, 299.0, 150.0, 52.0)" type="text/plain">(4)</text>
+		<text font-family="Helvetica" font-size="14" id="6" rect="(410.0, 43.0, 151.0, 123.0)" type="text/plain">Visualize the cell landscape in the t-SNE plot. Notice distinct clusters of cells! Set color and size to highlight cells with expressed marker genes.</text>
+		<text font-family="Helvetica" font-size="14" id="7" rect="(361.0, 298.0, 167.0, 87.0)" type="text/plain">Keep both Data Table and t-SNE widget open to interactively select the marker genes and see changes in t-SNE plot.</text>
 	</annotations>
 	<thumbnail />
 	<node_properties>
 		<properties format="pickle" node_id="0">gAN9cQAoWAsAAABhdXRvX2NvbW1pdHEBiFgOAAAAY29sb3JfYnlfY2xhc3NxAohYDgAAAGRpc3Rf
 Y29sb3JfUkdCcQMoS9xL3EvcS/90cQRYEwAAAHNhdmVkV2lkZ2V0R2VvbWV0cnlxBUMyAdnQywAC
-AAAAAACfAAACHgAAA74AAAQnAAAAnwAAAjQAAAO+AAAEJwAAAAAAAAAACgBxBlgLAAAAc2VsZWN0
+AAAAAAKFAAADYAAAA/AAAARtAAAChQAAA3YAAAPwAAAEbQAAAAAAAAAACgBxBlgLAAAAc2VsZWN0
 X3Jvd3NxB4hYFQAAAHNob3dfYXR0cmlidXRlX2xhYmVsc3EIiFgSAAAAc2hvd19kaXN0cmlidXRp
 b25zcQmJWAsAAABfX3ZlcnNpb25fX3EKSwFYEAAAAGNvbnRleHRfc2V0dGluZ3NxC11xDChjT3Jh
-bmdlLndpZGdldHMuc2V0dGluZ3MKQ29udGV4dApxDSmBcQ59cQ8oWAQAAAB0aW1lcRBHQdaHo0MO
-OZ9YBgAAAHZhbHVlc3ERfXESKFgNAAAAc2VsZWN0ZWRfY29sc3ETXXEUKEsASwFLAmVYDQAAAHNl
+bmdlLndpZGdldHMuc2V0dGluZ3MKQ29udGV4dApxDSmBcQ59cQ8oWAQAAAB0aW1lcRBHQdaHsWVI
+hkBYBgAAAHZhbHVlc3ERfXESKFgNAAAAc2VsZWN0ZWRfY29sc3ETXXEUKEsASwFLAmVYDQAAAHNl
 bGVjdGVkX3Jvd3NxFV1xFksDYWgKSwF1WAoAAABhdHRyaWJ1dGVzcRd9cRhYCAAAAGNlbGxUeXBl
 cRldcRooWAYAAABCLWNlbGxxG1gNAAAATWVnYWthcnlvY3l0ZXEcWAgAAABNb25vY3l0ZXEdWAcA
 AABOSy1jZWxscR5YBgAAAFQtY2VsbHEfZXNYBQAAAG1ldGFzcSB9cSEoWAYAAABnZW5lSURxIksD
@@ -45,7 +48,7 @@ cmRlcmVkX2RvbWFpbnFGXXFHaD5LAYZxSGF1YmV1Lg==
 		<properties format="pickle" node_id="1">gAN9cQAoWAoAAABhdXRvX2FwcGx5cQGIWBMAAABzYXZlZFdpZGdldEdlb21ldHJ5cQJDMgHZ0MsA
 AgAAAAACYQAAAWMAAAM5AAACHwAAAmEAAAF5AAADOQAAAh8AAAAAAAAAAAWgcQNYCwAAAF9fdmVy
 c2lvbl9fcQRLAVgQAAAAY29udGV4dF9zZXR0aW5nc3EFXXEGKGNPcmFuZ2Uud2lkZ2V0cy5zZXR0
-aW5ncwpDb250ZXh0CnEHKYFxCH1xCShYBAAAAHRpbWVxCkdB1oejR+gqfFgGAAAAdmFsdWVzcQt9
+aW5ncwpDb250ZXh0CnEHKYFxCH1xCShYBAAAAHRpbWVxCkdB1oexZU+MblgGAAAAdmFsdWVzcQt9
 cQwoWAQAAABnZW5lcQ1YCAAAAGdlbmVOYW1lcQ5LZ4ZxD2gESwF1WAoAAABhdHRyaWJ1dGVzcRB9
 cRFYCAAAAGNlbGxUeXBlcRJLAXNYBQAAAG1ldGFzcRN9cRQoWAYAAABnZW5lSURxFUsDWAgAAABn
 ZW5lTmFtZXEWSwN1dWJoBymBcRd9cRgoaApHQdaDbgF8sPdoC31xGShYBAAAAGdlbmVxGlgIAAAA
@@ -55,14 +58,14 @@ cSRoIEsDhnElaCFLA4ZxJmV1YmV1Lg==
 </properties>
 		<properties format="pickle" node_id="2">gAN9cQAoWAsAAABhdXRvX2NvbW1pdHEBiFgNAAAAbGVnZW5kX2FuY2hvcnECSwFLAIZxA0sBSwCG
 cQSGcQVYCAAAAG1heF9pdGVycQZN9AFYDgAAAHBjYV9jb21wb25lbnRzcQdLHVgKAAAAcGVycGxl
-eGl0eXEISx5YEwAAAHNhdmVkV2lkZ2V0R2VvbWV0cnlxCUMyAdnQywACAAAAAAU6AAAASQAACD0A
-AAMqAAAFOgAAAF8AAAg9AAADKgAAAAAAAAAACgBxClgRAAAAc2VsZWN0aW9uX2luZGljZXNxC05Y
+eGl0eXEISx5YEwAAAHNhdmVkV2lkZ2V0R2VvbWV0cnlxCUMyAdnQywACAAAAAAU6AAAASQAACJgA
+AAMqAAAFOgAAAF8AAAiYAAADKgAAAAAAAAAACgBxClgRAAAAc2VsZWN0aW9uX2luZGljZXNxC05Y
 BQAAAGdyYXBocQx9cQ0oWAsAAABhbHBoYV92YWx1ZXEOS3pYDQAAAGNsYXNzX2RlbnNpdHlxD4lY
 EQAAAGppdHRlcl9jb250aW51b3VzcRCIWAsAAABqaXR0ZXJfc2l6ZXERSwBYEwAAAGxhYmVsX29u
 bHlfc2VsZWN0ZWRxEolYCwAAAHBvaW50X3dpZHRocRNLD1gJAAAAc2hvd19ncmlkcRSJWAsAAABz
 aG93X2xlZ2VuZHEViFgNAAAAc2hvd19yZWdfbGluZXEWiVgRAAAAdG9vbHRpcF9zaG93c19hbGxx
 F4l1WAsAAABfX3ZlcnNpb25fX3EYSwJYEAAAAGNvbnRleHRfc2V0dGluZ3NxGV1xGmNPcmFuZ2Uu
-d2lkZ2V0cy5zZXR0aW5ncwpDb250ZXh0CnEbKYFxHH1xHShYBAAAAHRpbWVxHkdB1oejR+/RiVgG
+d2lkZ2V0cy5zZXR0aW5ncwpDb250ZXh0CnEbKYFxHH1xHShYBAAAAHRpbWVxHkdB1oexZVdGOVgG
 AAAAdmFsdWVzcR99cSAoaAx9cSEoWAoAAABhdHRyX2NvbG9ycSJYBQAAAFNjb3JlcSNLZoZxJFgK
 AAAAYXR0cl9sYWJlbHElTkr+////hnEmWAoAAABhdHRyX3NoYXBlcSdOSv7///+GcShYCQAAAGF0
 dHJfc2l6ZXEpaCNLZoZxKnVoGEsCdVgKAAAAYXR0cmlidXRlc3ErfXEsKFgEAAAASEJHMXEtSwJY
@@ -374,7 +377,7 @@ chIEAABLAlgJAAAAVE1DQzEtQVMxchMEAABLAlgHAAAAQ0NEQzE4MXIUBAAASwJ1KFgEAAAAVHlw
 ZXIVBAAASwF1WAUAAABtZXRhc3IWBAAAfXIXBAAAKFgJAAAAUmVwbGljYXRlchgEAABLAVgCAAAA
 SURyGQQAAEsDWAcAAABCYXJjb2RlchoEAABLA1gFAAAAU2NvcmVyGwQAAEsCdXViYXUu
 </properties>
-		<properties format="literal" node_id="3">{'auto_commit': False, 'header_state': b'\x00\x00\x00\xff\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03l\x00\x00\x00\x07\x01\x01\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00d\xff\xff\xff\xff\x00\x00\x00\x81\x00\x00\x00\x00\x00\x00\x00\x07\x00\x00\x00!\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x01W\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x03\xe8\x00\x00\x00\x00d', 'savedWidgetGeometry': b'\x01\xd9\xd0\xcb\x00\x02\x00\x00\x00\x00\x03&lt;\x00\x00\x01\x98\x00\x00\x06\xbf\x00\x00\x04\x05\x00\x00\x03&lt;\x00\x00\x01\xae\x00\x00\x06\xbf\x00\x00\x04\x05\x00\x00\x00\x00\x00\x00\x00\x00\n\x00', 'selected_id': 'aml-markers.tab', 'splitter_state': b'\x00\x00\x00\xff\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x01,\x00\x00\x00\xc8\x01\xff\xff\xff\xff\x01\x00\x00\x00\x02\x00', '__version__': 1}</properties>
-		<properties format="literal" node_id="4">{'auto_commit': False, 'header_state': b'\x00\x00\x00\xff\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02~\x00\x00\x00\x07\x01\x01\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00d\xff\xff\xff\xff\x00\x00\x00\x81\x00\x00\x00\x00\x00\x00\x00\x07\x00\x00\x00!\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00i\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x03\xe8\x00\x00\x00\x00d', 'savedWidgetGeometry': b'\x01\xd9\xd0\xcb\x00\x02\x00\x00\x00\x00\x00\xfa\x00\x00\x02\xd8\x00\x00\x04}\x00\x00\x05E\x00\x00\x00\xfa\x00\x00\x02\xee\x00\x00\x04}\x00\x00\x05E\x00\x00\x00\x00\x00\x00\x00\x00\n\x00', 'selected_id': 'aml-1k.pickle', 'splitter_state': b'\x00\x00\x00\xff\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x01,\x00\x00\x00\xc8\x01\xff\xff\xff\xff\x01\x00\x00\x00\x02\x00', '__version__': 1}</properties>
+		<properties format="literal" node_id="3">{'auto_commit': True, 'header_state': b'\x00\x00\x00\xff\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\x87\x00\x00\x00\x07\x01\x01\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00d\xff\xff\xff\xff\x00\x00\x00\x81\x00\x00\x00\x00\x00\x00\x00\x07\x00\x00\x00!\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x01r\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x03\xe8\x00\x00\x00\x00d', 'savedWidgetGeometry': b'\x01\xd9\xd0\xcb\x00\x02\x00\x00\x00\x00\x034\x00\x00\x01\x87\x00\x00\x06\xb7\x00\x00\x03\xf4\x00\x00\x034\x00\x00\x01\x9d\x00\x00\x06\xb7\x00\x00\x03\xf4\x00\x00\x00\x00\x00\x00\x00\x00\n\x00', 'selected_id': 'aml-1k.pickle', 'splitter_state': b'\x00\x00\x00\xff\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x01,\x00\x00\x00\xc8\x01\xff\xff\xff\xff\x01\x00\x00\x00\x02\x00', '__version__': 1}</properties>
+		<properties format="literal" node_id="4">{'auto_commit': True, 'header_state': b'\x00\x00\x00\xff\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\x87\x00\x00\x00\x07\x01\x01\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00d\xff\xff\xff\xff\x00\x00\x00\x81\x00\x00\x00\x00\x00\x00\x00\x07\x00\x00\x00!\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x01r\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x03\xe8\x00\x00\x00\x00d', 'savedWidgetGeometry': b'\x01\xd9\xd0\xcb\x00\x02\x00\x00\x00\x00\x034\x00\x00\x01\x87\x00\x00\x06\xb7\x00\x00\x03\xf4\x00\x00\x034\x00\x00\x01\x9d\x00\x00\x06\xb7\x00\x00\x03\xf4\x00\x00\x00\x00\x00\x00\x00\x00\n\x00', 'selected_id': 'aml-markers.tab', 'splitter_state': b'\x00\x00\x00\xff\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x01,\x00\x00\x00\xc8\x01\xff\xff\xff\xff\x01\x00\x00\x00\x02\x00', '__version__': 1}</properties>
 	</node_properties>
 </scheme>
