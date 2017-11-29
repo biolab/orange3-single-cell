@@ -706,9 +706,7 @@ def welcome_dialog_paged(self):
     dlg.layout().setSizeConstraint(QVBoxLayout.SetFixedSize)
     dlg.setStyleSheet("""
         TabView::item:selected {
-               background: qradialgradient(cx: 0.5, cy: 0.33, radius: 0.5, fx: 0.5, fy: 0.33,
-                                           stop:0 rgb(255, 229, 197),
-                                           stop:1 rgb(243, 171, 86));
+               background: rgb(243, 171, 86);
         }
     """)
     main = FancyWelcomeScreen()
