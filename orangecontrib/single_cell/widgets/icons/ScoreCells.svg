@@ -1,18 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Generator: Adobe Illustrator 16.0.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
-<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Generator: Adobe Illustrator 22.0.1, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
 <svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
-	 width="48px" height="48px" viewBox="0 0 48 48" enable-background="new 0 0 48 48" xml:space="preserve">
-<g id="zXDtGm_1_">
+	 viewBox="0 0 48 48" style="enable-background:new 0 0 48 48;" xml:space="preserve">
+<style type="text/css">
+	.st0{fill:none;stroke:#333333;stroke-width:2;stroke-miterlimit:10;}
+	.st1{fill:none;stroke:#333333;stroke-miterlimit:10;}
+</style>
+<g>
+	<path class="st0" d="M24,8.1c7.2,0,13.1,5.8,13.1,13.1S31.2,34.3,24,34.3s-13.1-5.8-13.1-13.1S16.8,8.1,24,8.1z"/>
+	<polyline class="st0" points="10.9,36.9 10.9,39.9 37.1,39.9 37.1,36.9 	"/>
+	<line class="st1" x1="24" y1="36.9" x2="24" y2="39.9"/>
+	<line class="st1" x1="30.9" y1="36.9" x2="30.9" y2="39.9"/>
+	<line class="st1" x1="17.1" y1="36.9" x2="17.1" y2="39.9"/>
 </g>
-<path fill="none" stroke="#333333" stroke-width="2" stroke-miterlimit="10" d="M30.51,10.517c7.359,0,13.322,5.964,13.322,13.321
-	c0,7.357-5.963,13.318-13.322,13.318c-7.353,0-13.317-5.961-13.317-13.318C17.193,16.481,23.157,10.517,30.51,10.517z"/>
-<rect x="4.167" y="9.426" fill="none" stroke="#333333" stroke-width="1.5" stroke-miterlimit="10" width="10.083" height="29.147"/>
-<line fill="none" stroke="#333333" stroke-width="1.5" stroke-miterlimit="10" x1="14.25" y1="34.343" x2="10.667" y2="34.343"/>
-<line fill="none" stroke="#333333" stroke-width="1.5" stroke-miterlimit="10" x1="14.25" y1="30.51" x2="8.333" y2="30.51"/>
-<line fill="none" stroke="#333333" stroke-width="1.5" stroke-miterlimit="10" x1="14.25" y1="27.343" x2="10.667" y2="27.343"/>
-<line fill="none" stroke="#333333" stroke-width="1.5" stroke-miterlimit="10" x1="14.25" y1="23.676" x2="10.668" y2="23.676"/>
-<line fill="none" stroke="#333333" stroke-width="1.5" stroke-miterlimit="10" x1="14.25" y1="20.343" x2="8.333" y2="20.343"/>
-<line fill="none" stroke="#333333" stroke-width="1.5" stroke-miterlimit="10" x1="14.25" y1="17.009" x2="10.668" y2="17.009"/>
-<line fill="none" stroke="#333333" stroke-width="1.5" stroke-miterlimit="10" x1="14.249" y1="13.426" x2="10.668" y2="13.426"/>
 </svg>
