@@ -1,10 +1,13 @@
 from Orange.canvas.application.workflows import list_schemes, ExampleWorkflow
 
+from orangecontrib.single_cell.launcher.splash import splash_screen
+
 
 class SCOrangeLauncher:
     def launch(self):
         self.fix_application_name()
         self.fix_application_dirs()
+        self.replace_splash_screen()
         self.replace_welcome_screen()
         self.replace_example_workflows()
 
@@ -93,6 +96,20 @@ class SCOrangeLauncher:
                          for wf in workflows]
             return workflows
         workflows.example_workflows = example_workflows
+
+    def replace_splash_screen(self):
+        from AnyQt.QtCore import Qt
+        from AnyQt.QtGui import QColor
+        from Orange.canvas import config
+        from Orange.canvas.gui.splashscreen import SplashScreen
+
+        config.splash_screen = splash_screen
+
+        sm = SplashScreen.showMessage
+
+        def showMessage(self, message, alignment=Qt.AlignLeft, color=Qt.black):
+            sm(self, message, alignment=alignment, color=QColor("#666666"))
+        SplashScreen.showMessage = showMessage
 
     def fix_tsne_category(self):
         from Orange.canvas import registry
