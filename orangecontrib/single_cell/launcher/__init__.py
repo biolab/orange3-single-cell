@@ -117,7 +117,7 @@ class SCOrangeLauncher:
         wd = registry.WidgetDiscovery.widget_description
         def widget_description(self, module, widget_name=None,
                                category_name=None, distribution=None):
-            """Move tSNE widget to Visualize category
+            """Move t-SNE widget to Unsupervised category
 
             A better way to do this would be to change the behaviour of the
             widget_description method to *not* overwrite the category when
@@ -128,7 +128,7 @@ class SCOrangeLauncher:
                 self, module, widget_name, category_name, distribution)
 
             if desc.qualified_name == 'orangecontrib.single_cell.widgets.owtsne.OWtSNE':
-                desc.category = 'Visualize'
+                desc.category = 'Unsupervised'
             return desc
 
         registry.WidgetDiscovery.widget_description = widget_description
