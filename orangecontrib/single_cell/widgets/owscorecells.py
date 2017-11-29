@@ -14,7 +14,7 @@ class OWScoreCells(widget.OWWidget):
     name = "Score Cells"
     description = "Add a cell score based on the given set of genes"
     icon = "icons/ScoreCells.svg"
-    priority = 112
+    priority = 180
 
     settingsHandler = DomainContextHandler(metas_in_res=True)
     gene = ContextSetting(None)

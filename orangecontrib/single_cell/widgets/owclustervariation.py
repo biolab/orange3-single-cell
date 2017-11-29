@@ -13,8 +13,8 @@ from Orange.widgets.utils.sql import check_sql_input
 class OWDifferentialExpression(widget.OWWidget):
     name = "Cluster Variation"
     description = "Compare expressions in groups of samples"
-    icon = "icons/DifferentialExpression.svg"
-    priority = 111
+    icon = "icons/ClusterVariation.svg"
+    priority = 190
 
     settingsHandler = DomainContextHandler(metas_in_res=True)
     groupby = ContextSetting(None)

@@ -9,9 +9,9 @@ from orangecontrib.single_cell.preprocess.scnormalize import SCNormalizer
 
 class OWNormalization(widget.OWWidget):
     name = 'Normalize'
-    description = ('Basic normalization of single cell count data')
+    description = 'Basic normalization of single cell count data'
     icon = 'icons/Normalization.svg'
-    priority = 110
+    priority = 160
 
     DEFAULT_CELL_NORM = "(One group per cell)"
 

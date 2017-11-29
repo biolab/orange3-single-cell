@@ -1,6 +1,6 @@
 import unittest
 
-from orangecontrib.single_cell.widgets.owdatasets import OWscDataSets
+from orangecontrib.single_cell.widgets.owscdatasets import OWscDataSets
 from Orange.widgets.tests.base import WidgetTest
 
 

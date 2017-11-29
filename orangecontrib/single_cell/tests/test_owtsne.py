@@ -1,5 +1,4 @@
 import unittest
-import numpy as np
 
 from orangecontrib.single_cell.widgets.owtsne import OWtSNE
 from Orange.widgets.tests.base import WidgetTest
