@@ -261,7 +261,7 @@ package-requirements() {
     ) >> "${BASEDIR:?}/requirements.txt"
 
     mkdir -p "${BASEDIR:?}/icons"
-    cp scripts/windows/{orange.ico,OrangeOWS.ico} "${BASEDIR:?}/icons"
+    cp installer/windows/{orange.ico,OrangeOWS.ico} "${BASEDIR:?}/icons"
 }
 
 
@@ -339,7 +339,7 @@ EOF
              -DBASEDIR="${basedir}" \
              -DPYINSTALLER=${pyinstaller} \
              -DINSTALL_REGISTRY_KEY=OrangeCanvas \
-             -DINSTALLERICON=scripts/windows/OrangeInstall.ico \
+             -DINSTALLERICON=installer/windows/OrangeInstall.ico \
              -DLICENSE_FILE="${BASEDIR}"/license.txt \
              -NOCD \
              -V4 -WX \
