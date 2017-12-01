@@ -45,7 +45,7 @@ Examples:
 '
 }
 
-NAME=Orange3
+NAME=scOrange
 # version is determined at the end when all packages are available
 VERSION=
 
@@ -261,7 +261,7 @@ package-requirements() {
     ) >> "${BASEDIR:?}/requirements.txt"
 
     mkdir -p "${BASEDIR:?}/icons"
-    cp installer/windows/{orange.ico,OrangeOWS.ico} "${BASEDIR:?}/icons"
+    cp installer/windows/{scOrange.ico,OrangeOWS.ico} "${BASEDIR:?}/icons"
 }
 
 
@@ -330,7 +330,7 @@ EOF
     mkdir -p "${DISTDIR}"
 
     makensis -DOUTFILENAME="${outpath}/${filename}" \
-             -DAPPNAME=Orange \
+             -DAPPNAME=scOrange \
              -DVERSION=${VERSION} \
              -DVERMAJOR=${major} -DVERMINOR=${minor} -DVERMICRO=${micro} \
              -DPYMAJOR=${pymajor} -DPYMINOR=${pyminor} -DPYMICRO=${pymicro} \
@@ -338,7 +338,7 @@ EOF
              -DPYINSTALL_TYPE=${PYINSTALL_TYPE} \
              -DBASEDIR="${basedir}" \
              -DPYINSTALLER=${pyinstaller} \
-             -DINSTALL_REGISTRY_KEY=OrangeCanvas \
+             -DINSTALL_REGISTRY_KEY=scOrange \
              -DINSTALLERICON=installer/windows/OrangeInstall.ico \
              -DLICENSE_FILE="${BASEDIR}"/license.txt \
              -NOCD \

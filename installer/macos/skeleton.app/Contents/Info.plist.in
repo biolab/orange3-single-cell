@@ -15,7 +15,7 @@
     <key>CFBundleShortVersionString</key>
     <string>__VERSION__</string>
     <key>CFBundleIconFile</key>
-    <string>orange.icns</string>
+    <string>scOrange.icns</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleSignature</key>

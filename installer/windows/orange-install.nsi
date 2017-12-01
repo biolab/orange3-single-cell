@@ -1,5 +1,5 @@
 #
-# A NSIS installer script for Orange3 Windows application
+# A NSIS installer script for scOrange Windows application
 #
 
 # Required definitions need to be passed to the makensis call
@@ -200,8 +200,8 @@ Var StartMenuFolder
 !define MUI_FINISHPAGE_RUN_FUNCTION "LaunchApplication"
 !define MUI_FINISHPAGE_RUN_TEXT "Start ${APPLICATIONNAME}"
 # - add link at the bottom
-!define MUI_FINISHPAGE_LINK "orange.biolab.si"
-!define MUI_FINISHPAGE_LINK_LOCATION "http://orange.biolab.si"
+!define MUI_FINISHPAGE_LINK "singlecell.biolab.si"
+!define MUI_FINISHPAGE_LINK_LOCATION "http://singlecell.biolab.si"
 
 !insertmacro MUI_PAGE_FINISH
 
@@ -545,11 +545,11 @@ FunctionEnd
 
 Section -Icons
     # Layout icons if necessary (are not present)
-    ${IfNot} ${FileExists} $PythonPrefix\share\orange3\icons\*.ico"
+    ${IfNot} ${FileExists} $PythonPrefix\share\scorange\icons\*.ico"
         ${ExtractTempRec} "${BASEDIR}\icons\*.ico" "${TEMPDIR}\icons"
-        CreateDirectory "$PythonPrefix\share\orange3\icons"
+        CreateDirectory "$PythonPrefix\share\scorange\icons"
         CopyFiles /SILENT "${TEMPDIR}\icons\*.ico" \
-                          "$PythonPrefix\share\orange3\icons"
+                          "$PythonPrefix\share\scorange\icons"
     ${EndIf}
 SectionEnd
 
@@ -562,13 +562,13 @@ Section -Launchers
     CreateShortCut \
         "$InstDir\${LAUNCHER_SHORTCUT_NAME}.lnk" \
         "$PythonExecPrefix\pythonw.exe" "-m orangecontrib.single_cell" \
-        "$PythonPrefix\share\orange3\icons\orange.ico" 0
+        "$PythonPrefix\share\scorange\icons\scOrange.ico" 0
     # Utility shortcut to launch the application with max log level attached
     # to the console that remains visible after exit
     CreateShortCut \
         "$InstDir\${LAUNCHER_SHORTCUT_NAME} Debug.lnk" \
         "%COMSPEC%" '/K "$PythonExecPrefix\python.exe" -m orangecontrib.single_cell -l4' \
-        "$PythonPrefix\share\orange3\icons\orange.ico" 0
+        "$PythonPrefix\share\scorange\icons\scOrange.ico" 0
 !if ${PYINSTALL_TYPE} == Normal
     # A utility shortcut for activating the environment
     CreateShortCut \
@@ -602,7 +602,7 @@ Section "Start Menu Shortcuts" SectionStartMenu
         CreateShortCut \
             "$SMPROGRAMS\$StartMenuFolder\${LAUNCHER_SHORTCUT_NAME}.lnk" \
             "$PythonExecPrefix\pythonw.exe" "-m orangecontrib.single_cell" \
-            "$PythonPrefix\share\orange3\icons\orange.ico" 0
+            "$PythonPrefix\share\scorange\icons\scOrange.ico" 0
 !if ${PYINSTALL_TYPE} == Normal
         # A utility shortcut for activating the environment
         CreateShortCut \
@@ -627,7 +627,7 @@ Section "Desktop Shortcuts" SectionDesktop
     CreateShortCut \
         "$DESKTOP\${LAUNCHER_SHORTCUT_NAME}.lnk" \
         "$PythonExecPrefix\pythonw.exe" "-m orangecontrib.single_cell" \
-        "$PythonPrefix\share\orange3\icons\orange.ico" 0
+        "$PythonPrefix\share\scorange\icons\scOrange.ico" 0
 SectionEnd
 
 SectionGroupEnd
@@ -672,14 +672,14 @@ Section -Register SectionRegister
 
     ${LogWrite} "Register .ows filetype"
     WriteRegStr SHELL_CONTEXT \
-        "Software\Classes\.ows" "" "OrangeCanvas"
+        "Software\Classes\.ows" "" "scOrange"
     WriteRegStr SHELL_CONTEXT \
-        "Software\Classes\OrangeCanvas" "" "Orange Workflow"
+        "Software\Classes\scOrange" "" "Orange Workflow"
     WriteRegStr SHELL_CONTEXT \
-        "Software\Classes\OrangeCanvas\DefaultIcon" "" \
-        "$PythonPrefix\share\orange3\icons\OrangeOWS.ico"
+        "Software\Classes\scOrange\DefaultIcon" "" \
+        "$PythonPrefix\share\scorange\icons\OrangeOWS.ico"
     WriteRegStr SHELL_CONTEXT \
-        "Software\Classes\OrangeCanvas\Shell\Open\Command\" "" \
+        "Software\Classes\scOrange\Shell\Open\Command\" "" \
         '"$PythonExecPrefix\pythonw.exe" -m orangecontrib.single_cell "%1"'
 
     WriteUninstaller "$InstDir\${UNINSTALL_EXEFILE}"
@@ -710,7 +710,7 @@ Section -Register SectionRegister
                 InstallLocation "$InstDir"
     WriteRegStr SHELL_CONTEXT \
                 "${WINDOWS_UNINSTALL_REGKEY}\${APPNAME}" \
-                URLInfoAbout http://orange.biolab.si
+                URLInfoAbout http://singlecell.biolab.si
 
     WriteRegDWORD SHELL_CONTEXT \
                   "${WINDOWS_UNINSTALL_REGKEY}\${APPNAME}" \
@@ -730,8 +730,8 @@ Function un.Register
     ${AndIf} $un.InstallDir == $InstDir
         ${LogWrite} "Deleting reg key: ${INSTALL_SETTINGS_KEY}"
         DeleteRegKey SHCTX "${INSTALL_SETTINGS_KEY}"
-        ${LogWrite} "Deleting reg key: Software\Classes\OrangeCanvas"
-        DeleteRegKey SHCTX Software\Classes\OrangeCanvas
+        ${LogWrite} "Deleting reg key: Software\Classes\scOrange"
+        DeleteRegKey SHCTX Software\Classes\scOrange
     ${Else}
         ${LogWrite} "InstallDir from ${INSTALL_SETTINGS_KEY} does not match \
                     InstDir ($un.InstallDir != $InstDir). Leaving it."
