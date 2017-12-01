@@ -1,5 +1,5 @@
-Rank
-====
+Score Genes
+===========
 
 .. figure:: icons/ScoreGenes.png
 

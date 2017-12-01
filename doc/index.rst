@@ -8,3 +8,12 @@ Widgets
    :maxdepth: 1
 
    widgets/scoregenes
+   widgets/singlecelldatasets
+   widgets/scorecells
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
