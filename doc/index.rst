@@ -7,13 +7,9 @@ Widgets
 .. toctree::
    :maxdepth: 1
 
-   widgets/scoregenes
    widgets/singlecelldatasets
+   widgets/normalize
+   widgets/scoregenes
    widgets/scorecells
+   widgets/clustervariation
 
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
