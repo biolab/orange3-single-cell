@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<scheme description="Load data and a list of marker genes from our database. Select marker genes of choice. Score cells according to the expression of selected markers, and reveal marker-specific cells in t-SNE cell landscape. Open both Data Table (marker selection) and t-SNE visualization to turn scOrange into interactive gene marker browser." title="Markers and subpopulations" version="2.0">
+<scheme description="Load data and a list of marker genes from our database. Select marker genes of choice. Score cells according to the expression of selected markers, and reveal marker-specific cells in the t-SNE cell landscape. Simultaneously open both Data Table (marker selection) and t-SNE visualization to turn scOrange into an interactive gene marker browser." title="Markers and subpopulations" version="2.0">
 	<nodes>
 		<node id="0" name="Data Table" position="(209.0, 310.0)" project_name="Orange3" qualified_name="Orange.widgets.data.owtable.OWDataTable" title="Data Table" version="" />
 		<node id="1" name="Score Cells" position="(357.0, 205.0)" project_name="Orange3-SingleCell" qualified_name="orangecontrib.single_cell.widgets.owscorecells.OWScoreCells" title="Score Cells" version="" />
@@ -30,8 +30,8 @@ Y29sb3JfUkdCcQMoS9xL3EvcS/90cQRYEwAAAHNhdmVkV2lkZ2V0R2VvbWV0cnlxBUMyAdnQywAC
 AAAAAAKFAAADYAAAA/AAAARtAAAChQAAA3YAAAPwAAAEbQAAAAAAAAAACgBxBlgLAAAAc2VsZWN0
 X3Jvd3NxB4hYFQAAAHNob3dfYXR0cmlidXRlX2xhYmVsc3EIiFgSAAAAc2hvd19kaXN0cmlidXRp
 b25zcQmJWAsAAABfX3ZlcnNpb25fX3EKSwFYEAAAAGNvbnRleHRfc2V0dGluZ3NxC11xDChjT3Jh
-bmdlLndpZGdldHMuc2V0dGluZ3MKQ29udGV4dApxDSmBcQ59cQ8oWAQAAAB0aW1lcRBHQdaHsWVI
-hkBYBgAAAHZhbHVlc3ERfXESKFgNAAAAc2VsZWN0ZWRfY29sc3ETXXEUKEsASwFLAmVYDQAAAHNl
+bmdlLndpZGdldHMuc2V0dGluZ3MKQ29udGV4dApxDSmBcQ59cQ8oWAQAAAB0aW1lcRBHQdaIUc4r
+PJ9YBgAAAHZhbHVlc3ERfXESKFgNAAAAc2VsZWN0ZWRfY29sc3ETXXEUKEsASwFLAmVYDQAAAHNl
 bGVjdGVkX3Jvd3NxFV1xFksDYWgKSwF1WAoAAABhdHRyaWJ1dGVzcRd9cRhYCAAAAGNlbGxUeXBl
 cRldcRooWAYAAABCLWNlbGxxG1gNAAAATWVnYWthcnlvY3l0ZXEcWAgAAABNb25vY3l0ZXEdWAcA
 AABOSy1jZWxscR5YBgAAAFQtY2VsbHEfZXNYBQAAAG1ldGFzcSB9cSEoWAYAAABnZW5lSURxIksD
@@ -48,7 +48,7 @@ cmRlcmVkX2RvbWFpbnFGXXFHaD5LAYZxSGF1YmV1Lg==
 		<properties format="pickle" node_id="1">gAN9cQAoWAoAAABhdXRvX2FwcGx5cQGIWBMAAABzYXZlZFdpZGdldEdlb21ldHJ5cQJDMgHZ0MsA
 AgAAAAACYQAAAWMAAAM5AAACHwAAAmEAAAF5AAADOQAAAh8AAAAAAAAAAAWgcQNYCwAAAF9fdmVy
 c2lvbl9fcQRLAVgQAAAAY29udGV4dF9zZXR0aW5nc3EFXXEGKGNPcmFuZ2Uud2lkZ2V0cy5zZXR0
-aW5ncwpDb250ZXh0CnEHKYFxCH1xCShYBAAAAHRpbWVxCkdB1oexZU+MblgGAAAAdmFsdWVzcQt9
+aW5ncwpDb250ZXh0CnEHKYFxCH1xCShYBAAAAHRpbWVxCkdB1ohRzjGXU1gGAAAAdmFsdWVzcQt9
 cQwoWAQAAABnZW5lcQ1YCAAAAGdlbmVOYW1lcQ5LZ4ZxD2gESwF1WAoAAABhdHRyaWJ1dGVzcRB9
 cRFYCAAAAGNlbGxUeXBlcRJLAXNYBQAAAG1ldGFzcRN9cRQoWAYAAABnZW5lSURxFUsDWAgAAABn
 ZW5lTmFtZXEWSwN1dWJoBymBcRd9cRgoaApHQdaDbgF8sPdoC31xGShYBAAAAGdlbmVxGlgIAAAA
@@ -65,7 +65,7 @@ EQAAAGppdHRlcl9jb250aW51b3VzcRCIWAsAAABqaXR0ZXJfc2l6ZXERSwBYEwAAAGxhYmVsX29u
 bHlfc2VsZWN0ZWRxEolYCwAAAHBvaW50X3dpZHRocRNLD1gJAAAAc2hvd19ncmlkcRSJWAsAAABz
 aG93X2xlZ2VuZHEViFgNAAAAc2hvd19yZWdfbGluZXEWiVgRAAAAdG9vbHRpcF9zaG93c19hbGxx
 F4l1WAsAAABfX3ZlcnNpb25fX3EYSwJYEAAAAGNvbnRleHRfc2V0dGluZ3NxGV1xGmNPcmFuZ2Uu
-d2lkZ2V0cy5zZXR0aW5ncwpDb250ZXh0CnEbKYFxHH1xHShYBAAAAHRpbWVxHkdB1oexZVdGOVgG
+d2lkZ2V0cy5zZXR0aW5ncwpDb250ZXh0CnEbKYFxHH1xHShYBAAAAHRpbWVxHkdB1ohRzjkmB1gG
 AAAAdmFsdWVzcR99cSAoaAx9cSEoWAoAAABhdHRyX2NvbG9ycSJYBQAAAFNjb3JlcSNLZoZxJFgK
 AAAAYXR0cl9sYWJlbHElTkr+////hnEmWAoAAABhdHRyX3NoYXBlcSdOSv7///+GcShYCQAAAGF0
 dHJfc2l6ZXEpaCNLZoZxKnVoGEsCdVgKAAAAYXR0cmlidXRlc3ErfXEsKFgEAAAASEJHMXEtSwJY
