@@ -351,7 +351,7 @@ class OWRank(OWWidget):
         gui.rubber(self.controlArea)
         self.switchProblemType(ProblemType.CLASSIFICATION)
 
-        selMethBox = gui.vBox(self.controlArea, "Select Attributes", addSpace=True)
+        selMethBox = gui.vBox(self.controlArea, "Select Genes", addSpace=True)
 
         grid = QGridLayout()
         grid.setContentsMargins(6, 0, 6, 0)
