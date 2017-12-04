@@ -1,6 +1,7 @@
 from Orange.canvas.application.workflows import list_schemes, ExampleWorkflow
 
 from orangecontrib.single_cell.launcher.splash import splash_screen
+from orangecontrib.single_cell.launcher.update_check import check_for_updates
 
 
 class SCOrangeLauncher:
@@ -10,6 +11,7 @@ class SCOrangeLauncher:
         self.replace_splash_screen()
         self.replace_welcome_screen()
         self.replace_example_workflows()
+        self.replace_update_check()
 
         self.fix_tsne_category()
 
@@ -96,6 +98,11 @@ class SCOrangeLauncher:
                          for wf in workflows]
             return workflows
         workflows.example_workflows = example_workflows
+
+    def replace_update_check(self):
+        from Orange.canvas import __main__
+
+        __main__.check_for_updates = check_for_updates
 
     def replace_splash_screen(self):
         from AnyQt.QtCore import Qt
