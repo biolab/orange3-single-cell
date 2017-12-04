@@ -354,7 +354,7 @@ fetch-requirements "${PIP_ARGS[@]}"
 package-requirements "${PIP_ARGS[@]}"
 
 shopt -s failglob
-WHEEL=( "${BASEDIR}"/wheelhouse/${NAME}*.whl )
+WHEEL=( "${BASEDIR}"/wheelhouse/Orange3_SingleCell*.whl )
 shopt -u failglob
 
 if [[ ! "${WHEEL}" ]]; then
