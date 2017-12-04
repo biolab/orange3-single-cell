@@ -13,7 +13,7 @@ codesign -s "Developer ID" $APP/Contents/Frameworks/Python.framework/Versions/3.
 codesign -s "Developer ID" $APP/Contents/MacOS/pip
 codesign -s "Developer ID" $APP
 
-VERSION=$APP/Contents/MacOS/python -c 'import pkg_resources; print(pkg_resources.get_distribution("Orange3-SingleCell").version)'
+VERSION=$($APP/Contents/MacOS/python -c 'import pkg_resources; print(pkg_resources.get_distribution("Orange3-SingleCell").version)')
 # Create disk image
 ./create-dmg-installer.sh --app $APP $DIST/scOrange-$VERSION.dmg
 # Sign disk image
