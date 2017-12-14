@@ -86,8 +86,8 @@ def differential_expression(data, groupby):
     X = np.zeros((data.X.shape[1], len(groups)))
     for gi, g in enumerate(groups):
         ind = group_col == g
-        in_group = data.X[ind].mean(axis=0)
-        out_group = data.X[~ind].mean(axis=0)
+        in_group = np.nanmean(data.X[ind], axis=0)
+        out_group = np.nanmean(data.X[~ind], axis=0)
         fc = in_group / (out_group + 0.0001)
         logfc = np.log2(abs(fc) + 0.0001)
         X[:, gi] = logfc
