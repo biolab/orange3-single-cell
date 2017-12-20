@@ -35,7 +35,7 @@ Examples
 '
 }
 
-NAME=Orange3
+NAME=scOrange
 # version is determined from the ENV_SPEC_FILE
 VERSION=
 
@@ -177,6 +177,7 @@ fetch-miniconda() {
     local dest="${destdir}/${filename}"
     if [[ ! -f "${dest}" ]]; then
         local tmpname=$(mktemp "${dest}.XXXXX")
+        echo Downloading ${url}
         if curl -fSL -o "${tmpname}" "${url}/${filename}"; then
             mv "${tmpname}" "${dest}"
         else
@@ -271,12 +272,14 @@ fetch-files() {
                         test -f "${tmpname}" && rm -f "${tmpname}" || true;
                     }
                     trap cleanup EXIT
+                    echo Downloading ${url}
                     curl -fSL -o "${tmpname}" "${url}" || exit 1
                     mv "${tmpname}" "${cache}/${fname}"
                 )
             fi
             cp "${cache}/${fname}" "${destdir}"
         else
+            echo Downloading ${url}
             ( cd "${destdir}"; curl -fSL -O "${url}" )
         fi
     done
@@ -320,7 +323,7 @@ Acknowledgments and License Agreement
 -------------------------------------
 
 EOF
-    local licenses=( LICENSE )
+    local licenses=( "$(dirname "$0")"/../../LICENSE )
     for file in "${licenses[@]}"; do
         cat "${file}" >> "${BASEDIR}"/license.txt
         echo "" >> "${BASEDIR}"/license.txt
@@ -328,15 +331,15 @@ EOF
     mkdir -p "${DISTDIR}"
 
     makensis -DOUTFILENAME="${outpath}/${filename}" \
-             -DAPPNAME=Orange \
+             -DAPPNAME=scOrange \
              -DVERSION=${VERSION} \
              -DVERMAJOR=${major} -DVERMINOR=${minor} -DVERMICRO=${micro} \
              -DPYMAJOR=${pymajor} -DPYMINOR=${pyminor} -DPYMICRO=${pymicro} \
              -DPYARCH=${PLATTAG} \
              -DBASEDIR="${basedir}" \
              -DPYINSTALLER=${pyinstaller} \
-             -DINSTALL_REGISTRY_KEY=OrangeCanvas \
-             -DINSTALLERICON=scripts/windows/OrangeInstall.ico \
+             -DINSTALL_REGISTRY_KEY=scOrange \
+             -DINSTALLERICON="$(dirname "$0")"/OrangeInstall.ico \
              -DLICENSE_FILE="${BASEDIR}"/license.txt \
              "${extransisparams[@]}" \
              -NOCD \
@@ -357,8 +360,8 @@ else
     conda-fetch-packages "${BASEDIR:?}"/conda-pkgs "${ENV_SPEC_FILE}"
     # extract the orange version from env spec
     VERSION=$(cat < "${BASEDIR:?}"/conda-pkgs/conda-spec.txt |
-              grep -E 'orange3-.*tar.bz2' |
-              cut -d "-" -f 2)
+              grep -E 'orange3-single-cell.*tar.bz2' |
+              cut -d "-" -f 4)
 fi
 
 if [[ ! "${VERSION}" ]]; then
@@ -370,5 +373,5 @@ cp "${CACHEDIR:?}/miniconda/Miniconda3-${MINICONDA_VERSION}-Windows-${CONDAPLATT
    "${BASEDIR:?}/"
 
 mkdir -p "${BASEDIR:?}/icons"
-cp scripts/windows/{orange.ico,OrangeOWS.ico} "${BASEDIR:?}/icons"
+cp "$(dirname "$0")"/{scOrange.ico,OrangeOWS.ico} "${BASEDIR:?}/icons"
 make-installer
