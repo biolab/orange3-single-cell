@@ -3,14 +3,12 @@ from typing import Optional
 import networkx as nx
 import numpy as np
 from AnyQt.QtCore import Qt, pyqtSignal as Signal
-from AnyQt.QtWidgets import QSlider, QPushButton
+from AnyQt.QtWidgets import QSlider, QPushButton, QCheckBox
+from sklearn.neighbors import NearestNeighbors
 
 from Orange.data import Table, DiscreteVariable
-from Orange.distance import Euclidean
-from Orange.misc import DistMatrix
 from Orange.projection import PCA
 from Orange.widgets import widget, gui
-from Orange.widgets.gui import SpinBoxWFocusOut
 from Orange.widgets.settings import DomainContextHandler, ContextSetting
 from Orange.widgets.utils.annotated_data import get_next_name, add_columns, \
     ANNOTATED_DATA_SIGNAL_NAME
@@ -30,13 +28,16 @@ _MAX_K_NEIGBOURS = 200
 _DEFAULT_K_NEIGHBOURS = 30
 
 
+METRICS = [('Euclidean', 'l2'), ('Manhattan', 'l1')]
+
+
 def jaccard(x, y):
     # type: (set, set) -> float
     """Compute the Jaccard similarity between two sets."""
     return len(x & y) / len(x | y)
 
 
-def table_to_graph(data, k_neighbours, distances, progress_callback=None):
+def table_to_graph(data, k_neighbours, metric, progress_callback=None):
     """Convert tabular data to a graph using a nearest neighbours approach with
     the Jaccard similarity as the edge weights.
 
@@ -44,7 +45,8 @@ def table_to_graph(data, k_neighbours, distances, progress_callback=None):
     ----------
     data : Table
     k_neighbours : int
-    distances : DistMatrix
+    metric : str
+        A distance metric supported by sklearn.
     progress_callback : Callable[[float], None]
 
     Returns
@@ -53,7 +55,8 @@ def table_to_graph(data, k_neighbours, distances, progress_callback=None):
 
     """
     # We do k + 1 because each point is closest to itself, which is not useful
-    nearest_neighbours = np.argsort(distances, axis=1)[:, 1:k_neighbours + 1]
+    knn = NearestNeighbors(n_neighbors=k_neighbours, metric=metric).fit(data.X)
+    nearest_neighbours = knn.kneighbors(data.X, return_distance=False)
     # Convert to list of sets so jaccard can be computed efficiently
     nearest_neighbours = list(map(set, nearest_neighbours))
     num_nodes = len(nearest_neighbours)
@@ -72,7 +75,6 @@ def table_to_graph(data, k_neighbours, distances, progress_callback=None):
                 progress_callback(progress)
 
         for neighbour in nearest_neighbours[node]:
-            # graph.add_edge(node, neighbour)
             graph.add_edge(node, neighbour, weight=jaccard(
                 nearest_neighbours[node], nearest_neighbours[neighbour]))
 
@@ -91,12 +93,13 @@ class OWLouvainClustering(widget.OWWidget):
         annotated_data = Output(ANNOTATED_DATA_SIGNAL_NAME, Table, default=True)
         graph = Output('Network', Graph)
 
+    apply_pca = ContextSetting(True)
     pca_components = ContextSetting(_DEFAULT_PCA_COMPONENTS)
+    metric_idx = ContextSetting(0)
     k_neighbours = ContextSetting(_DEFAULT_K_NEIGHBOURS)
     resolution = ContextSetting(1.)
 
     pca_projection_complete = Signal()
-    distances_complete = Signal()
     build_graph_complete = Signal()
     find_partition_complete = Signal()
 
@@ -104,13 +107,16 @@ class OWLouvainClustering(widget.OWWidget):
         super().__init__()
 
         self.data = None  # type: Optional[Table]
-        self.distances = None  # type: Optional[DistMatrix]
         self.graph = None  # type: Optional[nx.Graph]
         self.partition = None  # type: Optional[np.array]
 
         self.__executor = ThreadExecutor(parent=self)
 
         pca_box = gui.vBox(self.controlArea, 'PCA Preprocessing')
+        self.apply_pca_cbx = gui.checkBox(
+            pca_box, self, 'apply_pca', label='Apply PCA preprocessing',
+            callback=self._invalidate_graph,
+        )  # type: QCheckBox
         self.pca_components_slider = gui.hSlider(
             pca_box, self, 'pca_components', label='Components: ', minValue=2,
             maxValue=_MAX_PCA_COMPONENTS,
@@ -118,16 +124,21 @@ class OWLouvainClustering(widget.OWWidget):
         )  # type: QSlider
 
         graph_box = gui.vBox(self.controlArea, 'Graph parameters')
+        self.metric_combo = gui.comboBox(
+            graph_box, self, 'metric_idx', label='Distance metric',
+            items=[m[0] for m in METRICS], callback=self._invalidate_graph,
+            orientation=Qt.Horizontal,
+        )  # type: gui.OrangeComboBox
         self.k_neighbours_spin = gui.spin(
             graph_box, self, 'k_neighbours', minv=1, maxv=_MAX_K_NEIGBOURS,
             label='k neighbours', controlWidth=80, alignment=Qt.AlignRight,
             callback=self._invalidate_graph,
-        )  # type: SpinBoxWFocusOut
+        )  # type: gui.SpinBoxWFocusOut
         self.cls_epsilon_spin = gui.spin(
             graph_box, self, 'resolution', 0, 5., 1e-2, spinType=float,
             label='Resolution', controlWidth=80, alignment=Qt.AlignRight,
             callback=self._invalidate_partition,
-        )  # type: SpinBoxWFocusOut
+        )  # type: gui.SpinBoxWFocusOut
 
         self.compute_btn = gui.button(
             self.controlArea, self, 'Run clustering',
@@ -135,15 +146,14 @@ class OWLouvainClustering(widget.OWWidget):
         )  # type: QPushButton
 
         # Connect the pipeline together
-        self.pca_projection_complete.connect(self._compute_distances)
-        self.distances_complete.connect(self._compute_graph)
+        self.pca_projection_complete.connect(self._compute_graph)
         self.build_graph_complete.connect(self._compute_partition)
         self.find_partition_complete.connect(self._send_data)
         self.find_partition_complete.connect(self._processing_complete)
 
     def _compute_pca_projection(self):
         def _process():
-            if self.pca_projection is None:
+            if self.pca_projection is None and self.apply_pca:
                 self.setStatusMessage('Computing PCA...')
                 self.setBlocking(True)
 
@@ -152,18 +162,6 @@ class OWLouvainClustering(widget.OWWidget):
                 self.pca_projection = model(self.data)
 
             self.pca_projection_complete.emit()
-
-        self.__executor.submit(_process)
-
-    def _compute_distances(self):
-        def _process():
-            if self.distances is None:
-                self.setStatusMessage('Computing distances...')
-                self.setBlocking(True)
-
-                self.distances = Euclidean(self.data)
-
-            self.distances_complete.emit()
 
         self.__executor.submit(_process)
 
@@ -177,9 +175,13 @@ class OWLouvainClustering(widget.OWWidget):
                 self.setStatusMessage('Building graph...')
                 self.setBlocking(True)
 
+                data = self.pca_projection if self.apply_pca else self.data
+
                 self.graph = table_to_graph(
-                    self.data, k_neighbours=self.k_neighbours,
-                    distances=self.distances, progress_callback=_progress_bar)
+                    data, k_neighbours=self.k_neighbours,
+                    metric=METRICS[self.metric_idx][1],
+                    progress_callback=_progress_bar,
+                )
                 self.progressBarFinished()
 
             self.build_graph_complete.emit()
@@ -223,10 +225,6 @@ class OWLouvainClustering(widget.OWWidget):
 
     def _invalidate_pca_projection(self):
         self.pca_projection = None
-        self._invalidate_distances()
-
-    def _invalidate_distances(self):
-        self.distances = None
         self._invalidate_graph()
 
     def _invalidate_graph(self):
@@ -240,7 +238,12 @@ class OWLouvainClustering(widget.OWWidget):
         if not self.data:
             return
 
-        self._compute_pca_projection()
+        # Don't needlessly compute the PCA projection if the user decided to
+        # use full data
+        if self.apply_pca:
+            self._compute_pca_projection()
+        else:
+            self._compute_graph()
 
     @Inputs.data
     def set_data(self, data):
