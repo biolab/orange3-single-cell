@@ -1,3 +1,10 @@
+"""Python port for Louvain clustering, available at
+https://github.com/taynaud/python-louvain
+
+Original C++ implementation available at
+https://sites.google.com/site/findcommunities/
+
+"""
 import random
 
 import networkx as nx
