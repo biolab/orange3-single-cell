@@ -25,6 +25,7 @@ except:
 
 
 _MAX_PCA_COMPONENTS = 50
+_MAX_K_NEIGBOURS = 200
 
 
 def jaccard(x, y):
@@ -89,7 +90,6 @@ class OWLouvainClustering(widget.OWWidget):
     pca_components = Setting(25)
     k_neighbours = Setting(30)
     resolution = Setting(1.)
-    auto_apply = Setting(True)
 
     pca_projection_complete = Signal()
     distances_complete = Signal()
@@ -115,7 +115,7 @@ class OWLouvainClustering(widget.OWWidget):
 
         graph_box = gui.vBox(self.controlArea, 'Graph parameters')
         self.k_neighbours_spin = gui.spin(
-            graph_box, self, 'k_neighbours', minv=1, maxv=200,
+            graph_box, self, 'k_neighbours', minv=1, maxv=_MAX_K_NEIGBOURS,
             label='k neighbours', controlWidth=80, alignment=Qt.AlignRight,
             callback=self._invalidate_graph,
         )  # type: SpinBoxWFocusOut
@@ -124,8 +124,10 @@ class OWLouvainClustering(widget.OWWidget):
             label='Resolution', controlWidth=80, alignment=Qt.AlignRight,
             callback=self._invalidate_partition,
         )  # type: SpinBoxWFocusOut
+
         self.compute_btn = gui.button(
-            graph_box, self, 'Run clustering', callback=self.compute_partition,
+            self.controlArea, self, 'Run clustering',
+            callback=self.compute_partition,
         )  # type: QPushButton
 
         # Connect the pipeline together
@@ -162,14 +164,19 @@ class OWLouvainClustering(widget.OWWidget):
         self.__executor.submit(_process)
 
     def _compute_graph(self):
+        def _progress_bar(percentage):
+            self.progressBarSet(percentage)
+
         def _process():
             if self.graph is None:
+                self.progressBarInit()
                 self.setStatusMessage('Building graph...')
                 self.setBlocking(True)
 
                 self.graph = table_to_graph(
                     self.data, k_neighbours=self.k_neighbours,
-                    distances=self.distances)
+                    distances=self.distances, progress_callback=_progress_bar)
+                self.progressBarFinished()
 
             self.build_graph_complete.emit()
 
@@ -234,12 +241,12 @@ class OWLouvainClustering(widget.OWWidget):
     @Inputs.data
     def set_data(self, data):
         self._invalidate_pca_projection()
-
         self.data = data
 
         # Can't have more PCA components than the number of attributes
         n_attrs = len(data.domain.attributes)
         self.pca_components_slider.setMaximum(min(_MAX_PCA_COMPONENTS, n_attrs))
+        self.k_neighbours_spin.setMaximum(min(_MAX_K_NEIGBOURS, len(data)))
 
 
 if __name__ == '__main__':
