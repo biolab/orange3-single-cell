@@ -2,7 +2,7 @@ from typing import Optional
 
 import networkx as nx
 import numpy as np
-from AnyQt.QtCore import Qt, QThread, pyqtSignal as Signal
+from AnyQt.QtCore import Qt, pyqtSignal as Signal
 from AnyQt.QtWidgets import QSlider, QPushButton
 
 from Orange.data import Table, DiscreteVariable
@@ -11,10 +11,10 @@ from Orange.misc import DistMatrix
 from Orange.projection import PCA
 from Orange.widgets import widget, gui
 from Orange.widgets.gui import SpinBoxWFocusOut
-from Orange.widgets.settings import Setting
+from Orange.widgets.settings import DomainContextHandler, ContextSetting
 from Orange.widgets.utils.annotated_data import get_next_name, add_columns, \
     ANNOTATED_DATA_SIGNAL_NAME
-from Orange.widgets.utils.concurrent import FutureWatcher, ThreadExecutor
+from Orange.widgets.utils.concurrent import ThreadExecutor
 from Orange.widgets.utils.signals import Input, Output
 from orangecontrib.single_cell.widgets.louvain import best_partition
 
@@ -25,7 +25,9 @@ except:
 
 
 _MAX_PCA_COMPONENTS = 50
+_DEFAULT_PCA_COMPONENTS = 25
 _MAX_K_NEIGBOURS = 200
+_DEFAULT_K_NEIGHBOURS = 30
 
 
 def jaccard(x, y):
@@ -80,6 +82,8 @@ def table_to_graph(data, k_neighbours, distances, progress_callback=None):
 class OWLouvainClustering(widget.OWWidget):
     name = 'Louvain Clustering'
 
+    settingsHandler = DomainContextHandler()
+
     class Inputs:
         data = Input('Data', Table, default=True)
 
@@ -87,9 +91,9 @@ class OWLouvainClustering(widget.OWWidget):
         annotated_data = Output(ANNOTATED_DATA_SIGNAL_NAME, Table, default=True)
         graph = Output('Network', Graph)
 
-    pca_components = Setting(25)
-    k_neighbours = Setting(30)
-    resolution = Setting(1.)
+    pca_components = ContextSetting(_DEFAULT_PCA_COMPONENTS)
+    k_neighbours = ContextSetting(_DEFAULT_K_NEIGHBOURS)
+    resolution = ContextSetting(1.)
 
     pca_projection_complete = Signal()
     distances_complete = Signal()
@@ -240,13 +244,18 @@ class OWLouvainClustering(widget.OWWidget):
 
     @Inputs.data
     def set_data(self, data):
+        self.closeContext()
         self._invalidate_pca_projection()
         self.data = data
+        self.openContext(self.data)
 
         # Can't have more PCA components than the number of attributes
         n_attrs = len(data.domain.attributes)
         self.pca_components_slider.setMaximum(min(_MAX_PCA_COMPONENTS, n_attrs))
-        self.k_neighbours_spin.setMaximum(min(_MAX_K_NEIGBOURS, len(data)))
+        self.pca_components_slider.setValue(min(_DEFAULT_PCA_COMPONENTS, n_attrs))
+        # Can't have more k neighbours than there are data points
+        self.k_neighbours_spin.setMaximum(min(_MAX_K_NEIGBOURS, len(data) - 1))
+        self.k_neighbours_spin.setValue(min(_DEFAULT_K_NEIGHBOURS, len(data) - 1))
 
 
 if __name__ == '__main__':
