@@ -14,6 +14,11 @@ from Orange.widgets.utils.concurrent import FutureWatcher, ThreadExecutor
 from Orange.widgets.utils.signals import Input, Output
 from orangecontrib.single_cell.widgets.louvain import best_partition
 
+try:
+    from orangecontrib.network.network import Graph
+except:
+    Graph = None
+
 
 def jaccard(x, y):
     # type: (set, set) -> float
@@ -71,6 +76,7 @@ class OWLouvainClustering(widget.OWWidget):
 
     class Outputs:
         annotated_data = Output('Annotated Data', Table, default=True)
+        graph = Output('Network', Graph)
 
     k_neighbours = Setting(30)
     resolution = Setting(1.)
@@ -183,6 +189,11 @@ class OWLouvainClustering(widget.OWWidget):
             new_table = self.data.transform(new_domain)
             new_table.get_column_view(cluster_var)[0][:] = self.partition
             self.Outputs.annotated_data.send(new_table)
+
+            if Graph is not None:
+                graph = Graph(self.graph)
+                graph.set_items(new_table)
+                self.Outputs.graph.send(graph)
 
         future = self.__executor.submit(_process)
         watcher = FutureWatcher(future, parent=self)
