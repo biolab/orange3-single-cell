@@ -67,7 +67,7 @@ class OWNormalization(widget.OWWidget):
         self.data = data
 
         if self.data is None:
-            self.attrs_model.clear()
+            self.attrs_model.set_domain(None)
             self.commit()
             self.info.setText("No data on input")
             return
