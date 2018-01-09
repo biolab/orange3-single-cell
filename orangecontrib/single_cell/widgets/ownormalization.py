@@ -3,6 +3,7 @@ from AnyQt.QtCore import Qt, QTimer
 from Orange.data import Table, DiscreteVariable
 from Orange.widgets import widget, gui, settings
 from Orange.widgets.utils.itemmodels import DomainModel
+from Orange.widgets.widget import Input, Output
 
 from orangecontrib.single_cell.preprocess.scnormalize import SCNormalizer
 
@@ -15,8 +16,12 @@ class OWNormalization(widget.OWWidget):
 
     DEFAULT_CELL_NORM = "(One group per cell)"
 
-    inputs = [("Data", Table, 'set_data')]
-    outputs = [("Data", Table), ("Preprocessor", SCNormalizer)]
+    class Inputs:
+        data = Input("Data", Table)
+
+    class Outputs:
+        data = Output("Data", Table)
+        preprocessor = Output("Preprocessor", SCNormalizer)
 
     want_main_area = False
     resizing_enabled = False
@@ -62,6 +67,7 @@ class OWNormalization(widget.OWWidget):
         gui.auto_commit(self.controlArea, self, 'autocommit', '&Apply')
         QTimer.singleShot(0, self.commit)
 
+    @Inputs.data
     def set_data(self, data):
         self.closeContext()
         self.data = data
@@ -79,7 +85,7 @@ class OWNormalization(widget.OWWidget):
         self.normalize_check.setEnabled(len(self.attrs_model) > 0)
         self.combo_attrs.setEnabled(self.normalize_cells)
 
-        self.send("Data", None)
+        self.Outputs.data.send(None)
         self.openContext(self.data.domain)
         self.on_changed()
 
@@ -105,8 +111,8 @@ class OWNormalization(widget.OWWidget):
         if self.data is not None:
             data = pp(self.data)
 
-        self.send("Data", data)
-        self.send("Preprocessor", pp)
+        self.Outputs.data.send(data)
+        self.Outputs.preprocessor.send(pp)
 
 
 if __name__ == "__main__":

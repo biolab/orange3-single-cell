@@ -11,9 +11,6 @@ class TestOWClusterStatistics(WidgetTest):
     def setUp(self):
         self.widget = self.create_widget(OWClusterStatistics)
 
-        self.input_data = self.widget.inputs[0]
-        self.output_data = self.widget.outputs[0]
-
         class_var = DiscreteVariable('Cluster', values=['C1', 'C2', 'C3'])
         domain = Domain([ContinuousVariable('GeneName')], class_vars=class_var)
 
@@ -29,26 +26,26 @@ class TestOWClusterStatistics(WidgetTest):
 
     def test_no_data(self):
         # input data
-        self.send_signal(self.input_data, None)
+        self.send_signal(self.widget.Inputs.data, None)
 
         self.assertIsNone(self.widget.data)
         self.assertEqual(self.widget.info.text(), 'No data on input')
 
     def test_no_discrete_var(self):
         # input data
-        self.send_signal(self.input_data, Table([[1, 2, 3]]))
+        self.send_signal(self.widget.Inputs.data, Table([[1, 2, 3]]))
         self.assertIsNotNone(self.widget.data)
         # test discrete var
         self.assertTrue(self.widget.Warning.no_discrete_attributes)
 
     def test_cluster_statistics(self):
         # input data
-        self.send_signal(self.input_data, self.data)
+        self.send_signal(self.widget.Inputs.data, self.data)
         self.assertIsNotNone(self.widget.data)
 
         # output data
         self.widget.commit()
-        out_data = self.get_output(self.output_data)
+        out_data = self.get_output(self.widget.Outputs.data)
 
         # we have 3 clusters in data
         self.assertTrue(len(out_data) == 3)
