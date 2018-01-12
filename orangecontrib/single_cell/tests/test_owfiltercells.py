@@ -3,12 +3,12 @@ import numpy as np
 import Orange.data
 from Orange.widgets.tests.base import WidgetTest
 
-from orangecontrib.single_cell.widgets.owfiltercells import OWFilterCells
+from orangecontrib.single_cell.widgets.owfiltercells import OWFilter
 
 
 class TestOWFilterCells(WidgetTest):
     def setUp(self):
-        self.widget = self.create_widget(OWFilterCells)
+        self.widget = self.create_widget(OWFilter)
 
     def tearDown(self):
         self.widget.onDeleteWidget()

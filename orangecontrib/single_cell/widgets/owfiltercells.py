@@ -1,7 +1,3 @@
-"""
-Filter cells based on measurement counts
-"""
-
 import sys
 from types import SimpleNamespace
 from typing import Optional, Sequence
@@ -16,7 +12,7 @@ from AnyQt.QtGui import (
 )
 from AnyQt.QtWidgets import (
     QLabel, QSpinBox, QGroupBox, QAction, QGraphicsPathItem, QGraphicsRectItem,
-    QFormLayout, QHBoxLayout, QApplication
+    QFormLayout, QApplication, QButtonGroup, QRadioButton
 )
 
 import pyqtgraph as pg
@@ -25,10 +21,24 @@ import Orange.data
 import Orange.widgets.utils.plot.owpalette
 from Orange.widgets import widget, gui, settings
 
+#: Filter type
+Cells, Genes, Data = 0, 1, 2
 
-class OWFilterCells(widget.OWWidget):
-    name = "Filter Cells"
-    description = "Filter cells by number of positive measurements"
+#: Filter descriptions for various roles in UI
+#: (short name, name, description)
+FilterInfo = {
+    Cells: ("Cells", "Cell Filter",
+            "Filter cells (rows) by number of positive measurements"),
+    Genes: ("Genes", "Gene Filter",
+            "Filter genes (columns) by number of positive measurements"),
+    Data: ("Data", "Data filter",
+           "Filter out (zero) small measurements")
+}
+
+
+class OWFilter(widget.OWWidget):
+    name = "Filter"
+    description = "Filter cells/genes"
 
     class Inputs:
         data = widget.Input("Data", Orange.data.Table)
@@ -42,11 +52,22 @@ class OWFilterCells(widget.OWWidget):
             "This filter only makes sense for non-negative measurements"
             "where 0 indicates a lack (of) and/or a neutral reading."
         )
+        sampling_in_effect = widget.Msg(
+            "Too many data points to display.\n"
+            "Sampling {} of {} data points."
+        )
+
+    Cells, Genes, Data = Cells, Genes, Data
 
     #: Augment the violin plot with a dot plot (strip plot) of the counts
     display_dotplot = settings.Setting(True)  # type: bool
+
+    #: The selected filter type
+    selected_filter_type = settings.Setting(Cells)  # type: int
+
     #: Is min/max count range selection enabled
     range_filter_enabled = settings.Setting(True)  # type: bool
+
     #: The lower and upper selection limits stored as absolute counts
     #: (does not transfer well between datasets)
     limit_lower = settings.Setting(0, schema_only=True)            # type: int
@@ -64,6 +85,17 @@ class OWFilterCells(widget.OWWidget):
         self._info.setText("No data in input\n")
 
         box.layout().addWidget(self._info)
+
+        box = gui.widgetBox(self.controlArea, "Filter Type")
+        rbg = QButtonGroup(box, exclusive=True)
+        for id_ in [Cells, Genes, Data]:
+            name, _, tip = FilterInfo[id_]
+            b = QRadioButton(
+                name, toolTip=tip, checked=id_ == self.selected_filter_type
+            )
+            box.layout().addWidget(b)
+            rbg.addButton(b, id_)
+        rbg.buttonClicked[int].connect(self.set_filter_type)
 
         box = gui.widgetBox(self.controlArea, "View")
         self._showpoints = gui.checkBox(
@@ -92,15 +124,8 @@ class OWFilterCells(widget.OWWidget):
             callback=self._limitchanged, addToLayout=False
         )  # type: QSpinBox
 
-        def suffix(spin, text):
-            layout = QHBoxLayout()
-            layout.setContentsMargins(0, 0, 0, 0)
-            layout.addWidget(spin)
-            layout.addWidget(QLabel(text, box))
-            return layout
-
-        form.addRow("At least", suffix(self.mincountspin, "detected genes"))
-        form.addRow("At most", suffix(self.maxcountspin, "detected genes"))
+        form.addRow("Min:", self.mincountspin)
+        form.addRow("Max:", self.maxcountspin)
 
         self.controlArea.layout().addStretch(10)
 
@@ -137,28 +162,26 @@ class OWFilterCells(widget.OWWidget):
         sh = super().sizeHint()  # type: QSize
         return sh.expandedTo(QSize(800, 600))
 
+    def set_filter_type(self, type_):
+        if self.selected_filter_type != type_:
+            assert type_ in (Cells, Genes, Data), str(type_)
+            self.selected_filter_type = type_
+            if self.data is not None:
+                self._setup(self.data, type_)
+
+    def filter_type(self):
+        return self.selected_filter_type
+
     @Inputs.data
     def set_data(self, data):
         # type: (Optional[Orange.data.Table]) -> None
         self.clear()
         self.data = data
         if data is not None:
-
             if np.any(data.X < 0):
                 self.Warning.invalid_range()
+            self._setup(data, self.filter_type())
 
-            mask = (data.X != 0) & (np.isfinite(data.X))
-
-            counts = np.count_nonzero(mask, axis=1)
-            if counts.size:
-                countmin, countmax = np.min(counts), np.max(counts)
-                self.limit_lower = np.clip(self.limit_lower, countmin, countmax)
-                self.limit_upper = np.clip(self.limit_upper, countmin, countmax)
-
-            self._counts = counts
-            self._setup(counts)
-
-        self._update_info()
         self.unconditional_commit()
 
     def clear(self):
@@ -166,6 +189,7 @@ class OWFilterCells(widget.OWWidget):
         self.data = None
         self._counts = None
         self._update_info()
+        self.Warning.clear()
 
     def _update_info(self):
         text = []
@@ -179,15 +203,18 @@ class OWFilterCells(widget.OWWidget):
                 .format(N=N, Np="s" if N != 1 else "",
                         M=M, Mp="s" if N != 1 else "")
             ]
-            if self.range_filter_enabled:
+            if self.range_filter_enabled and \
+                    self.filter_type() in [Cells, Genes]:
                 mask = ((self.limit_lower <= self._counts) &
                         (self._counts <= self.limit_upper))
                 n = np.count_nonzero(mask)
+                subject = "cell" if self.filter_type() == Cells else "gene"
                 if n == 0:
-                    text += ["All cells filtered out"]
+                    text += ["All {}s filtered out".format(subject)]
                 else:
                     text += [
-                        "{} cell{s} in selection".format(n, s="s" if n != 1 else "")
+                        "{} {subject}{s} in selection"
+                        .format(n, subject=subject, s="s" if n != 1 else "")
                     ]
             else:
                 text += [""]
@@ -205,14 +232,66 @@ class OWFilterCells(widget.OWWidget):
         self.limit_upper = 2 ** 31 - 1
         self._limitchanged()
 
-    def _setup(self, counts):
-        assert np.all(counts >= 0)
-        # TODO: Need correction for lower bounded distribution
-        # Use reflection around 0, but gaussian_kde does not provide
-        # sufficient flexibility w.r.t bandwidth selection.
-        if counts.size > 0:
-            self._plot.setData(counts, 1000)
+    def _setup(self, data, filter_type):
+        self._plot.clear()
+        self._counts = None
+        title = None
+        sample_range = None
+
+        if filter_type in [Cells, Genes]:
+            if filter_type == Cells:
+                axis = 1
+                title = "Cell Filter"
+                axis_label = "Detected Genes"
+            else:
+                axis = 0
+                title = "Gene Filter"
+                axis_label = "Detected Cells"
+
+            mask = (data.X != 0) & (np.isfinite(data.X))
+            counts = np.count_nonzero(mask, axis=axis)
+            x = counts
+            self._counts = counts
+            self.Warning.sampling_in_effect.clear()
+        elif filter_type == Data:
+            x = data.X.ravel()
+            x = x[np.isfinite(x)]
+            self._counts = x
+            MAX_DISPLAY_SIZE = 20000
+            if x.size > MAX_DISPLAY_SIZE:
+                self.Warning.sampling_in_effect(MAX_DISPLAY_SIZE, x.size)
+                # tails to preserve exactly
+                tails = 1
+                x = np.sort(x)
+                x1, x2, x3 = x[:tails], x[tails:x.size - tails], x[x.size-tails:]
+                assert x1.size + x2.size + x3.size == x.size
+                x2 = np.random.RandomState(0x667).choice(
+                    x2, size=MAX_DISPLAY_SIZE - 2 * tails, replace=False,
+                )
+                x = np.r_[x1, x2, x3]
+            else:
+                self.Warning.sampling_in_effect.clear()
+            title = "Data Filter"
+            axis_label = "Gene Expression"
+        else:
+            assert False
+
+        if x.size:
+            xmin, xmax = np.min(x), np.max(x)
+            self.limit_lower = np.clip(self.limit_lower, xmin, xmax)
+            self.limit_upper = np.clip(self.limit_upper, xmin, xmax)
+
+        if x.size > 0:
+            # TODO: Need correction for lower bounded distribution (counts)
+            # Use reflection around 0, but gaussian_kde does not provide
+            # sufficient flexibility w.r.t bandwidth selection.
+            self._plot.setData(x, 1000)
             self._plot.setBoundary(self.limit_lower, self.limit_upper)
+
+        ax = self._plot.getAxis("left")  # type: pg.AxisItem
+        ax.setLabel(axis_label)
+        self._plot.setTitle(title)
+        self._update_info()
 
     def _update_dotplot(self):
         self._plot.setDataPointsVisible(self.display_dotplot)
@@ -226,7 +305,7 @@ class OWFilterCells(widget.OWWidget):
                 np.clip(self.limit_lower, xmin, xmax),
                 np.clip(self.limit_upper, xmin, xmax)
             )
-            # TODO: Only when the actual selection mask changes
+            # TODO: Only when the actual selection/filter mask changes
             self._schedule_commit()
             self._update_info()
 
@@ -234,7 +313,7 @@ class OWFilterCells(widget.OWWidget):
         # Low/high limit changed via the plot
         if self._counts is not None:
             self.limit_lower, self.limit_upper = self._plot.boundary()
-            # TODO: Only when the actual selection mask changes
+            # TODO: Only when the actual selection/filter mask changes
             self._schedule_commit()
             self._update_info()
 
@@ -245,14 +324,37 @@ class OWFilterCells(widget.OWWidget):
         self._committimer.stop()
         data = self.data
         if data is not None and self.range_filter_enabled:
-            counts = self._counts
-            assert counts.size == len(data)
-            cmax = self.limit_upper
-            cmin = self.limit_lower
-            mask = (cmin <= counts) & (counts <= cmax)
-            data = data[mask]
-            if len(data) == 0:
-                data = None
+            if self.filter_type() in [Cells, Genes]:
+                counts = self._counts
+                cmax = self.limit_upper
+                cmin = self.limit_lower
+                mask = (cmin <= counts) & (counts <= cmax)
+                if self.filter_type() == Cells:
+                    assert counts.size == len(data)
+                    data = data[mask]
+                else:
+                    assert counts.size == len(data.domain.attributes)
+                    atts = [v for v, m in zip(data.domain.attributes, mask)
+                            if m]
+                    data = data.from_table(
+                        Orange.data.Domain(
+                            atts, data.domain.class_vars, data.domain.metas
+                        ),
+                        data
+                    )
+                if len(data) == 0 or \
+                        len(data.domain) + len(data.domain.metas) == 0:
+                    data = None
+            elif self.filter_type() == Data:
+                dmin, dmax = self.limit_lower, self.limit_upper
+                data = data.copy()
+                assert data.X.base is None
+                mask = data.X < dmin
+                mask |= data.X > dmax
+                data.X[mask] = 0.0
+            else:
+                assert False
+
         self.Outputs.data.send(data)
 
     def onDeleteWidget(self):
@@ -469,7 +571,7 @@ class SelectionLine(pg.InfiniteLine):
 def main(argv=None):
     app = QApplication(list(argv or sys.argv))
     argv = app.arguments()
-    w = OWFilterCells()
+    w = OWFilter()
     if len(argv) > 1:
         filename = argv[1]
     else:
