@@ -3,7 +3,7 @@ import numpy as np
 import Orange.data
 from Orange.widgets.tests.base import WidgetTest
 
-from orangecontrib.single_cell.widgets.owfiltercells import OWFilter
+from orangecontrib.single_cell.widgets.owfilter import OWFilter
 
 
 class TestOWFilterCells(WidgetTest):
