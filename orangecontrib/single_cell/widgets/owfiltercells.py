@@ -425,11 +425,15 @@ class ViolinPlot(pg.PlotItem):
             x=x, y=data, size=3,
         )
         dots.setVisible(self.__dataPointsVisible)
+        pen = QPen(self.palette().color(QPalette.Shadow), 1)
+        hoverPen = QPen(self.palette().color(QPalette.Highlight), 1.5)
         cmax = SelectionLine(
-            angle=0, pos=xmax, movable=True, bounds=(xmin, xmax)
+            angle=0, pos=xmax, movable=True, bounds=(xmin, xmax),
+            pen=pen, hoverPen=hoverPen
         )
         cmin = SelectionLine(
-            angle=0, pos=xmin, movable=True, bounds=(xmin, xmax)
+            angle=0, pos=xmin, movable=True, bounds=(xmin, xmax),
+            pen=pen, hoverPen=hoverPen
         )
         cmax.setCursor(Qt.SizeVerCursor)
         cmin.setCursor(Qt.SizeVerCursor)
