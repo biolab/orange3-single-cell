@@ -572,7 +572,7 @@ class SelectionLine(pg.InfiniteLine):
         painter.restore()
 
 
-def main(argv=None):
+def main(argv=None):  # pragma: no cover
     app = QApplication(list(argv or sys.argv))
     argv = app.arguments()
     w = OWFilter()
@@ -588,5 +588,5 @@ def main(argv=None):
     w.onDeleteWidget()
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     sys.exit(main(sys.argv))
