@@ -214,7 +214,7 @@ class OWLouvainClustering(widget.OWWidget):
         domain = self.data.domain
         cluster_var = DiscreteVariable(
             get_next_name(domain, 'Cluster'),
-            values=['C%d' % i for i in np.unique(self.partition)]
+            values=['C%d' % (i + 1) for i, _ in enumerate(np.unique(self.partition))]
         )
 
         new_domain = add_columns(domain, metas=[cluster_var])
