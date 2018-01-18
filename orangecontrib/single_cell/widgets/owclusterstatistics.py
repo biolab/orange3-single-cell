@@ -52,7 +52,7 @@ class OWClusterStatistics(widget.OWWidget):
         self.Warning.clear()
 
         if self.data is None:
-            self.attrs_model.clear()
+            self.attrs_model.set_domain(None)
             self.commit()
             self.info.setText("No data on input")
             return
