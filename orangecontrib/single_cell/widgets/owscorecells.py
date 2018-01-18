@@ -75,7 +75,7 @@ class OWScoreCells(widget.OWWidget):
         self.Error.no_genes.clear()
         self.Warning.some_genes.clear()
         if self.data and self.genes and self.gene:
-            available_genes = set(f.name for f in self.data.domain)
+            available_genes = set(f.name for f in self.data.domain.variables)
             gene_list_all = [str(ins[self.gene]) for ins in self.genes]
             gene_list = [g for g in gene_list_all if g in available_genes]
             if not gene_list:

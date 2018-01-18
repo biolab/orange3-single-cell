@@ -561,7 +561,8 @@ class OWtSNE(OWWidget):
 
     def commit(self):
         if self.embedding is not None:
-            names = get_unique_names([v.name for v in self.data.domain], ["tsne-x", "tsne-y"])
+            names = get_unique_names(
+                [v.name for v in self.data.domain.variables], ["tsne-x", "tsne-y"])
             output = embedding = Orange.data.Table.from_numpy(
                 Orange.data.Domain([ContinuousVariable(names[0]), ContinuousVariable(names[1])]),
                 self.embedding
