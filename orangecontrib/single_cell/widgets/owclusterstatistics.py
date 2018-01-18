@@ -3,6 +3,7 @@ import numpy as np
 from Orange.data import Table, Domain, DiscreteVariable, ContinuousVariable
 from Orange.widgets import widget, gui, settings
 from Orange.widgets.utils.itemmodels import DomainModel
+from Orange.widgets.widget import Input, Output
 
 
 class OWClusterStatistics(widget.OWWidget):
@@ -11,8 +12,11 @@ class OWClusterStatistics(widget.OWWidget):
     icon = 'icons/ClusterStatistics.svg'
     priority = 350
 
-    inputs = [("Data", Table, 'set_data')]
-    outputs = [("Data", Table)]
+    class Inputs:
+        data = Input("Data", Table)
+
+    class Outputs:
+        data = Output("Data", Table)
 
     want_main_area = False
     resizing_enabled = False
@@ -41,6 +45,7 @@ class OWClusterStatistics(widget.OWWidget):
 
         gui.auto_commit(self.controlArea, self, 'autocommit', '&Apply')
 
+    @Inputs.data
     def set_data(self, data):
         self.closeContext()
         self.data = data
@@ -60,7 +65,7 @@ class OWClusterStatistics(widget.OWWidget):
             self.selected_attr = str(self.attrs_model[0])
         else:
             self.Warning.no_discrete_attributes()
-            self.send("Data", None)
+            self.Outputs.data.send(None)
             return
 
         self.openContext(self.data.domain)
@@ -72,7 +77,7 @@ class OWClusterStatistics(widget.OWWidget):
     def commit(self):
         if self.data is None or len(self.attrs_model) == 0 or \
                         self.selected_attr not in self.data.domain:
-            self.send("Data", None)
+            self.Outputs.data.send(None)
             return
 
         cluster_var = self.data.domain[self.selected_attr]
@@ -97,7 +102,7 @@ class OWClusterStatistics(widget.OWWidget):
         M = np.column_stack((np.arange(len(cluster_var.values)),
                              cluster_counts))
         count_data = Table(domain, Z, metas=M)
-        self.send("Data", count_data)
+        self.Outputs.data.send(count_data)
 
 
 if __name__ == "__main__":
