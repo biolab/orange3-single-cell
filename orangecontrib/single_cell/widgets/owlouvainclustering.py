@@ -89,9 +89,13 @@ class OWLouvainClustering(widget.OWWidget):
     class Inputs:
         data = Input('Data', Table, default=True)
 
-    class Outputs:
-        annotated_data = Output(ANNOTATED_DATA_SIGNAL_NAME, Table, default=True)
-        graph = Output('Network', Graph)
+    if Graph is not None:
+        class Outputs:
+            annotated_data = Output(ANNOTATED_DATA_SIGNAL_NAME, Table, default=True)
+            graph = Output('Network', Graph)
+    else:
+        class Outputs:
+            annotated_data = Output(ANNOTATED_DATA_SIGNAL_NAME, Table, default=True)
 
     apply_pca = ContextSetting(True)
     pca_components = ContextSetting(_DEFAULT_PCA_COMPONENTS)
