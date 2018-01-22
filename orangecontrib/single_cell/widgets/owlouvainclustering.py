@@ -256,6 +256,9 @@ class OWLouvainClustering(widget.OWWidget):
         self.data = data
         self.openContext(self.data)
 
+        if self.data is None:
+            return
+
         # Can't have more PCA components than the number of attributes
         n_attrs = len(data.domain.attributes)
         self.pca_components_slider.setMaximum(min(_MAX_PCA_COMPONENTS, n_attrs))
