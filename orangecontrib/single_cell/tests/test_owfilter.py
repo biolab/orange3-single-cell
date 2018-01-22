@@ -3,12 +3,12 @@ import numpy as np
 import Orange.data
 from Orange.widgets.tests.base import WidgetTest
 
-from orangecontrib.single_cell.widgets.owfiltercells import OWFilterCells
+from orangecontrib.single_cell.widgets.owfilter import OWFilter
 
 
 class TestOWFilterCells(WidgetTest):
     def setUp(self):
-        self.widget = self.create_widget(OWFilterCells)
+        self.widget = self.create_widget(OWFilter)
 
     def tearDown(self):
         self.widget.onDeleteWidget()
@@ -25,8 +25,8 @@ class TestOWFilterCells(WidgetTest):
             domain,
             [[0, 0, 0],
              [0, 0, 1],
-             [0, 1, 1],
-             [1, 1, 1]]
+             [0, 1, 2],
+             [1, 2, 3]]
         )
         self.send_signal(self.widget.Inputs.data, data)
 
@@ -36,11 +36,30 @@ class TestOWFilterCells(WidgetTest):
         self.widget.limit_lower = 2
         self.widget.commit()
         out = self.get_output(self.widget.Outputs.data)
-        self.assertTrue(len(out), 2)
+        self.assertEqual(len(out), 2)
         np.testing.assert_array_equal(
             np.count_nonzero(out.X, axis=1),
             [2, 3]
         )
+        self.widget.set_filter_type(OWFilter.Genes)
+        self.widget.commit()
+        out = self.get_output(self.widget.Outputs.data)
+        np.testing.assert_array_equal(
+            np.count_nonzero(out.X, axis=0),
+            [2, 3]
+        )
+        self.widget.set_filter_type(OWFilter.Data)
+        self.widget.commit()
+        out = self.get_output(self.widget.Outputs.data)
+        np.testing.assert_array_equal(
+            out.X,
+            [[0, 0, 0],
+             [0, 0, 0],
+             [0, 0, 2],
+             [0, 2, 3]]
+        )
+        # For paint code coverage
+        self.widget.grab()
+
         self.send_signal(self.widget.Inputs.data, None)
         self.assertIsNone(self.get_output(self.widget.Outputs.data))
-
