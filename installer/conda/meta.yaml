@@ -25,6 +25,7 @@ requirements:
   run:
     - python
     - orange3
+    - networkx
 
 test:
   imports:

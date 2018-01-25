@@ -11,18 +11,19 @@ https://conda.anaconda.org/conda-forge/win-64/cffi-1.11.2-py36_0.tar.bz2#2a6bbff
 https://conda.anaconda.org/conda-forge/win-64/chardet-3.0.4-py36_0.tar.bz2#b85c484796dad9af135e16019ec7bc75
 https://conda.anaconda.org/conda-forge/noarch/commonmark-0.7.4-py_1.tar.bz2#6c9b2936a12d08f55cdc8d2809404fd5
 https://conda.anaconda.org/conda-forge/win-64/cryptography-2.1.4-py36_0.tar.bz2#21582e129c8d097e668d9ba8095bd50f
+https://conda.anaconda.org/conda-forge/win-64/decorator-4.1.2-py36_0.tar.bz2#5fa706989ba817a505074a58f9a5a080
 https://conda.anaconda.org/conda-forge/win-64/dill-0.2.7.1-py36_0.tar.bz2#4b79497eafcc7e22edcc82dfad2f95e9
 https://conda.anaconda.org/conda-forge/win-64/docutils-0.14-py36_0.tar.bz2#9d4d20b68013e4c208c506271d690b02
 https://conda.anaconda.org/conda-forge/win-64/future-0.16.0-py36_0.tar.bz2#7b7ba80dd0e0d2e4602713d386aed254
 https://conda.anaconda.org/conda-forge/win-64/icu-58.2-vc14_0.tar.bz2#35552eb04d1435bfd9b31b1e3e38317e
 https://conda.anaconda.org/conda-forge/win-64/idna-2.6-py36_1.tar.bz2#92e23b72e6231a93ec79c0d1d0ea3940
-https://repo.continuum.io/pkgs/main/win-64/intel-openmp-2018.0.0-hd92c6cd_8.tar.bz2#9ff26a2e9d369db7b9e3176fb1ee557d
 https://conda.anaconda.org/conda-forge/win-64/joblib-0.11-py36_0.tar.bz2#57231679b7dccd7bb3950baa6af9e002
 https://conda.anaconda.org/conda-forge/win-64/jpeg-9b-vc14_2.tar.bz2#90ddcf328cf373538dc68daf7f116d9f
 https://conda.anaconda.org/conda-forge/win-64/keyring-9.0-py36_0.tar.bz2#439855ad00016a37f8c02660fe230a2c
 https://conda.anaconda.org/conda-forge/win-64/keyrings.alt-1.2-py36_0.tar.bz2#1e58ae2c38b34a8050d7d09ddf574564
 https://conda.anaconda.org/conda-forge/win-64/libpng-1.6.34-vc14_0.tar.bz2#8c6bf0fd5e8953dc74efbfeaebef2bdd
-https://repo.continuum.io/pkgs/main/win-64/mkl-2017.0.4-h6d528fc_0.tar.bz2#413f1073fdf3bff83eeed097a7f08b02
+https://repo.continuum.io/pkgs/free/win-64/mkl-2017.0.3-0.tar.bz2#1e58b727d7823e41f43ff3a391b63d82
+https://conda.anaconda.org/conda-forge/win-64/networkx-2.0-py36_1.tar.bz2#d732890dd899f0e08c34d17062480600
 https://repo.continuum.io/pkgs/free/win-64/numpy-1.12.1-py36_0.tar.bz2#e2da940d60fdb6346b5cc3a251c0078a
 https://conda.anaconda.org/conda-forge/win-64/openssl-1.0.2n-vc14_0.tar.bz2#7efd5d31ce4209d1d2874ff11f5a1482
 https://conda.anaconda.org/conda-forge/win-64/orange3-3.9.0-py36_0.tar.bz2#33905ee17448d2686e33a3178eb5e155
@@ -51,4 +52,4 @@ https://conda.anaconda.org/conda-forge/win-64/win_inet_pton-1.0.1-py36_1.tar.bz2
 https://conda.anaconda.org/conda-forge/win-64/wincertstore-0.2-py36_0.tar.bz2#6213bf1c1313aa0739db88f105a9ee32
 https://conda.anaconda.org/conda-forge/noarch/xlrd-1.1.0-py_2.tar.bz2#f278eedf55ae4d74fe9f84c3befe679b
 https://conda.anaconda.org/conda-forge/win-64/zlib-1.2.11-vc14_0.tar.bz2#6633fda3af7ef750def72e3ec5f5014d
-file:///Users/anze/miniconda3/conda-bld/noarch/orange3-single-cell-0.2.0-py_0.tar.bz2
+file:///Users/anze/miniconda3/conda-bld/noarch/orange3-single-cell-0.2.1-py_0.tar.bz2
