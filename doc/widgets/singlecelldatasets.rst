@@ -1,5 +1,5 @@
-Single Cell Data Sets
-=====================
+Single Cell Datasets
+====================
 
 .. figure:: icons/SingleCellDatasets.png
 

@@ -12,11 +12,15 @@ source:
 build:
   number: 0
   noarch: python
-  script: python setup.py install --single-version-externally-managed --record record.txt
+  script:
+    - cd doc && make htmlhelp && cd ..
+    - python setup.py install --single-version-externally-managed --record record.txt
 
 requirements:
   build:
     - python
+    - sphinx
+    - recommonmark
     - setuptools
   run:
     - python

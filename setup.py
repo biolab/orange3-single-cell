@@ -74,7 +74,8 @@ TEST_SUITE = "orangecontrib.single_cell.tests.suite"
 
 def include_documentation(local_dir, install_dir):
     global DATA_FILES
-    if 'bdist_wheel' in sys.argv and not path.exists(local_dir):
+    if (('bdist_wheel' in sys.argv) or ('install' in sys.argv))\
+            and not path.exists(local_dir):
         print("Directory '{}' does not exist. "
               "Please build documentation before running bdist_wheel."
               .format(path.abspath(local_dir)))
@@ -114,7 +115,7 @@ class CoverageCommand(Command):
 
 
 if __name__ == '__main__':
-    include_documentation('doc/build/html', 'help/orange3-single_cell')
+    include_documentation('doc/build/htmlhelp', 'help/orange3-single_cell')
 
     cmdclass = {
         'coverage': CoverageCommand,
