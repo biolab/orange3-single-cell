@@ -58,7 +58,48 @@ class TestOWFilterCells(WidgetTest):
              [0, 0, 2],
              [0, 2, 3]]
         )
-        # For paint code coverage
+
+        self.widget.limit_upper = 2
+        self.widget.commit()
+        out = self.get_output(self.widget.Outputs.data)
+        np.testing.assert_array_equal(
+            out.X,
+            [[0, 0, 0],
+             [0, 0, 0],
+             [0, 0, 2],
+             [0, 2, 0]]
+        )
+        self.widget.set_upper_limit_enabled(False)
+        self.widget.commit()
+        out = self.get_output(self.widget.Outputs.data)
+        np.testing.assert_array_equal(
+            out.X,
+            [[0, 0, 0],
+             [0, 0, 0],
+             [0, 0, 2],
+             [0, 2, 3]]
+        )
+        self.widget.set_lower_limit_enabled(False)
+        self.widget.commit()
+        out = self.get_output(self.widget.Outputs.data)
+        np.testing.assert_array_equal(
+            out.X,
+            [[0, 0, 0],
+             [0, 0, 1],
+             [0, 1, 2],
+             [1, 2, 3]]
+        )
+        self.widget.set_upper_limit_enabled(True)
+        self.widget.commit()
+        out = self.get_output(self.widget.Outputs.data)
+        np.testing.assert_array_equal(
+            out.X,
+            [[0, 0, 0],
+             [0, 0, 0],
+             [0, 0, 2],
+             [0, 2, 3]]
+        )
+        #  For paint code coverage
         self.widget.grab()
 
         self.send_signal(self.widget.Inputs.data, None)
