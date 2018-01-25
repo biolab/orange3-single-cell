@@ -50,6 +50,7 @@ class ScatterPlotItem(pg.ScatterPlotItem):
 
 class OWFilter(widget.OWWidget):
     name = "Filter"
+    icon = 'icons/Filter.svg'
     description = "Filter cells/genes"
 
     class Inputs:

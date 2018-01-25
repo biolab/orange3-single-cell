@@ -83,6 +83,7 @@ def table_to_graph(data, k_neighbours, metric, progress_callback=None):
 
 class OWLouvainClustering(widget.OWWidget):
     name = 'Louvain Clustering'
+    icon = 'icons/LouvainClustering.svg'
 
     settingsHandler = DomainContextHandler()
 
