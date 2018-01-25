@@ -353,7 +353,10 @@ class OWFilter(widget.OWWidget):
                 # tails to preserve exactly
                 tails = 1
                 assert x.flags.owndata
-                x.sort()
+                x.partition(tails - 1)
+                xrest = x[tails:]
+                xrest.partition(xrest.size - tails)
+
                 x1, x2, x3 = x[:tails], x[tails:x.size - tails], x[x.size-tails:]
                 assert x1.size + x2.size + x3.size == x.size
                 x2 = np.random.RandomState(0x667).choice(
