@@ -16,7 +16,7 @@ class OWDifferentialExpression(widget.OWWidget):
     icon = "icons/ClusterVariation.svg"
     priority = 190
 
-    settingsHandler = DomainContextHandler(metas_in_res=True)
+    settingsHandler = DomainContextHandler()
     groupby = ContextSetting(None)
     auto_apply = Setting(True)
 

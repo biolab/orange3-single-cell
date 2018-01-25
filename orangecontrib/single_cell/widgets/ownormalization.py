@@ -26,7 +26,7 @@ class OWNormalization(widget.OWWidget):
     want_main_area = False
     resizing_enabled = False
 
-    settingsHandler = settings.DomainContextHandler(metas_in_res=True)
+    settingsHandler = settings.DomainContextHandler()
     selected_attr = settings.Setting(DEFAULT_CELL_NORM)
     autocommit = settings.Setting(True)
 

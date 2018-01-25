@@ -16,7 +16,7 @@ class OWScoreCells(widget.OWWidget):
     icon = "icons/ScoreCells.svg"
     priority = 180
 
-    settingsHandler = DomainContextHandler(metas_in_res=True)
+    settingsHandler = DomainContextHandler()
     gene = ContextSetting(None)
     auto_apply = Setting(True)
 
