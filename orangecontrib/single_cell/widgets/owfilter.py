@@ -120,11 +120,6 @@ class OWFilter(widget.OWWidget):
             rbg.addButton(b, id_)
         rbg.buttonClicked[int].connect(self.set_filter_type)
 
-        box = gui.widgetBox(self.controlArea, "View")
-        self._showpoints = gui.checkBox(
-            box, self, "display_dotplot", "Show data points",
-            callback=self._update_dotplot
-        )
         form = QFormLayout(
             labelAlignment=Qt.AlignLeft,
             formAlignment=Qt.AlignLeft,
@@ -182,6 +177,12 @@ class OWFilter(widget.OWWidget):
         cb.toggled.connect(self.set_upper_limit_enabled)
         cb.setAttribute(Qt.WA_LayoutUsesWidgetRect, True)
         form.addRow(cb, self.threshold_stacks[1])
+
+        box = gui.widgetBox(self.controlArea, "View")
+        self._showpoints = gui.checkBox(
+            box, self, "display_dotplot", "Show data points",
+            callback=self._update_dotplot
+        )
 
         self.controlArea.layout().addStretch(10)
 
