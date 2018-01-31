@@ -704,6 +704,27 @@ class ViolinPlot(pg.PlotItem):
         super().clear()
         self._plotitems = None
 
+    def mouseDragEvent(self, event):
+        mode = self.__selectionMode
+        if mode != ViolinPlot.NoSelection and event.buttons() & Qt.LeftButton:
+            start = event.buttonDownScenePos(Qt.LeftButton)  # type: QPointF
+            pos = event.scenePos()  # type: QPointF
+            cmin, cmax = self._plotitems.cmin, self._plotitems.cmax
+            assert cmin.parentItem() is cmax.parentItem()
+            pos = self.mapToItem(cmin.parentItem(), pos)
+            start = self.mapToItem(cmin.parentItem(), start)
+            if mode & ViolinPlot.Low and mode & ViolinPlot.High:
+                lower, upper = min(pos.y(), start.y()), max(pos.y(), start.y())
+                cmin.setValue(lower)
+                cmax.setValue(upper)
+            elif mode & ViolinPlot.Low:
+                lower = pos.y()
+                cmin.setValue(lower)
+            elif mode & ViolinPlot.High:
+                upper = pos.y()
+                cmax.setValue(upper)
+            event.accept()
+
 
 def violin_shape(x, p):
     # type: (Sequence[float], Sequence[float]) -> QPainterPath
