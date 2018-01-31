@@ -686,7 +686,8 @@ class SingleLinkPage(QFrame):
 
 
 def resource_path(name):
-    return pkg_resources.resource_filename(config.__name__, name)
+    return pkg_resources.resource_filename(
+        "orangecontrib.single_cell.launcher", name)
 
 
 def sc_icon(filename):
@@ -768,7 +769,7 @@ def welcome_dialog_paged(self):
     page = SingleLinkPage(
         image=QImage(resource_path("icons/getting-started-video-tutorials.png")),
         heading="Getting Started",
-        link=QUrl(LINKS["youtube"]),
+        link=QUrl("https://www.youtube.com/watch?v=3nMcI4Hxm7c"),
     )
     page.setContentsMargins(25, 25, 25, 25)
     PageGetStarted = dlg.addPage(
