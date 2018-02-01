@@ -63,7 +63,7 @@ class OWFilter(widget.OWWidget):
     class Warning(widget.OWWidget.Warning):
         invalid_range = widget.Msg(
             "Negative values in input data.\n"
-            "This filter only makes sense for non-negative measurements"
+            "This filter only makes sense for non-negative measurements "
             "where 0 indicates a lack (of) and/or a neutral reading."
         )
         sampling_in_effect = widget.Msg(
