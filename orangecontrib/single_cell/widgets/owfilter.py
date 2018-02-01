@@ -14,9 +14,9 @@ from AnyQt.QtGui import (
     QKeySequence
 )
 from AnyQt.QtWidgets import (
-    QLabel, QDoubleSpinBox, QGroupBox, QAction, QGraphicsPathItem,
-    QGraphicsRectItem, QGraphicsItem, QFormLayout, QApplication,
-    QButtonGroup, QRadioButton, QCheckBox, QStackedWidget
+    QLabel, QDoubleSpinBox, QGroupBox, QHBoxLayout, QAction,
+    QGraphicsPathItem, QGraphicsRectItem, QGraphicsItem, QFormLayout,
+    QApplication, QButtonGroup, QRadioButton, QCheckBox, QStackedWidget
 )
 
 import pyqtgraph as pg
@@ -28,15 +28,30 @@ from Orange.widgets import widget, gui, settings
 #: Filter type
 Cells, Genes, Data = 0, 1, 2
 
+#: Filter quality control measure (apply to Cell/Genes type only)
+DetectionCount = 0  # number of genes/features with non-zero expression level
+TotalCounts = 1  # total counts by cell/gene
+
+
 #: Filter descriptions for various roles in UI
 #: (short name, name, description)
 FilterInfo = {
     Cells: ("Cells", "Cell Filter",
-            "Filter cells (rows) by number of positive measurements"),
+            "Filter cells (rows) by total counts (library size) or number "
+            "of expressed genes."),
     Genes: ("Genes", "Gene Filter",
-            "Filter genes (columns) by number of positive measurements"),
+            "Filter genes (columns) by total counts mapped to a gene or "
+            "number of cells in which the gene is expressed in."),
     Data: ("Data", "Data filter",
            "Filter out (zero) small measurements")
+}
+
+# Quality control measure descriptions for UI
+MeasureInfo = {
+    TotalCounts: ("Total counts",
+                  "Sum of all counts across cell/gene"),
+    DetectionCount: ("Detection count",
+                     "Number of cells/genes with non-zero expression")
 }
 
 
@@ -75,10 +90,13 @@ class OWFilter(widget.OWWidget):
     #: Filter out rows/columns or 'zap' data values in range.
     Cells, Genes, Data = Cells, Genes, Data
 
-    settings_version = 2
+    settings_version = 3
 
     #: The selected filter mode
     selected_filter_type = settings.Setting(Cells)  # type: int
+
+    #: Selected filter statistics / QC measure indexed by filter_type
+    selected_filter_metric = settings.Setting(TotalCounts)  # type: int
 
     #: Augment the violin plot with a dot plot (strip plot) of the (non-zero)
     #: measurement counts in Cells/Genes mode or data matrix values in Data
@@ -91,10 +109,12 @@ class OWFilter(widget.OWWidget):
 
     #: The lower and upper selection limit for each filter type
     thresholds = settings.Setting({
-        Cells: (0, 2 ** 31 - 1),
-        Genes: (0, 2 ** 31 - 1),
-        Data: (0.0, 2.0 ** 31 - 1)
-    })  # type: Dict[int, Tuple[float, float]]
+        (Cells, DetectionCount): (0, 2 ** 31 - 1),
+        (Cells, TotalCounts): (0, 2 ** 31 - 1),
+        (Genes, DetectionCount): (0, 2 ** 31 - 1),
+        (Genes, TotalCounts): (0, 2 ** 31 - 1),
+        (Data, -1): (0.0, 2.0 ** 31 - 1)
+    })  # type: Dict[Tuple[int, int], Tuple[float, float]]
 
     auto_commit = settings.Setting(True)   # type: bool
 
@@ -109,16 +129,31 @@ class OWFilter(widget.OWWidget):
 
         box.layout().addWidget(self._info)
 
-        box = gui.widgetBox(self.controlArea, "Filter Type")
+        box = gui.widgetBox(self.controlArea, "Filter Type", spacing=-1)
         rbg = QButtonGroup(box, exclusive=True)
+        layout = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
         for id_ in [Cells, Genes, Data]:
             name, _, tip = FilterInfo[id_]
             b = QRadioButton(
                 name, toolTip=tip, checked=id_ == self.selected_filter_type
             )
-            box.layout().addWidget(b)
             rbg.addButton(b, id_)
+            layout.addWidget(b, stretch=10, alignment=Qt.AlignCenter)
+        box.layout().addLayout(layout)
+
         rbg.buttonClicked[int].connect(self.set_filter_type)
+
+        self.filter_metric_cb = gui.comboBox(
+            box, self, "selected_filter_metric", callback=self._update_metric,
+            enabled=self.selected_filter_type != Data
+        )
+        for id_ in [DetectionCount, TotalCounts]:
+            text, ttip = MeasureInfo[id_]
+            self.filter_metric_cb.addItem(text)
+            idx = self.filter_metric_cb.count() - 1
+            self.filter_metric_cb.setItemData(idx, ttip, Qt.ToolTipRole)
+        self.filter_metric_cb.setCurrentIndex(self.selected_filter_metric)
 
         form = QFormLayout(
             labelAlignment=Qt.AlignLeft,
@@ -138,9 +173,11 @@ class OWFilter(widget.OWWidget):
             if filter_ in {Cells, Genes}:
                 minimum = 0.0
                 ndecimals = 1
+                metric = self.selected_filter_metric
             else:
                 minimum = finfo.min
                 ndecimals = 3
+                metric = -1
             spinlower = QDoubleSpinBox(
                 self, minimum=minimum, maximum=finfo.max, decimals=ndecimals,
                 keyboardTracking=False,
@@ -150,7 +187,7 @@ class OWFilter(widget.OWWidget):
                 keyboardTracking=False,
             )
 
-            lower, upper = self.thresholds[filter_]
+            lower, upper = self.thresholds.get((filter_, metric), (0, 0))
 
             spinlower.setValue(lower)
             spinupper.setValue(upper)
@@ -199,10 +236,8 @@ class OWFilter(widget.OWWidget):
         )
         self._plot.selectionEdited.connect(self._limitchanged_plot)
         self._view.setCentralWidget(self._plot)
-        self._plot.setTitle("Detected genes")
+        self._plot.setTitle(FilterInfo[self.selected_filter_metric][1])
 
-        left = self._plot.getAxis("left")  # type: pg.AxisItem
-        left.setLabel("Detected genes")
         bottom = self._plot.getAxis("bottom")  # type: pg.AxisItem
         bottom.hide()
         plot.setMouseEnabled(False, False)
@@ -228,12 +263,17 @@ class OWFilter(widget.OWWidget):
             self.selected_filter_type = type_
             self.threshold_stacks[0].setCurrentIndex(type_)
             self.threshold_stacks[1].setCurrentIndex(type_)
+            self.filter_metric_cb.setEnabled(type_ != Data)
             if self.data is not None:
                 self._setup(self.data, type_)
                 self._schedule_commit()
 
     def filter_type(self):
         return self.selected_filter_type
+
+    def _update_metric(self):
+        if self.data is not None:
+            self._setup(self.data, self.selected_filter_type, )
 
     def set_upper_limit_enabled(self, enabled):
         if enabled != self.limit_upper_enabled:
@@ -328,19 +368,34 @@ class OWFilter(widget.OWWidget):
         title = None
         sample_range = None
 
+        span = -1.0  # data span
+        measure = self.selected_filter_metric if filter_type != Data else None
+
         if filter_type in [Cells, Genes]:
             if filter_type == Cells:
                 axis = 1
                 title = "Cell Filter"
-                axis_label = "Detected Genes"
+                if measure == TotalCounts:
+                    axis_label = "Total counts (library size)"
+                else:
+                    axis_label = "Number of expressed genes"
             else:
                 axis = 0
                 title = "Gene Filter"
-                axis_label = "Detected Cells"
+                if measure == TotalCounts:
+                    axis_label = "Total counts"
+                else:
+                    # TODO: Too long
+                    axis_label = "Number of cells a gene is expressed in"
 
-            mask = (data.X != 0) & (np.isfinite(data.X))
-            counts = np.count_nonzero(mask, axis=axis)
+            if measure == TotalCounts:
+                counts = np.nansum(data.X, axis=axis)
+            else:
+                mask = (data.X != 0) & (np.isfinite(data.X))
+                counts = np.count_nonzero(mask, axis=axis)
             x = counts
+            if x.size:
+                span = np.ptp(x)
             self._counts = counts
             self.Warning.sampling_in_effect.clear()
         elif filter_type == Data:
@@ -368,20 +423,23 @@ class OWFilter(widget.OWWidget):
             else:
                 span = np.ptp(x)
                 self.Warning.sampling_in_effect.clear()
-
-            if span > 0:
-                ndecimals = max(4 - int(np.floor(np.log10(span))), 1)
-            else:
-                ndecimals = 1
-            spinlow = self.threshold_stacks[0].widget(Data)
-            spinhigh = self.threshold_stacks[1].widget(Data)
-            spinlow.setDecimals(ndecimals)
-            spinhigh.setDecimals(ndecimals)
-
             title = "Data Filter"
             axis_label = "Gene Expression"
         else:
             assert False
+
+        spinlow = self.threshold_stacks[0].widget(filter_type)
+        spinhigh = self.threshold_stacks[1].widget(filter_type)
+        if filter_type == Data or measure == TotalCounts:
+            if span > 0:
+                ndecimals = max(4 - int(np.floor(np.log10(span))), 1)
+            else:
+                ndecimals = 1
+        else:
+            ndecimals = 1
+
+        spinlow.setDecimals(ndecimals)
+        spinhigh.setDecimals(ndecimals)
 
         if x.size:
             xmin, xmax = np.min(x), np.max(x)
@@ -403,14 +461,28 @@ class OWFilter(widget.OWWidget):
     def _update_dotplot(self):
         self._plot.setDataPointsVisible(self.display_dotplot)
 
+    def current_filter_thresholds(self):
+        if self.selected_filter_type in {Cells, Genes}:
+            metric = self.selected_filter_metric
+        else:
+            metric = -1
+        return self.thresholds[self.selected_filter_type, metric]
+
+    def set_current_filter_thesholds(self, lower, upper):
+        if self.selected_filter_type in {Cells, Genes}:
+            metric = self.selected_filter_metric
+        else:
+            metric = -1
+        self.thresholds[self.selected_filter_type, metric] = (lower, upper)
+
     @property
     def limit_lower(self):
-        return self.thresholds[self.selected_filter_type][0]
+        return self.current_filter_thresholds()[0]
 
     @limit_lower.setter
     def limit_lower(self, value):
-        _, upper = self.thresholds[self.selected_filter_type]
-        self.thresholds[self.selected_filter_type] = (value, upper)
+        _, upper = self.current_filter_thresholds()
+        self.set_current_filter_thesholds(value, upper)
         stacklower, _ = self.threshold_stacks
         sb = stacklower.widget(self.selected_filter_type)
         # prevent changes due to spin box rounding
@@ -418,12 +490,12 @@ class OWFilter(widget.OWWidget):
 
     @property
     def limit_upper(self):
-        return self.thresholds[self.selected_filter_type][1]
+        return self.current_filter_thresholds()[1]
 
     @limit_upper.setter
     def limit_upper(self, value):
-        lower, _ = self.thresholds[self.selected_filter_type]
-        self.thresholds[self.selected_filter_type] = (lower, value)
+        lower, _ = self.current_filter_thresholds()
+        self.set_current_filter_thesholds(lower, value)
         _, stackupper = self.threshold_stacks
         sb = stackupper.widget(self.selected_filter_type)
         sb.setValue(value)
@@ -436,7 +508,7 @@ class OWFilter(widget.OWWidget):
 
         lower = stacklow.widget(filter_).value()
         upper = stackhigh.widget(filter_).value()
-        self.thresholds[filter_] = (lower, upper)
+        self.set_current_filter_thesholds(lower, upper)
 
         if self._counts is not None and self._counts.size:
             xmin = np.min(self._counts)
@@ -454,7 +526,7 @@ class OWFilter(widget.OWWidget):
         if self._counts is not None:
             newlower, newupper = self._plot.boundary()
             filter_ = self.selected_filter_type
-            lower, upper = self.thresholds[filter_]
+            lower, upper = self.current_filter_thresholds()
             stacklow, stackhigh = self.threshold_stacks
             spin_lower = stacklow.widget(filter_)
             spin_upper = stackhigh.widget(filter_)
@@ -545,10 +617,26 @@ class OWFilter(widget.OWWidget):
             lower = settings.pop("limit_lower")
             upper = settings.pop("limit_upper")
             settings["thresholds"] = {
-                Cells: (lower, upper),
-                Genes: (lower, upper),
-                Data: (lower, upper),
+                (Cells, TotalCounts): (lower, upper),
+                (Cells, DetectionCount): (lower, upper),
+                (Genes, TotalCounts): (lower, upper),
+                (Genes, DetectionCount): (lower, upper),
+                (Data, -1): (lower, upper),
             }
+        if version == 2:
+            thresholds = settings["thresholds"]
+            c = thresholds.pop(Cells)
+            g = thresholds.pop(Genes)
+            d = thresholds.pop(Data)
+            thresholds = {
+                (Cells, TotalCounts): c,
+                (Cells, DetectionCount): c,
+                (Genes, TotalCounts): g,
+                (Genes, DetectionCount): g,
+                (Data, -1): d,
+            }
+            settings["thresholds"] = thresholds
+
 
 
 @contextmanager
