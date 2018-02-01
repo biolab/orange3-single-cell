@@ -42,6 +42,7 @@ class TestOWFilterCells(WidgetTest):
             [2, 3]
         )
         self.widget.set_filter_type(OWFilter.Genes)
+        self.widget.limit_lower = 2
         self.widget.commit()
         out = self.get_output(self.widget.Outputs.data)
         np.testing.assert_array_equal(
@@ -49,6 +50,7 @@ class TestOWFilterCells(WidgetTest):
             [2, 3]
         )
         self.widget.set_filter_type(OWFilter.Data)
+        self.widget.limit_lower = 2
         self.widget.commit()
         out = self.get_output(self.widget.Outputs.data)
         np.testing.assert_array_equal(

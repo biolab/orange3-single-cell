@@ -1,21 +1,22 @@
 import sys
+
 from contextlib import contextmanager
-from types import SimpleNamespace
-from typing import Optional, Sequence
+from types import SimpleNamespace, FunctionType
+from typing import Optional, Sequence, Tuple, Dict, Iterator
 
 import numpy as np
 from scipy import stats
 
 from AnyQt.QtCore import Qt, QSize, QPointF, QRectF, QLineF, QTimer
-from AnyQt.QtCore import pyqtSignal as Signal
+from AnyQt.QtCore import pyqtSignal as Signal, pyqtSlot as Slot, pyqtBoundSignal
 from AnyQt.QtGui import (
     QPainter, QPolygonF, QPainterPath, QPalette, QPen, QBrush, QColor,
     QKeySequence
 )
 from AnyQt.QtWidgets import (
-    QLabel, QSpinBox, QGroupBox, QAction, QGraphicsPathItem, QGraphicsRectItem,
-    QFormLayout, QApplication, QButtonGroup, QRadioButton,
-    QCheckBox, QGraphicsItem
+    QLabel, QDoubleSpinBox, QGroupBox, QAction, QGraphicsPathItem,
+    QGraphicsRectItem, QGraphicsItem, QFormLayout, QApplication,
+    QButtonGroup, QRadioButton, QCheckBox, QStackedWidget
 )
 
 import pyqtgraph as pg
@@ -74,6 +75,8 @@ class OWFilter(widget.OWWidget):
     #: Filter out rows/columns or 'zap' data values in range.
     Cells, Genes, Data = Cells, Genes, Data
 
+    settings_version = 2
+
     #: The selected filter mode
     selected_filter_type = settings.Setting(Cells)  # type: int
 
@@ -86,10 +89,12 @@ class OWFilter(widget.OWWidget):
     limit_lower_enabled = settings.Setting(True)  # type: bool
     limit_upper_enabled = settings.Setting(True)  # type: bool
 
-    #: The lower and upper selection limits stored as absolute counts
-    #: (does not transfer well between datasets)
-    limit_lower = settings.Setting(0, schema_only=True)            # type: int
-    limit_upper = settings.Setting(2 ** 31 - 1, schema_only=True)  # type: int
+    #: The lower and upper selection limit for each filter type
+    thresholds = settings.Setting({
+        Cells: (0, 2 ** 31 - 1),
+        Genes: (0, 2 ** 31 - 1),
+        Data: (0.0, 2.0 ** 31 - 1)
+    })  # type: Dict[int, Tuple[float, float]]
 
     auto_commit = settings.Setting(True)   # type: bool
 
@@ -129,29 +134,54 @@ class OWFilter(widget.OWWidget):
             self.controlArea, "Filter", orientation=form
         )  # type: QGroupBox
 
-        self.mincountspin = gui.spin(
-            box, self, "limit_lower", 0, 2 ** 31 - 1, keyboardTracking=False,
-            callback=self._limitchanged, addToLayout=False
-        )  # type: QSpinBox
+        self.threshold_stacks = (
+            QStackedWidget(enabled=self.limit_lower_enabled),
+            QStackedWidget(enabled=self.limit_upper_enabled),
+        )
+        finfo = np.finfo(np.float64)
+        for filter_ in [Cells, Genes, Data]:
+            if filter_ in {Cells, Genes}:
+                minimum = 0.0
+                ndecimals = 1
+            else:
+                minimum = finfo.min
+                ndecimals = 3
+            spinlower = QDoubleSpinBox(
+                self, minimum=minimum, maximum=finfo.max, decimals=ndecimals,
+                keyboardTracking=False,
+            )
+            spinupper = QDoubleSpinBox(
+                self, minimum=minimum, maximum=finfo.max, decimals=ndecimals,
+                keyboardTracking=False,
+            )
 
-        self.maxcountspin = gui.spin(
-            box, self, "limit_upper", 0, 2 ** 31 - 1, keyboardTracking=False,
-            callback=self._limitchanged, addToLayout=False
-        )  # type: QSpinBox
+            lower, upper = self.thresholds[filter_]
+
+            spinlower.setValue(lower)
+            spinupper.setValue(upper)
+
+            self.threshold_stacks[0].addWidget(spinlower)
+            self.threshold_stacks[1].addWidget(spinupper)
+
+            spinlower.valueChanged.connect(self._limitchanged)
+            spinupper.valueChanged.connect(self._limitchanged)
+
+        self.threshold_stacks[0].setCurrentIndex(self.selected_filter_type)
+        self.threshold_stacks[1].setCurrentIndex(self.selected_filter_type)
 
         self.limit_lower_enabled_cb = cb = QCheckBox(
             "Min", checked=self.limit_lower_enabled
         )
         cb.toggled.connect(self.set_lower_limit_enabled)
         cb.setAttribute(Qt.WA_LayoutUsesWidgetRect, True)
-        form.addRow(cb, self.mincountspin)
+        form.addRow(cb, self.threshold_stacks[0])
 
         self.limit_upper_enabled_cb = cb = QCheckBox(
             "Max", checked=self.limit_upper_enabled
         )
         cb.toggled.connect(self.set_upper_limit_enabled)
         cb.setAttribute(Qt.WA_LayoutUsesWidgetRect, True)
-        form.addRow(cb, self.maxcountspin)
+        form.addRow(cb, self.threshold_stacks[1])
 
         self.controlArea.layout().addStretch(10)
 
@@ -195,8 +225,11 @@ class OWFilter(widget.OWWidget):
         if self.selected_filter_type != type_:
             assert type_ in (Cells, Genes, Data), str(type_)
             self.selected_filter_type = type_
+            self.threshold_stacks[0].setCurrentIndex(type_)
+            self.threshold_stacks[1].setCurrentIndex(type_)
             if self.data is not None:
                 self._setup(self.data, type_)
+                self._schedule_commit()
 
     def filter_type(self):
         return self.selected_filter_type
@@ -204,7 +237,7 @@ class OWFilter(widget.OWWidget):
     def set_upper_limit_enabled(self, enabled):
         if enabled != self.limit_upper_enabled:
             self.limit_upper_enabled = enabled
-            self.maxcountspin.setEnabled(enabled)
+            self.threshold_stacks[1].setEnabled(enabled)
             self.limit_upper_enabled_cb.setChecked(enabled)
             self._update_filter()
             self._schedule_commit()
@@ -212,7 +245,7 @@ class OWFilter(widget.OWWidget):
     def set_lower_limit_enabled(self, enabled):
         if enabled != self.limit_lower_enabled:
             self.limit_lower_enabled = enabled
-            self.mincountspin.setEnabled(enabled)
+            self.threshold_stacks[0].setEnabled(enabled)
             self.limit_lower_enabled_cb.setChecked(enabled)
             self._update_filter()
             self._schedule_commit()
@@ -318,15 +351,28 @@ class OWFilter(widget.OWWidget):
                 self.Warning.sampling_in_effect(MAX_DISPLAY_SIZE, x.size)
                 # tails to preserve exactly
                 tails = 1
-                x = np.sort(x)
+                assert x.flags.owndata
+                x.sort()
                 x1, x2, x3 = x[:tails], x[tails:x.size - tails], x[x.size-tails:]
                 assert x1.size + x2.size + x3.size == x.size
                 x2 = np.random.RandomState(0x667).choice(
                     x2, size=MAX_DISPLAY_SIZE - 2 * tails, replace=False,
                 )
                 x = np.r_[x1, x2, x3]
+                span = x[-1] - x[0]
             else:
+                span = np.ptp(x)
                 self.Warning.sampling_in_effect.clear()
+
+            if span > 0:
+                ndecimals = max(4 - int(np.floor(np.log10(span))), 1)
+            else:
+                ndecimals = 1
+            spinlow = self.threshold_stacks[0].widget(Data)
+            spinhigh = self.threshold_stacks[1].widget(Data)
+            spinlow.setDecimals(ndecimals)
+            spinhigh.setDecimals(ndecimals)
+
             title = "Data Filter"
             axis_label = "Gene Expression"
         else:
@@ -352,14 +398,47 @@ class OWFilter(widget.OWWidget):
     def _update_dotplot(self):
         self._plot.setDataPointsVisible(self.display_dotplot)
 
+    @property
+    def limit_lower(self):
+        return self.thresholds[self.selected_filter_type][0]
+
+    @limit_lower.setter
+    def limit_lower(self, value):
+        _, upper = self.thresholds[self.selected_filter_type]
+        self.thresholds[self.selected_filter_type] = (value, upper)
+        stacklower, _ = self.threshold_stacks
+        sb = stacklower.widget(self.selected_filter_type)
+        # prevent changes due to spin box rounding
+        sb.setValue(value)
+
+    @property
+    def limit_upper(self):
+        return self.thresholds[self.selected_filter_type][1]
+
+    @limit_upper.setter
+    def limit_upper(self, value):
+        lower, _ = self.thresholds[self.selected_filter_type]
+        self.thresholds[self.selected_filter_type] = (lower, value)
+        _, stackupper = self.threshold_stacks
+        sb = stackupper.widget(self.selected_filter_type)
+        sb.setValue(value)
+
+    @Slot()
     def _limitchanged(self):
         # Low/high limit changed via the spin boxes
+        stacklow, stackhigh = self.threshold_stacks
+        filter_ = self.selected_filter_type
+
+        lower = stacklow.widget(filter_).value()
+        upper = stackhigh.widget(filter_).value()
+        self.thresholds[filter_] = (lower, upper)
+
         if self._counts is not None and self._counts.size:
             xmin = np.min(self._counts)
             xmax = np.max(self._counts)
             self._plot.setBoundary(
-                np.clip(self.limit_lower, xmin, xmax),
-                np.clip(self.limit_upper, xmin, xmax)
+                np.clip(lower, xmin, xmax),
+                np.clip(upper, xmin, xmax)
             )
             # TODO: Only when the actual selection/filter mask changes
             self._schedule_commit()
@@ -368,7 +447,29 @@ class OWFilter(widget.OWWidget):
     def _limitchanged_plot(self):
         # Low/high limit changed via the plot
         if self._counts is not None:
-            self.limit_lower, self.limit_upper = self._plot.boundary()
+            newlower, newupper = self._plot.boundary()
+            filter_ = self.selected_filter_type
+            lower, upper = self.thresholds[filter_]
+            stacklow, stackhigh = self.threshold_stacks
+            spin_lower = stacklow.widget(filter_)
+            spin_upper = stackhigh.widget(filter_)
+            # do rounding to match the spin box's precision
+            if self.limit_lower_enabled:
+                newlower = round(newlower, spin_lower.decimals())
+            else:
+                newlower = lower
+
+            if self.limit_upper_enabled:
+                newupper = round(newupper, spin_upper.decimals())
+            else:
+                newupper = upper
+
+            if self.limit_lower_enabled and newlower != lower:
+                self.limit_lower = newlower
+            if self.limit_upper_enabled and newupper != upper:
+                self.limit_upper = newupper
+
+            self._plot.setBoundary(newlower, newupper)
             # TODO: Only when the actual selection/filter mask changes
             self._schedule_commit()
             self._update_info()
@@ -429,6 +530,20 @@ class OWFilter(widget.OWWidget):
         self.clear()
         self._plot.close()
         super().onDeleteWidget()
+
+    @classmethod
+    def migrate_settings(cls, settings, version):
+        if (version is None or version < 2) and \
+                ("limit_lower" in settings and "limit_upper" in settings):
+            # v2 changed limit_lower, limit_upper to per filter limits stored
+            # in a single dict
+            lower = settings.pop("limit_lower")
+            upper = settings.pop("limit_upper")
+            settings["thresholds"] = {
+                Cells: (lower, upper),
+                Genes: (lower, upper),
+                Data: (lower, upper),
+            }
 
 
 @contextmanager
@@ -763,6 +878,7 @@ def main(argv=None):  # pragma: no cover
     w.show()
     w.raise_()
     app.exec()
+    w.saveSettings()
     w.onDeleteWidget()
 
 
