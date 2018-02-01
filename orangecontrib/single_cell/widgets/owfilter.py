@@ -409,8 +409,7 @@ class OWFilter(widget.OWWidget):
         stacklower, _ = self.threshold_stacks
         sb = stacklower.widget(self.selected_filter_type)
         # prevent changes due to spin box rounding
-        with disconnected(sb.valueChanged, self._limitchanged):
-            sb.setValue(value)
+        sb.setValue(value)
 
     @property
     def limit_upper(self):
@@ -422,9 +421,7 @@ class OWFilter(widget.OWWidget):
         self.thresholds[self.selected_filter_type] = (lower, value)
         _, stackupper = self.threshold_stacks
         sb = stackupper.widget(self.selected_filter_type)
-        # prevent changes due to spin box rounding
-        with disconnected(sb.valueChanged, self._limitchanged):
-            sb.setValue(value)
+        sb.setValue(value)
 
     @Slot()
     def _limitchanged(self):
@@ -450,7 +447,29 @@ class OWFilter(widget.OWWidget):
     def _limitchanged_plot(self):
         # Low/high limit changed via the plot
         if self._counts is not None:
-            self.limit_lower, self.limit_upper = self._plot.boundary()
+            newlower, newupper = self._plot.boundary()
+            filter_ = self.selected_filter_type
+            lower, upper = self.thresholds[filter_]
+            stacklow, stackhigh = self.threshold_stacks
+            spin_lower = stacklow.widget(filter_)
+            spin_upper = stackhigh.widget(filter_)
+            # do rounding to match the spin box's precision
+            if self.limit_lower_enabled:
+                newlower = round(newlower, spin_lower.decimals())
+            else:
+                newlower = lower
+
+            if self.limit_upper_enabled:
+                newupper = round(newupper, spin_upper.decimals())
+            else:
+                newupper = upper
+
+            if self.limit_lower_enabled and newlower != lower:
+                self.limit_lower = newlower
+            if self.limit_upper_enabled and newupper != upper:
+                self.limit_upper = newupper
+
+            self._plot.setBoundary(newlower, newupper)
             # TODO: Only when the actual selection/filter mask changes
             self._schedule_commit()
             self._update_info()
@@ -534,16 +553,6 @@ def block_signals(qobj):
         yield
     finally:
         qobj.blockSignals(b)
-
-
-@contextmanager
-def disconnected(signal, slot):
-    # type: (pyqtBoundSignal, FunctionType) -> Iterator[None]
-    signal.disconnect(slot)
-    try:
-        yield
-    finally:
-        signal.connect(slot, Qt.UniqueConnection)
 
 
 class ViolinPlot(pg.PlotItem):
