@@ -22,10 +22,8 @@ class OWScoreCells(widget.OWWidget):
 
     want_main_area = False
 
-    class Error(OWWidget.Error):
-        no_genes = Msg("No matching genes in data")
-
     class Warning(OWWidget.Warning):
+        no_genes = Msg("No matching genes in data")
         some_genes = Msg("{} (of {}) genes not found in data")
 
     class Inputs:
@@ -71,29 +69,33 @@ class OWScoreCells(widget.OWWidget):
         self._invalidate()
 
     def commit(self):
-        table = None
-        self.Error.no_genes.clear()
-        self.Warning.some_genes.clear()
-        if self.data and self.genes and self.gene:
+        self.clear_messages()
+
+        if self.data is None:
+            self.Outputs.data.send(None)
+            return
+
+        score = np.zeros(len(self.data))
+        if self.genes and self.gene:
             available_genes = set(f.name for f in self.data.domain.variables)
             gene_list_all = [str(ins[self.gene]) for ins in self.genes]
             gene_list = [g for g in gene_list_all if g in available_genes]
             if not gene_list:
-                self.Error.no_genes()
-                score = np.zeros(len(self.data))
+                self.Warning.no_genes()
             else:
                 if len(gene_list) < len(gene_list_all):
                     self.Warning.some_genes(len(gene_list_all) - len(gene_list),
                                             len(gene_list_all))
                 values = self.data[:, gene_list].X
                 score = np.nanmax(values, axis=1)
-            d = self.data.domain
-            score_var = ContinuousVariable('Score')
-            dom = Domain(d.attributes, d.class_vars,
-                         d.metas + (score_var,))
-            table = self.data.transform(dom)
-            col, sparse = table.get_column_view(score_var)
-            col[:] = score
+
+        d = self.data.domain
+        score_var = ContinuousVariable('Score')
+        dom = Domain(d.attributes, d.class_vars,
+                     d.metas + (score_var,))
+        table = self.data.transform(dom)
+        col, sparse = table.get_column_view(score_var)
+        col[:] = score
         self.Outputs.data.send(table)
 
     def _invalidate(self):
