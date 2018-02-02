@@ -176,6 +176,7 @@ class OWtSNE(OWWidget):
 
     class Error(OWWidget.Error):
         not_enough_rows = Msg("Input data needs at least 2 rows")
+        constant_data = Msg("Input data is constant")
         no_attributes = Msg("Data has no attributes")
         out_of_memory = Msg("Out of memory")
         optimization_error = Msg("Error during optimization\n{}")
@@ -317,6 +318,12 @@ class OWtSNE(OWWidget):
             data = None
         else:
             self.Error.not_enough_rows.clear()
+
+        if data is not None and np.allclose(data.X - data.X[0], 0):
+            self.Error.constant_data()
+            data = None
+        else:
+            self.Error.constant_data.clear()
 
         self.signal_data = data
         if self.data and data and np.array_equal(self.data.X, data.X):
