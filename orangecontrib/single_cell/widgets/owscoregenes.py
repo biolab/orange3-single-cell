@@ -302,6 +302,7 @@ class OWRank(OWWidget):
     class Error(OWWidget.Error):
         invalid_type = Msg("Cannot handle target variable type {}")
         inadequate_learner = Msg("Scorer {} inadequate: {}")
+        no_attributes = Msg("No attributes")
 
     def __init__(self):
         super().__init__()
@@ -409,6 +410,10 @@ class OWRank(OWWidget):
         self.Information.clear()
         self.Information.missings_imputed(
             shown=data is not None and data.has_missing())
+
+        if data is not None and not len(data.domain.attributes):
+            self.Error.no_attributes()
+            data = None
 
         self.data = data
         self.switchProblemType(ProblemType.CLASSIFICATION)
