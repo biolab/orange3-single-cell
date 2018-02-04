@@ -17,6 +17,7 @@ from Orange.widgets.utils.annotated_data import get_next_name, add_columns, \
     ANNOTATED_DATA_SIGNAL_NAME
 from Orange.widgets.utils.concurrent import ThreadExecutor
 from Orange.widgets.utils.signals import Input, Output
+from Orange.widgets.widget import Msg
 from orangecontrib.single_cell.widgets.louvain import best_partition
 
 try:
@@ -151,6 +152,9 @@ class OWLouvainClustering(widget.OWWidget):
     resolution = ContextSetting(1.)
     auto_commit = Setting(True)
 
+    class Error(widget.OWWidget.Error):
+        general_error = Msg("Error occured during clustering\n{}")
+
     def __init__(self):
         super().__init__()
 
@@ -226,7 +230,11 @@ class OWLouvainClustering(widget.OWWidget):
         self.setBlocking(False)
         self.progressBarFinished()
 
+    def _handle_exceptions(self, ex):
+        self.Error.general_error(str(ex))
+
     def commit(self, force=False):
+        self.Error.clear()
         if self.data is None:
             return
 
@@ -250,6 +258,7 @@ class OWLouvainClustering(widget.OWWidget):
         queue.on_progress.connect(lambda val: self.progressBarSet(100 * val))
         queue.on_complete.connect(self._processing_complete)
         queue.on_complete.connect(self._send_data)
+        queue.on_exception.connect(self._handle_exceptions)
 
         # Run the task queue
         self.progressBarInit()
@@ -288,6 +297,7 @@ class OWLouvainClustering(widget.OWWidget):
     @Inputs.data
     def set_data(self, data):
         self.closeContext()
+        self.Error.clear()
         self.data = data
         self._invalidate_pca_projection()
         self.Outputs.annotated_data.send(None)
