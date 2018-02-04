@@ -1,19 +1,25 @@
+from collections import deque
+from concurrent.futures import Future
+from enum import Enum
+from types import SimpleNamespace as namespace
 from typing import Optional
 
 import networkx as nx
 import numpy as np
-from AnyQt.QtCore import Qt, pyqtSignal as Signal
-from AnyQt.QtWidgets import QSlider, QPushButton, QCheckBox
+from AnyQt.QtCore import Qt, pyqtSignal as Signal, QObject
+from AnyQt.QtWidgets import QSlider, QPushButton, QCheckBox, QWidget
 from sklearn.neighbors import NearestNeighbors
 
 from Orange.data import Table, DiscreteVariable
 from Orange.projection import PCA
 from Orange.widgets import widget, gui
-from Orange.widgets.settings import DomainContextHandler, ContextSetting
+from Orange.widgets.settings import DomainContextHandler, ContextSetting, \
+    Setting
 from Orange.widgets.utils.annotated_data import get_next_name, add_columns, \
     ANNOTATED_DATA_SIGNAL_NAME
 from Orange.widgets.utils.concurrent import ThreadExecutor
 from Orange.widgets.utils.signals import Input, Output
+from Orange.widgets.widget import Msg
 from orangecontrib.single_cell.widgets.louvain import best_partition
 
 try:
@@ -61,24 +67,69 @@ def table_to_graph(data, k_neighbours, metric, progress_callback=None):
     nearest_neighbours = list(map(set, nearest_neighbours))
     num_nodes = len(nearest_neighbours)
 
-    progress = 0
-
     # Create an empty graph and add all the data ids as nodes for easy mapping
     graph = nx.Graph()
     graph.add_nodes_from(range(len(data)))
 
     for idx, node in enumerate(graph.nodes):
-        # Make sure to update the progress only when there is a change
-        if int(100 * (idx + 1) / num_nodes) > progress:
-            progress += 1
-            if progress_callback:
-                progress_callback(progress)
+        if progress_callback:
+            progress_callback(idx / num_nodes)
 
         for neighbour in nearest_neighbours[node]:
             graph.add_edge(node, neighbour, weight=jaccard(
                 nearest_neighbours[node], nearest_neighbours[neighbour]))
 
     return graph
+
+
+class TaskQueue(QObject):
+    """Not really a task queue `per-se`. Running start will run the tasks in
+    the current list and cannot handle adding other tasks while running."""
+    on_exception = Signal(Exception)
+    on_complete = Signal()
+    on_progress = Signal(float)
+
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        self.__tasks = deque()
+        self.__progress = 0
+
+    def push(self, task):
+        self.__tasks.append(task)
+
+    def __set_progress(self, progress):
+        # Only emit progress signal when the progress has changed sufficiently
+        if int(progress * 100) > int(self.__progress * 100):
+            self.on_progress.emit(progress)
+        self.__progress = progress
+
+    def start(self):
+        num_tasks = len(self.__tasks)
+
+        for idx, task_spec in enumerate(self.__tasks):
+
+            def __task_progress(percentage):
+                current_progress = idx / num_tasks
+                # How much progress can each task contribute to the total
+                # work to be done
+                task_percentage = len(self.__tasks) ** -1
+                # Convert the progress done by the task into the total
+                # progress to the task
+                relative_progress = task_percentage * percentage
+                self.__set_progress(current_progress + relative_progress)
+
+            try:
+                if getattr(task_spec, 'progress_callback', False):
+                    task_spec.task(progress_callback=__task_progress)
+                else:
+                    task_spec.task()
+                self.__set_progress((idx + 1) / num_tasks)
+
+            except Exception as e:
+                self.on_exception.emit(e)
+                break
+
+        self.on_complete.emit()
 
 
 class OWLouvainClustering(widget.OWWidget):
@@ -103,10 +154,13 @@ class OWLouvainClustering(widget.OWWidget):
     metric_idx = ContextSetting(0)
     k_neighbours = ContextSetting(_DEFAULT_K_NEIGHBOURS)
     resolution = ContextSetting(1.)
+    auto_commit = Setting(True)
 
-    pca_projection_complete = Signal()
-    build_graph_complete = Signal()
-    find_partition_complete = Signal()
+    class Error(widget.OWWidget.Error):
+        general_error = Msg("Error occured during clustering\n{}")
+
+    class State(Enum):
+        Pending, Running = range(2)
 
     def __init__(self):
         super().__init__()
@@ -116,6 +170,8 @@ class OWLouvainClustering(widget.OWWidget):
         self.partition = None  # type: Optional[np.array]
 
         self.__executor = ThreadExecutor(parent=self)
+        self.__future = None  # type: Optional[Future]
+        self.__state = self.State.Pending
 
         pca_box = gui.vBox(self.controlArea, 'PCA Preprocessing')
         self.apply_pca_cbx = gui.checkBox(
@@ -145,71 +201,92 @@ class OWLouvainClustering(widget.OWWidget):
             callback=self._invalidate_partition,
         )  # type: gui.SpinBoxWFocusOut
 
-        self.compute_btn = gui.button(
-            self.controlArea, self, 'Run clustering',
-            callback=self.compute_partition,
-        )  # type: QPushButton
-
-        # Connect the pipeline together
-        self.pca_projection_complete.connect(self._compute_graph)
-        self.build_graph_complete.connect(self._compute_partition)
-        self.find_partition_complete.connect(self._send_data)
-        self.find_partition_complete.connect(self._processing_complete)
+        self.apply_button = gui.auto_commit(
+            self.controlArea, self, 'auto_commit', 'Apply', box=False,
+            commit=lambda: self.commit(force=True), callback=self.commit,
+        )  # type: QWidget
 
     def _compute_pca_projection(self):
-        def _process():
-            if self.pca_projection is None and self.apply_pca:
-                self.setStatusMessage('Computing PCA...')
-                self.setBlocking(True)
+        if self.pca_projection is None and self.apply_pca:
+            self.setStatusMessage('Computing PCA...')
 
-                pca = PCA(n_components=self.pca_components, random_state=0)
-                model = pca(self.data)
-                self.pca_projection = model(self.data)
+            pca = PCA(n_components=self.pca_components, random_state=0)
+            model = pca(self.data)
+            self.pca_projection = model(self.data)
 
-            self.pca_projection_complete.emit()
+    def _compute_graph(self, progress_callback=None):
+        if self.graph is None:
+            self.setStatusMessage('Building graph...')
 
-        self.__executor.submit(_process)
+            data = self.pca_projection if self.apply_pca else self.data
 
-    def _compute_graph(self):
-        def _progress_bar(percentage):
-            self.progressBarSet(percentage)
-
-        def _process():
-            if self.graph is None:
-                self.progressBarInit()
-                self.setStatusMessage('Building graph...')
-                self.setBlocking(True)
-
-                data = self.pca_projection if self.apply_pca else self.data
-
-                self.graph = table_to_graph(
-                    data, k_neighbours=self.k_neighbours,
-                    metric=METRICS[self.metric_idx][1],
-                    progress_callback=_progress_bar,
-                )
-                self.progressBarFinished()
-
-            self.build_graph_complete.emit()
-
-        self.__executor.submit(_process)
+            self.graph = table_to_graph(
+                data, k_neighbours=self.k_neighbours,
+                metric=METRICS[self.metric_idx][1],
+                progress_callback=progress_callback,
+            )
 
     def _compute_partition(self):
-        def _process():
-            if self.partition is None:
-                self.setStatusMessage('Detecting communities...')
-                self.setBlocking(True)
+        if self.partition is None:
+            self.setStatusMessage('Detecting communities...')
+            self.setBlocking(True)
 
-                partition = best_partition(self.graph, resolution=self.resolution)
-                self.partition = np.fromiter(list(
-                    zip(*sorted(partition.items())))[1], dtype=int)
-
-            self.find_partition_complete.emit()
-
-        self.__executor.submit(_process)
+            partition = best_partition(self.graph, resolution=self.resolution)
+            self.partition = np.fromiter(list(zip(*sorted(partition.items())))[1], dtype=int)
 
     def _processing_complete(self):
         self.setStatusMessage('')
         self.setBlocking(False)
+        self.progressBarFinished()
+
+    def _handle_exceptions(self, ex):
+        self.Error.general_error(str(ex))
+
+    def cancel(self):
+        """Cancel any running jobs."""
+        if self.__state == self.State.Running:
+            assert self.__future is not None
+            self.__future.cancel()
+            self.__future = None
+
+        self.__state = self.State.Pending
+
+    def commit(self, force=False):
+        self.Error.clear()
+        # Kill any running jobs
+        self.cancel()
+        assert self.__state == self.State.Pending
+
+        if self.data is None:
+            return
+
+        # We commit if auto_commit is on or when we force commit
+        if not self.auto_commit and not force:
+            return
+
+        # Prepare the tasks to run
+        queue = TaskQueue(parent=self)
+
+        if self.pca_projection is None and self.apply_pca:
+            queue.push(namespace(task=self._compute_pca_projection))
+
+        if self.graph is None:
+            queue.push(namespace(task=self._compute_graph, progress_callback=True))
+
+        if self.partition is None:
+            queue.push(namespace(task=self._compute_partition))
+
+        # Prepare callbacks
+        queue.on_progress.connect(lambda val: self.progressBarSet(100 * val))
+        queue.on_complete.connect(self._processing_complete)
+        queue.on_complete.connect(self._send_data)
+        queue.on_exception.connect(self._handle_exceptions)
+
+        # Run the task queue
+        self.progressBarInit()
+        self.setBlocking(True)
+        self.__future = self.__executor.submit(queue.start)
+        self.__state = self.State.Running
 
     def _send_data(self):
         domain = self.data.domain
@@ -238,23 +315,16 @@ class OWLouvainClustering(widget.OWWidget):
 
     def _invalidate_partition(self):
         self.partition = None
-
-    def compute_partition(self):
-        if not self.data:
-            return
-
-        # Don't needlessly compute the PCA projection if the user decided to
-        # use full data
-        if self.apply_pca:
-            self._compute_pca_projection()
-        else:
-            self._compute_graph()
+        self.commit()
 
     @Inputs.data
     def set_data(self, data):
         self.closeContext()
-        self._invalidate_pca_projection()
+        self.Error.clear()
         self.data = data
+        self._invalidate_pca_projection()
+        self.Outputs.annotated_data.send(None)
+        self.Outputs.graph.send(None)
         self.openContext(self.data)
 
         if self.data is None:
@@ -267,6 +337,12 @@ class OWLouvainClustering(widget.OWWidget):
         # Can't have more k neighbours than there are data points
         self.k_neighbours_spin.setMaximum(min(_MAX_K_NEIGBOURS, len(data) - 1))
         self.k_neighbours_spin.setValue(min(_DEFAULT_K_NEIGHBOURS, len(data) - 1))
+
+        self.commit()
+
+    def onDeleteWidget(self):
+        self.cancel()
+        super().onDeleteWidget()
 
 
 if __name__ == '__main__':
