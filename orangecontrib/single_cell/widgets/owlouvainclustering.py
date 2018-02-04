@@ -5,13 +5,14 @@ from typing import Optional
 import networkx as nx
 import numpy as np
 from AnyQt.QtCore import Qt, pyqtSignal as Signal, QObject
-from AnyQt.QtWidgets import QSlider, QPushButton, QCheckBox
+from AnyQt.QtWidgets import QSlider, QPushButton, QCheckBox, QWidget
 from sklearn.neighbors import NearestNeighbors
 
 from Orange.data import Table, DiscreteVariable
 from Orange.projection import PCA
 from Orange.widgets import widget, gui
-from Orange.widgets.settings import DomainContextHandler, ContextSetting
+from Orange.widgets.settings import DomainContextHandler, ContextSetting, \
+    Setting
 from Orange.widgets.utils.annotated_data import get_next_name, add_columns, \
     ANNOTATED_DATA_SIGNAL_NAME
 from Orange.widgets.utils.concurrent import ThreadExecutor
@@ -148,6 +149,7 @@ class OWLouvainClustering(widget.OWWidget):
     metric_idx = ContextSetting(0)
     k_neighbours = ContextSetting(_DEFAULT_K_NEIGHBOURS)
     resolution = ContextSetting(1.)
+    auto_commit = Setting(True)
 
     def __init__(self):
         super().__init__()
@@ -186,10 +188,10 @@ class OWLouvainClustering(widget.OWWidget):
             callback=self._invalidate_partition,
         )  # type: gui.SpinBoxWFocusOut
 
-        self.compute_btn = gui.button(
-            self.controlArea, self, 'Run clustering',
-            callback=self.commit,
-        )  # type: QPushButton
+        self.apply_button = gui.auto_commit(
+            self.controlArea, self, 'auto_commit', 'Apply', box=False,
+            commit=lambda: self.commit(force=True),
+        )  # type: QWidget
 
     def _compute_pca_projection(self):
         if self.pca_projection is None and self.apply_pca:
@@ -224,7 +226,14 @@ class OWLouvainClustering(widget.OWWidget):
         self.setBlocking(False)
         self.progressBarFinished()
 
-    def commit(self):
+    def commit(self, force=False):
+        if self.data is None:
+            return
+
+        # We commit if auto_commit is on or when we force commit
+        if not self.auto_commit and not force:
+            return
+
         # Prepare the tasks to run
         queue = TaskQueue(parent=self)
 
@@ -237,10 +246,8 @@ class OWLouvainClustering(widget.OWWidget):
         if self.partition is None:
             queue.push(namespace(task=self._compute_partition))
 
-        # Prepare the callbacks
-        def _progress_bar(val):
-            self.progressBarSet(100 * val)
-        queue.on_progress.connect(_progress_bar)
+        # Prepare callbacks
+        queue.on_progress.connect(lambda val: self.progressBarSet(100 * val))
         queue.on_complete.connect(self._processing_complete)
         queue.on_complete.connect(self._send_data)
 
@@ -276,12 +283,15 @@ class OWLouvainClustering(widget.OWWidget):
 
     def _invalidate_partition(self):
         self.partition = None
+        self.commit()
 
     @Inputs.data
     def set_data(self, data):
         self.closeContext()
-        self._invalidate_pca_projection()
         self.data = data
+        self._invalidate_pca_projection()
+        self.Outputs.annotated_data.send(None)
+        self.Outputs.graph.send(None)
         self.openContext(self.data)
 
         if self.data is None:
@@ -294,6 +304,8 @@ class OWLouvainClustering(widget.OWWidget):
         # Can't have more k neighbours than there are data points
         self.k_neighbours_spin.setMaximum(min(_MAX_K_NEIGBOURS, len(data) - 1))
         self.k_neighbours_spin.setValue(min(_DEFAULT_K_NEIGHBOURS, len(data) - 1))
+
+        self.commit()
 
 
 if __name__ == '__main__':
