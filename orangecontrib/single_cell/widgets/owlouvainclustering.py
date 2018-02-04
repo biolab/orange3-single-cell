@@ -1,4 +1,6 @@
 from collections import deque
+from concurrent.futures import Future
+from enum import Enum
 from types import SimpleNamespace as namespace
 from typing import Optional
 
@@ -125,6 +127,7 @@ class TaskQueue(QObject):
 
             except Exception as e:
                 self.on_exception.emit(e)
+                break
 
         self.on_complete.emit()
 
@@ -155,6 +158,9 @@ class OWLouvainClustering(widget.OWWidget):
     class Error(widget.OWWidget.Error):
         general_error = Msg("Error occured during clustering\n{}")
 
+    class State(Enum):
+        Pending, Running = range(2)
+
     def __init__(self):
         super().__init__()
 
@@ -163,6 +169,8 @@ class OWLouvainClustering(widget.OWWidget):
         self.partition = None  # type: Optional[np.array]
 
         self.__executor = ThreadExecutor(parent=self)
+        self.__future = None  # type: Optional[Future]
+        self.__state = self.State.Pending
 
         pca_box = gui.vBox(self.controlArea, 'PCA Preprocessing')
         self.apply_pca_cbx = gui.checkBox(
@@ -194,7 +202,7 @@ class OWLouvainClustering(widget.OWWidget):
 
         self.apply_button = gui.auto_commit(
             self.controlArea, self, 'auto_commit', 'Apply', box=False,
-            commit=lambda: self.commit(force=True),
+            commit=lambda: self.commit(force=True), callback=self.commit,
         )  # type: QWidget
 
     def _compute_pca_projection(self):
@@ -233,8 +241,21 @@ class OWLouvainClustering(widget.OWWidget):
     def _handle_exceptions(self, ex):
         self.Error.general_error(str(ex))
 
+    def cancel(self):
+        """Cancel any running jobs."""
+        if self.__state == self.State.Running:
+            assert self.__future is not None
+            self.__future.cancel()
+            self.__future = None
+
+        self.__state = self.State.Pending
+
     def commit(self, force=False):
         self.Error.clear()
+        # Kill any running jobs
+        self.cancel()
+        assert self.__state == self.State.Pending
+
         if self.data is None:
             return
 
@@ -263,7 +284,8 @@ class OWLouvainClustering(widget.OWWidget):
         # Run the task queue
         self.progressBarInit()
         self.setBlocking(True)
-        self.__executor.submit(queue.start)
+        self.__future = self.__executor.submit(queue.start)
+        self.__state = self.State.Running
 
     def _send_data(self):
         domain = self.data.domain
@@ -316,6 +338,10 @@ class OWLouvainClustering(widget.OWWidget):
         self.k_neighbours_spin.setValue(min(_DEFAULT_K_NEIGHBOURS, len(data) - 1))
 
         self.commit()
+
+    def onDeleteWidget(self):
+        self.cancel()
+        super().onDeleteWidget()
 
 
 if __name__ == '__main__':
