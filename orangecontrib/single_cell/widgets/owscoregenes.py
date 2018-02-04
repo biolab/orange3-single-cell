@@ -155,16 +155,9 @@ ScoreMeta = namedtuple("score_meta", ["name", "shortname", "scorer", 'problem_ty
 # Default scores.
 CLS_SCORES = [
     ScoreMeta("Information Gain", "Info. gain", score.InfoGain, ProblemType.CLASSIFICATION, False),
-    ScoreMeta("Information Gain Ratio", "Gain ratio", score.GainRatio, ProblemType.CLASSIFICATION, False),
-    ScoreMeta("Gini Decrease", "Gini", score.Gini, ProblemType.CLASSIFICATION, False),
-    ScoreMeta("ANOVA", "ANOVA", score.ANOVA, ProblemType.CLASSIFICATION, False),
-    ScoreMeta("χ²", "χ²", score.Chi2, ProblemType.CLASSIFICATION, False),
-    ScoreMeta("ReliefF", "ReliefF", score.ReliefF, ProblemType.CLASSIFICATION, False),
-    ScoreMeta("FCBF", "FCBF", score.FCBF, ProblemType.CLASSIFICATION, False)
 ]
 REG_SCORES = [
     ScoreMeta("Univariate Regression", "Univar. reg.", score.UnivariateLinearRegression, ProblemType.REGRESSION, True),
-    ScoreMeta("RReliefF", "RReliefF", score.RReliefF, ProblemType.REGRESSION, True)
 ]
 UNSUP_SCORES = [
     ScoreMeta("Mean", "Mean", MeanScorer, ProblemType.UNSUPERVISED, True),
@@ -173,7 +166,7 @@ UNSUP_SCORES = [
     ScoreMeta("Coef. of variation (CV)", "CV", VariationCoefficientScorer, ProblemType.UNSUPERVISED, False),
 ]
 
-SCORES = CLS_SCORES + REG_SCORES + UNSUP_SCORES
+SCORES = CLS_SCORES + UNSUP_SCORES
 
 
 class TableView(QTableView):
