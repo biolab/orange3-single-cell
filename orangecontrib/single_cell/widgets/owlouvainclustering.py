@@ -1,8 +1,10 @@
+from collections import deque
+from types import SimpleNamespace as namespace
 from typing import Optional
 
 import networkx as nx
 import numpy as np
-from AnyQt.QtCore import Qt, pyqtSignal as Signal
+from AnyQt.QtCore import Qt, pyqtSignal as Signal, QObject
 from AnyQt.QtWidgets import QSlider, QPushButton, QCheckBox
 from sklearn.neighbors import NearestNeighbors
 
@@ -61,24 +63,68 @@ def table_to_graph(data, k_neighbours, metric, progress_callback=None):
     nearest_neighbours = list(map(set, nearest_neighbours))
     num_nodes = len(nearest_neighbours)
 
-    progress = 0
-
     # Create an empty graph and add all the data ids as nodes for easy mapping
     graph = nx.Graph()
     graph.add_nodes_from(range(len(data)))
 
     for idx, node in enumerate(graph.nodes):
-        # Make sure to update the progress only when there is a change
-        if int(100 * (idx + 1) / num_nodes) > progress:
-            progress += 1
-            if progress_callback:
-                progress_callback(progress)
+        if progress_callback:
+            progress_callback(idx / num_nodes)
 
         for neighbour in nearest_neighbours[node]:
             graph.add_edge(node, neighbour, weight=jaccard(
                 nearest_neighbours[node], nearest_neighbours[neighbour]))
 
     return graph
+
+
+class TaskQueue(QObject):
+    """Not really a task queue `per-se`. Running start will run the tasks in
+    the current list and cannot handle adding other tasks while running."""
+    on_exception = Signal(Exception)
+    on_complete = Signal()
+    on_progress = Signal(float)
+
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        self.__tasks = deque()
+        self.__progress = 0
+
+    def push(self, task):
+        self.__tasks.append(task)
+
+    def __set_progress(self, progress):
+        # Only emit progress signal when the progress has changed sufficiently
+        if int(progress * 100) > int(self.__progress * 100):
+            self.on_progress.emit(progress)
+        self.__progress = progress
+
+    def start(self):
+        num_tasks = len(self.__tasks)
+
+        for idx, task_spec in enumerate(self.__tasks):
+
+            def __task_progress(percentage):
+                current_progress = idx / num_tasks
+                # How much progress can each task contribute to the total
+                # work to be done
+                task_percentage = len(self.__tasks) ** -1
+                # Convert the progress done by the task into the total
+                # progress to the task
+                relative_progress = task_percentage * percentage
+                self.__set_progress(current_progress + relative_progress)
+
+            try:
+                if getattr(task_spec, 'progress_callback', False):
+                    task_spec.task(progress_callback=__task_progress)
+                else:
+                    task_spec.task()
+                self.__set_progress((idx + 1) / num_tasks)
+
+            except Exception as e:
+                self.on_exception.emit(e)
+
+        self.on_complete.emit()
 
 
 class OWLouvainClustering(widget.OWWidget):
@@ -102,10 +148,6 @@ class OWLouvainClustering(widget.OWWidget):
     metric_idx = ContextSetting(0)
     k_neighbours = ContextSetting(_DEFAULT_K_NEIGHBOURS)
     resolution = ContextSetting(1.)
-
-    pca_projection_complete = Signal()
-    build_graph_complete = Signal()
-    find_partition_complete = Signal()
 
     def __init__(self):
         super().__init__()
@@ -146,69 +188,66 @@ class OWLouvainClustering(widget.OWWidget):
 
         self.compute_btn = gui.button(
             self.controlArea, self, 'Run clustering',
-            callback=self.compute_partition,
+            callback=self.commit,
         )  # type: QPushButton
 
-        # Connect the pipeline together
-        self.pca_projection_complete.connect(self._compute_graph)
-        self.build_graph_complete.connect(self._compute_partition)
-        self.find_partition_complete.connect(self._send_data)
-        self.find_partition_complete.connect(self._processing_complete)
-
     def _compute_pca_projection(self):
-        def _process():
-            if self.pca_projection is None and self.apply_pca:
-                self.setStatusMessage('Computing PCA...')
-                self.setBlocking(True)
+        if self.pca_projection is None and self.apply_pca:
+            self.setStatusMessage('Computing PCA...')
 
-                pca = PCA(n_components=self.pca_components, random_state=0)
-                model = pca(self.data)
-                self.pca_projection = model(self.data)
+            pca = PCA(n_components=self.pca_components, random_state=0)
+            model = pca(self.data)
+            self.pca_projection = model(self.data)
 
-            self.pca_projection_complete.emit()
+    def _compute_graph(self, progress_callback=None):
+        if self.graph is None:
+            self.setStatusMessage('Building graph...')
 
-        self.__executor.submit(_process)
+            data = self.pca_projection if self.apply_pca else self.data
 
-    def _compute_graph(self):
-        def _progress_bar(percentage):
-            self.progressBarSet(percentage)
-
-        def _process():
-            if self.graph is None:
-                self.progressBarInit()
-                self.setStatusMessage('Building graph...')
-                self.setBlocking(True)
-
-                data = self.pca_projection if self.apply_pca else self.data
-
-                self.graph = table_to_graph(
-                    data, k_neighbours=self.k_neighbours,
-                    metric=METRICS[self.metric_idx][1],
-                    progress_callback=_progress_bar,
-                )
-                self.progressBarFinished()
-
-            self.build_graph_complete.emit()
-
-        self.__executor.submit(_process)
+            self.graph = table_to_graph(
+                data, k_neighbours=self.k_neighbours,
+                metric=METRICS[self.metric_idx][1],
+                progress_callback=progress_callback,
+            )
 
     def _compute_partition(self):
-        def _process():
-            if self.partition is None:
-                self.setStatusMessage('Detecting communities...')
-                self.setBlocking(True)
+        if self.partition is None:
+            self.setStatusMessage('Detecting communities...')
+            self.setBlocking(True)
 
-                partition = best_partition(self.graph, resolution=self.resolution)
-                self.partition = np.fromiter(list(
-                    zip(*sorted(partition.items())))[1], dtype=int)
-
-            self.find_partition_complete.emit()
-
-        self.__executor.submit(_process)
+            partition = best_partition(self.graph, resolution=self.resolution)
+            self.partition = np.fromiter(list(zip(*sorted(partition.items())))[1], dtype=int)
 
     def _processing_complete(self):
         self.setStatusMessage('')
         self.setBlocking(False)
+        self.progressBarFinished()
+
+    def commit(self):
+        # Prepare the tasks to run
+        queue = TaskQueue(parent=self)
+
+        if self.pca_projection is None and self.apply_pca:
+            queue.push(namespace(task=self._compute_pca_projection))
+
+        if self.graph is None:
+            queue.push(namespace(task=self._compute_graph, progress_callback=True))
+
+        if self.partition is None:
+            queue.push(namespace(task=self._compute_partition))
+
+        # Prepare the callbacks
+        def _progress_bar(val):
+            self.progressBarSet(100 * val)
+        queue.on_progress.connect(_progress_bar)
+        queue.on_complete.connect(self._processing_complete)
+        queue.on_complete.connect(self._send_data)
+
+        # Run the task queue
+        self.progressBarInit()
+        self.setBlocking(True)
+        self.__executor.submit(queue.start)
 
     def _send_data(self):
         domain = self.data.domain
@@ -237,17 +276,6 @@ class OWLouvainClustering(widget.OWWidget):
 
     def _invalidate_partition(self):
         self.partition = None
-
-    def compute_partition(self):
-        if not self.data:
-            return
-
-        # Don't needlessly compute the PCA projection if the user decided to
-        # use full data
-        if self.apply_pca:
-            self._compute_pca_projection()
-        else:
-            self._compute_graph()
 
     @Inputs.data
     def set_data(self, data):
