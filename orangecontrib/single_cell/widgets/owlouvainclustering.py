@@ -136,6 +136,8 @@ class OWLouvainClustering(widget.OWWidget):
     name = 'Louvain Clustering'
     icon = 'icons/LouvainClustering.svg'
 
+    want_main_area = False
+
     settingsHandler = DomainContextHandler()
 
     class Inputs:
