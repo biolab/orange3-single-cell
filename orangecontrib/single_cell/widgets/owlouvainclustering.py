@@ -332,7 +332,8 @@ class OWLouvainClustering(widget.OWWidget):
         self.data = data
         self._invalidate_pca_projection()
         self.Outputs.annotated_data.send(None)
-        self.Outputs.graph.send(None)
+        if Graph is not None:
+            self.Outputs.graph.send(None)
         self.openContext(self.data)
 
         if self.data is None:
