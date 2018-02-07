@@ -292,14 +292,20 @@ class OWLouvainClustering(widget.OWWidget):
 
     def _send_data(self):
         domain = self.data.domain
+        # Compute the frequency of each cluster index
+        counts = np.bincount(self.partition)
+        indices = np.argsort(counts)[::-1]
+        index_map = {n: o for n, o in zip(indices, range(len(indices)))}
+        new_partition = list(map(index_map.get, self.partition))
+
         cluster_var = DiscreteVariable(
             get_next_name(domain, 'Cluster'),
-            values=['C%d' % (i + 1) for i, _ in enumerate(np.unique(self.partition))]
+            values=['C%d' % (i + 1) for i, _ in enumerate(np.unique(new_partition))]
         )
 
         new_domain = add_columns(domain, metas=[cluster_var])
         new_table = self.data.transform(new_domain)
-        new_table.get_column_view(cluster_var)[0][:] = self.partition
+        new_table.get_column_view(cluster_var)[0][:] = new_partition
         self.Outputs.annotated_data.send(new_table)
 
         if Graph is not None:
