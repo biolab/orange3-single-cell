@@ -50,7 +50,7 @@ class SCOrangeLauncher:
         import os, sys
         from Orange.misc import environ
 
-        def data_dir():
+        def data_dir(versioned=True):
             """
             Return the platform dependent Orange data directory.
 
