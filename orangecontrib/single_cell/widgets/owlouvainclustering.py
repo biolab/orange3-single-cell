@@ -135,6 +135,7 @@ class TaskQueue(QObject):
 class OWLouvainClustering(widget.OWWidget):
     name = 'Louvain Clustering'
     icon = 'icons/LouvainClustering.svg'
+    priority = 2150
 
     want_main_area = False
 
