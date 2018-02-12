@@ -13,7 +13,7 @@ class SCOrangeLauncher:
         self.replace_example_workflows()
         self.replace_update_check()
 
-        self.fix_tsne_category()
+        self.fix_widget_categories()
 
         self.main()
 
@@ -118,13 +118,16 @@ class SCOrangeLauncher:
             sm(self, message, alignment=alignment, color=QColor("#4c85c5"))
         SplashScreen.showMessage = showMessage
 
-    def fix_tsne_category(self):
+    def fix_widget_categories(self):
         from Orange.canvas import registry
 
         wd = registry.WidgetDiscovery.widget_description
         def widget_description(self, module, widget_name=None,
                                category_name=None, distribution=None):
-            """Move t-SNE widget to Unsupervised category
+            """Move scOrange widgets to more appropriate methods
+
+            t-SNE -> Unsupervised
+            Louvain Clustering -> Unsupervised
 
             A better way to do this would be to change the behaviour of the
             widget_description method to *not* overwrite the category when
@@ -135,6 +138,8 @@ class SCOrangeLauncher:
                 self, module, widget_name, category_name, distribution)
 
             if desc.qualified_name == 'orangecontrib.single_cell.widgets.owtsne.OWtSNE':
+                desc.category = 'Unsupervised'
+            if desc.qualified_name == 'orangecontrib.single_cell.widgets.owlouvainclustering.OWLouvainClustering':
                 desc.category = 'Unsupervised'
             return desc
 
