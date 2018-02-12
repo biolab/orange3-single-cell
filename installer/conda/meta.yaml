@@ -32,7 +32,7 @@ test:
     - orangecontrib.single_cell.__main__
   commands:
     - python -m orangecontrib.single_cell --help
-
+    - test -f $PREFIX/help/orange3-single_cell/index.html  # [unix]
 about:
   home: https://singlecell.biolab.si/
   license: GPL-3

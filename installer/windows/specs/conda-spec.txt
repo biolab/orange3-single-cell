@@ -52,4 +52,4 @@ https://conda.anaconda.org/conda-forge/win-64/win_inet_pton-1.0.1-py36_1.tar.bz2
 https://conda.anaconda.org/conda-forge/win-64/wincertstore-0.2-py36_0.tar.bz2#6213bf1c1313aa0739db88f105a9ee32
 https://conda.anaconda.org/conda-forge/noarch/xlrd-1.1.0-py_2.tar.bz2#f278eedf55ae4d74fe9f84c3befe679b
 https://conda.anaconda.org/conda-forge/win-64/zlib-1.2.11-vc14_0.tar.bz2#6633fda3af7ef750def72e3ec5f5014d
-file:///Users/anze/miniconda3/conda-bld/noarch/orange3-single-cell-0.2.1-py_0.tar.bz2
+file:///Users/anze/miniconda3/conda-bld/noarch/orange3-single-cell-0.2.2-py_0.tar.bz2
