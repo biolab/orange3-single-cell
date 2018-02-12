@@ -176,6 +176,7 @@ class OWtSNE(OWWidget):
 
     class Error(OWWidget.Error):
         not_enough_rows = Msg("Input data needs at least 2 rows")
+        constant_data = Msg("Input data is constant")
         no_attributes = Msg("Data has no attributes")
         out_of_memory = Msg("Out of memory")
         optimization_error = Msg("Error during optimization\n{}")
@@ -312,12 +313,6 @@ class OWtSNE(OWWidget):
         ----------
         data : Optional[Orange.data.Table]
         """
-        if data is not None and len(data) < 2:
-            self.Error.not_enough_rows()
-            data = None
-        else:
-            self.Error.not_enough_rows.clear()
-
         self.signal_data = data
         if self.data and data and np.array_equal(self.data.X, data.X):
             self.closeContext()
@@ -361,13 +356,16 @@ class OWtSNE(OWWidget):
         if self.signal_data is None:
             return
 
-        self.data = self.signal_data
-
-        if not self.data.domain.attributes:
+        if len(self.signal_data) < 2:
+            self.Error.not_enough_rows()
+        elif not self.signal_data.domain.attributes:
             self.Error.no_attributes()
-            return
+        elif np.allclose(self.signal_data.X - self.signal_data.X[0], 0):
+            self.Error.constant_data()
+        else:
+            self.data = self.signal_data
+            self.init_attr_values()
 
-        self.init_attr_values()
         self.openContext(self.data)
 
     def _toggle_run(self):
