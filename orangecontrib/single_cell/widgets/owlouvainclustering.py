@@ -134,6 +134,7 @@ class TaskQueue(QObject):
 
 class OWLouvainClustering(widget.OWWidget):
     name = 'Louvain Clustering'
+    description = 'Detects communities in a network of nearest neighbours.'
     icon = 'icons/LouvainClustering.svg'
 
     want_main_area = False
