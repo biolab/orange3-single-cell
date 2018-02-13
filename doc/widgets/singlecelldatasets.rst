@@ -1,25 +1,11 @@
 Single Cell Datasets
 ====================
 
-.. figure:: icons/SingleCellDatasets.png
-
 Load a single cell data from an online repository.
 
-Signals
--------
-
-**Inputs**:
-
--  (None)
-
-**Outputs**:
-
--  **Data**
-
-   A single cell data set containing cells and their gene expression or gene markers.
-
-Description
------------
+Outputs
+    Data
+        A single cell dataset containing cells and their gene expression or gene markers.
 
 **Single Cell Datasets** retrieves a selected data set from the data base server and sends the data to the output. Gene expression data sets include cells in rows and genes in columns. The data set file is downloaded to the local memory, and for subsequent requests instantly available
 even without the internet connection.
