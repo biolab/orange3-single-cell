@@ -623,11 +623,11 @@ class ViolinPlot(pg.PlotItem):
         pen = QPen(self.palette().color(QPalette.Shadow), 1)
         hoverPen = QPen(self.palette().color(QPalette.Highlight), 1.5)
         cmax = SelectionLine(
-            angle=0, pos=xmax, movable=True, bounds=(xmin, xmax),
+            angle=0, pos=xmax, movable=True, bounds=(sample_min, sample_max),
             pen=pen, hoverPen=hoverPen
         )
         cmin = SelectionLine(
-            angle=0, pos=xmin, movable=True, bounds=(xmin, xmax),
+            angle=0, pos=xmin, movable=True, bounds=(sample_min, sample_max),
             pen=pen, hoverPen=hoverPen
         )
         cmax.setCursor(Qt.SizeVerCursor)
