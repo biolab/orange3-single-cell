@@ -12,4 +12,7 @@ Widgets
    widgets/scoregenes
    widgets/scorecells
    widgets/clustervariation
-
+   widgets/clusterstatistics
+   widgets/filter
+   widgets/tsne
+   widgets/louvain
