@@ -160,6 +160,10 @@ class OWLouvainClustering(widget.OWWidget):
     auto_commit = Setting(True)
 
     class Error(widget.OWWidget.Error):
+        data_has_nans = Msg(
+            'Data has missing values. Please impute the missing values before '
+            'continuing\n'
+        )
         general_error = Msg("Error occured during clustering\n{}")
 
     class State(Enum):
@@ -265,6 +269,10 @@ class OWLouvainClustering(widget.OWWidget):
 
         # We commit if auto_commit is on or when we force commit
         if not self.auto_commit and not force:
+            return
+
+        if np.any(np.isnan(self.data.X)):
+            self.Error.data_has_nans()
             return
 
         # Prepare the tasks to run

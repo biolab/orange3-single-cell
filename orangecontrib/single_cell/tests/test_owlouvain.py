@@ -39,3 +39,16 @@ class TestOWLouvain(WidgetTest):
         clustering = output.get_column_view('Cluster')[0].astype(int)
         counts = np.bincount(clustering)
         np.testing.assert_equal(counts, sorted(counts, reverse=True))
+
+    def test_missing_values_with_no_pca_preprocessing(self):
+        data = np.ones((5, 5))
+        data[range(5), range(5)] = np.nan
+        np.random.shuffle(data)
+
+        table = Table.from_numpy(domain=Domain.from_numpy(X=data), X=data)
+        self.send_signal(self.widget.Inputs.data, table)
+        self.widget.apply_pca = False
+        self.widget.commit(force=True)
+
+        self.assertTrue(self.widget.Error.data_has_nans.is_shown())
+
