@@ -160,7 +160,8 @@ class OWLouvainClustering(widget.OWWidget):
     auto_commit = Setting(True)
 
     class Error(widget.OWWidget.Error):
-        general_error = Msg("Error occured during clustering\n{}")
+        empty_dataset = Msg('No features in data\n')
+        general_error = Msg('Error occured during clustering\n{}')
 
     class State(Enum):
         Pending, Running = range(2)
@@ -265,6 +266,11 @@ class OWLouvainClustering(widget.OWWidget):
 
         # We commit if auto_commit is on or when we force commit
         if not self.auto_commit and not force:
+            return
+
+        # Make sure the dataset is ok
+        if len(self.data.domain.attributes) < 1:
+            self.Error.empty_dataset()
             return
 
         # Prepare the tasks to run
