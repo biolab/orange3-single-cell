@@ -1,5 +1,5 @@
-Clustering Statistics
-=====================
+Cluster Statistics
+==================
 
 Compute variant calling statistics for clusters.
 
@@ -12,9 +12,9 @@ Outputs
         dataset with cluster scores per gene
 
 
-The **Clustering Statistics** widget computes cluster statistics per gene in a dataset.
+The **Cluster Statistics** widget computes cluster statistics per gene in a dataset.
 
-.. figure:: images/ClusteringStatistics-stamped.png
+.. figure:: images/ClusterStatistics-stamped.png
 
 1. Information on the input.
 2. Column with cluster label.
