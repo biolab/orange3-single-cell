@@ -161,7 +161,11 @@ class OWLouvainClustering(widget.OWWidget):
     auto_commit = Setting(True)
 
     class Error(widget.OWWidget.Error):
-        empty_dataset = Msg('No features in data\n')
+        data_has_nans = Msg(
+            'Data has missing values. Please impute the missing values before '
+            'continuing\n'
+        )
+        empty_dataset = Msg('No features in data')
         general_error = Msg('Error occured during clustering\n{}')
 
     class State(Enum):
@@ -270,6 +274,10 @@ class OWLouvainClustering(widget.OWWidget):
             return
 
         # Make sure the dataset is ok
+        if np.any(np.isnan(self.data.X)):
+            self.Error.data_has_nans()
+            return
+
         if len(self.data.domain.attributes) < 1:
             self.Error.empty_dataset()
             return
