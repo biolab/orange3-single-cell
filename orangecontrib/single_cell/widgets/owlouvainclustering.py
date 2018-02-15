@@ -134,6 +134,7 @@ class TaskQueue(QObject):
 
 class OWLouvainClustering(widget.OWWidget):
     name = 'Louvain Clustering'
+    description = 'Detects communities in a network of nearest neighbours.'
     icon = 'icons/LouvainClustering.svg'
     priority = 2150
 
@@ -164,7 +165,8 @@ class OWLouvainClustering(widget.OWWidget):
             'Data has missing values. Please impute the missing values before '
             'continuing\n'
         )
-        general_error = Msg("Error occured during clustering\n{}")
+        empty_dataset = Msg('No features in data')
+        general_error = Msg('Error occured during clustering\n{}')
 
     class State(Enum):
         Pending, Running = range(2)
@@ -271,8 +273,13 @@ class OWLouvainClustering(widget.OWWidget):
         if not self.auto_commit and not force:
             return
 
+        # Make sure the dataset is ok
         if np.any(np.isnan(self.data.X)):
             self.Error.data_has_nans()
+            return
+
+        if len(self.data.domain.attributes) < 1:
+            self.Error.empty_dataset()
             return
 
         # Prepare the tasks to run
@@ -341,7 +348,8 @@ class OWLouvainClustering(widget.OWWidget):
         self.data = data
         self._invalidate_pca_projection()
         self.Outputs.annotated_data.send(None)
-        self.Outputs.graph.send(None)
+        if Graph is not None:
+            self.Outputs.graph.send(None)
         self.openContext(self.data)
 
         if self.data is None:

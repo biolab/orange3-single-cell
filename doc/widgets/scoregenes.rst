@@ -1,36 +1,20 @@
 Score Genes
 ===========
 
-.. figure:: icons/ScoreGenes.png
-
 Gene scoring based on statistics of their expression profiles or information content about cell types.
 
-Signals
--------
+Inputs
+    Data
+        input dataset
+    Scorer (multiple)
+        prediction model(s)
 
-**Inputs**:
+Outputs
+    Reduced Data
+        expression data containing selected genes
+    Scores
+        gene scores
 
--  **Data**
-
-   Single cell gene expression data with cells in rows and genes in columns.
-
-- **Scorer**  (multiple)
-
-  Prediction models that implement the feature scoring, such as linear regression,
-  logistic regression, and random forest
-
-**Outputs**:
-
--  **Reduced Data**
-
-   Expression data that with selected genes.
-
--  **Scores**
-
-   Table with gene scores that includes genes in rows and scoring methods in columns.
-
-Description
------------
 
 The **Score Genes** widget considers gene expression data with genes in columns and single cell
 expression profiles in rows. It scores the genes based on statistics of gene expression. For examples, it can sort

@@ -1,6 +1,6 @@
 import numpy as np
 
-from Orange.data import Table, Domain
+from Orange.data import Table, Domain, ContinuousVariable
 from Orange.widgets.tests.base import WidgetTest
 from orangecontrib.single_cell.widgets.owlouvainclustering import \
     OWLouvainClustering
@@ -52,3 +52,13 @@ class TestOWLouvain(WidgetTest):
 
         self.assertTrue(self.widget.Error.data_has_nans.is_shown())
 
+    def test_empty_dataset(self):
+        # Prepare a table with 5 rows with only meta attributes
+        meta = np.array([0] * 5)
+        meta_var = ContinuousVariable(name='meta_var')
+        table = Table.from_domain(domain=Domain([], metas=[meta_var]), n_rows=5)
+        table.get_column_view(meta_var)[0][:] = meta
+
+        self.send_signal(self.widget.Inputs.data, table)
+        self.widget.commit(force=True)
+        self.show()

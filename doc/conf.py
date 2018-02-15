@@ -40,8 +40,8 @@ templates_path = ['templates']
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 # source_suffix = ['.rst', '.md']
-source_suffix = ['.rst', '.md']
-source_parsers = {".md": "recommonmark.parser.CommonMarkParser"}
+source_suffix = ['.rst']
+#source_parsers = {".md": "recommonmark.parser.CommonMarkParser"}
 
 # The encoding of source files.
 #source_encoding = 'utf-8-sig'
@@ -286,3 +286,6 @@ texinfo_documents = [
 
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #texinfo_no_detailmenu = False
+
+def setup(app):
+    app.add_stylesheet('style.css')

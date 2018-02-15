@@ -259,9 +259,8 @@ class OWtSNE(OWWidget):
 
         self.graph.box_zoom_select(self.controlArea)
 
-        gui.auto_commit(box, self, "auto_commit", "Send Selected",
-                        checkbox_label="Send selected automatically",
-                        box=None)
+        gui.auto_commit(self.controlArea, self, "auto_commit", "Send Selection",
+                        "Send Automatically")
 
         self.plot.getPlotItem().hideButtons()
         self.plot.setRenderHint(QPainter.Antialiasing)
