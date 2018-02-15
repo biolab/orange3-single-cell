@@ -1,0 +1,16 @@
+Organism	Name	ID	Cell Type
+string	string	string	string
+meta	meta	meta	
+Human	S100A9	ENSG00000163220	Monocyte
+Human	PPBP	ENSG00000163736	Megakaryocyte
+Human	CD14	ENSG00000170458	Monocyte
+Human	CD3D	ENSG00000167286	T Cell
+Human	CD4	ENSG00000010610	T Cell
+Human	CD19	ENSG00000177455	B Cell
+Human	CD79A	ENSG00000105369	B Cell
+Human	NKG7	ENSG00000105374	NK Cell
+Human	CD146		Endothelial Cell
+Mus musculus	Cd3d	ENSMUSG00000032094	T Cell
+Mus musculus	CD4		T Cell
+Human	CD34	ENSG00000174059	Stem Cell/Precursor
+Mus musculus	CD34	ENSMUSG00000016494	Stem Cell/Precursor
