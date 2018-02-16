@@ -34,6 +34,8 @@ class FilterProxyModel(QSortFilterProxyModel):
 
 class OWMarkerGenes(widget.OWWidget):
     name = "Marker Genes"
+    icon = 'icons/MarkerGenes.svg'
+    priority = 158
 
     class Outputs:
         genes = widget.Output("Genes", Orange.data.Table)
