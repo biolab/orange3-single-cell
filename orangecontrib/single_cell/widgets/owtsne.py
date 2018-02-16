@@ -240,6 +240,12 @@ class OWtSNE(OWWidget):
         g = self.graph.gui
         box = g.point_properties_box(self.controlArea)
         self.models = g.points_models
+        # Because sc data frequently has many genes,
+        # showing all attributes in combo boxes can cause problems
+        # QUICKFIX: Remove a separator and attributes from order
+        # (leaving just the class and metas)
+        for model in self.models:
+            model.order = model.order[:-2]
 
         g.add_widgets(ids=[g.JitterSizeSlider], widget=box)
 
