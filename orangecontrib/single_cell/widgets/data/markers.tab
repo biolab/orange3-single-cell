@@ -1,16 +1,56 @@
-Organism	Name	ID	Cell Type
-string	string	string	string
-meta	meta	meta	
-Human	S100A9	ENSG00000163220	Monocyte
-Human	PPBP	ENSG00000163736	Megakaryocyte
-Human	CD14	ENSG00000170458	Monocyte
-Human	CD3D	ENSG00000167286	T Cell
-Human	CD4	ENSG00000010610	T Cell
-Human	CD19	ENSG00000177455	B Cell
-Human	CD79A	ENSG00000105369	B Cell
-Human	NKG7	ENSG00000105374	NK Cell
-Human	CD146		Endothelial Cell
-Mus musculus	Cd3d	ENSMUSG00000032094	T Cell
-Mus musculus	CD4		T Cell
-Human	CD34	ENSG00000174059	Stem Cell/Precursor
-Mus musculus	CD34	ENSMUSG00000016494	Stem Cell/Precursor
+Organism	Name	ID	Cell Type	Reference	URL
+string	string	string	string	string	string
+meta	meta	meta			ignore
+Human	S100A9	ENSG00000163220	Monocyte		
+Human	PPBP	ENSG00000163736	Megakaryocyte		
+Human	CD14	ENSG00000170458	Monocyte		
+Human	CD3D	ENSG00000167286	T Cell		
+Human	CD4	ENSG00000010610	T Cell		
+Human	CD19	ENSG00000177455	B Cell		
+Human	CD79A	ENSG00000105369	B Cell		
+Human	NKG7	ENSG00000105374	NK Cell		
+Human	CD146		Endothelial Cell		
+Mouse	Cd3d	ENSMUSG00000032094	T Cell		
+Mouse	CD4		T Cell		
+Human	CD34	ENSG00000174059	Stem Cell/Precursor		
+Mouse	CD34	ENSMUSG00000016494	Stem Cell/Precursor		
+Mouse	Plk1	ENSMUSG00000030867	Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Aurka		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Cdc25C		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Tmem2		Cell cycle/G1/S	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Fzr1		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Nde1		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Ckap2L		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Kif23		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Aurkb		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Cdc20		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Tex14		Cell cycle/G1/S	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	H2Afx		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Liph		Cell cycle/G1/S	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Cenpn		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Cdc25B		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Tacc3		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Bub1B		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Depdc1B		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Ccnf		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Kif11		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Cenpe		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Lrif1		Cell cycle/G1/S	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Prc1		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Kif2C		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Nusap1		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Smc1B		Cell cycle/G1/S	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Katnb1		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Rps6Kb1		Cell cycle/G1/S	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Mad1L1		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Espl1		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Pbk		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Nus1		Cell cycle/G1/S	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Ube2C		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Cdca2		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Gabpb1		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Ccne1		Cell cycle/G1/S	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Ccne2		Cell cycle/G1/S	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Sephs1		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Papd7		Cell cycle/G2M	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
+Mouse	Dmc		Cell cycle/G1/S	Buettner2015	http://dx.doi.org/10.1016/j.ymeth.2015.06.021
