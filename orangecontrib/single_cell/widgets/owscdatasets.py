@@ -2,10 +2,18 @@ import sys
 
 from AnyQt.QtWidgets import QApplication
 
-import Orange.widgets.data.owdatasets
+from Orange.widgets.data import owdatasets
 
 
-class OWscDataSets(Orange.widgets.data.owdatasets.OWDataSets):
+def hide_attributes(data):
+    """Sets hidden=True for all attributes in large datasets"""
+    if data is not None and len(data.domain.attributes) > 1000:
+        for att in data.domain.attributes:
+            att.attributes["hidden"] = True
+    return data
+
+
+class OWscDataSets(owdatasets.OWDataSets):
     name = "Single Cell Datasets"
     description = "Load a data set from an online repository"
     icon = "icons/SingleCellDatasets.svg"
@@ -13,6 +21,11 @@ class OWscDataSets(Orange.widgets.data.owdatasets.OWDataSets):
 
     INDEX_URL = "http://datasets.orange.biolab.si/sc/"
     DATASET_DIR = "sc-datasets"
+
+    @staticmethod
+    def load_data(path):
+        data = owdatasets.OWDataSets.load_data(path)
+        return hide_attributes(data)
 
 
 def main(args=None):
