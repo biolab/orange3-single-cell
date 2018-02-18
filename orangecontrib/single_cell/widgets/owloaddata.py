@@ -2,7 +2,7 @@ import os
 import sys
 import csv
 
-from typing import List, Optional, Dict
+from typing import List
 from types import SimpleNamespace
 
 from serverfiles import sizeformat
@@ -12,7 +12,7 @@ import numpy as np
 
 import pandas as pd
 
-from AnyQt.QtCore import Qt, QSize, QFileInfo, QTimer
+from AnyQt.QtCore import Qt, QFileInfo
 from AnyQt.QtGui import QStandardItemModel, QStandardItem
 from AnyQt.QtWidgets import (
     QSizePolicy, QGridLayout, QHBoxLayout, QFormLayout,
@@ -136,7 +136,7 @@ class OWLoadData(widget.OWWidget):
     _recent = settings.Setting([])  # type: List[str]
     _recent_row_annotations = settings.Setting([])  # type: List[str]
     _recent_col_annotations = settings.Setting([])  # type: List[str]
-    _transpose = settings.Setting(False)
+    _cells_in_rows = settings.Setting(False)
     _col_annotations_enabled = settings.Setting(False)
     _row_annotations_enabled = settings.Setting(False)
 
@@ -224,7 +224,7 @@ class OWLoadData(widget.OWWidget):
         box.layout().addLayout(hl)
         box = gui.widgetBox(self.controlArea, "Input Data Structure")
         gui.radioButtons(
-            box, self, "_transpose",
+            box, self, "_cells_in_rows",
             ["Genes in rows, cells in columns",
              "Cells in rows, genes in columns"])
 
@@ -542,7 +542,7 @@ class OWLoadData(widget.OWWidget):
         if not path:
             return
 
-        transpose = self._transpose
+        transpose = not self._cells_in_rows
         row_annot = self.row_annotations_combo.currentData(Qt.UserRole)
         col_annot = self.col_annotations_combo.currentData(Qt.UserRole)
 
