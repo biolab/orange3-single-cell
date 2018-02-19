@@ -69,11 +69,29 @@ def infer_options(path):
 
 Formats = [
     "Count file (*.count)",
-    "Tab separated file (*.tsv *.*)",
-    "Comma separated file (*.csv, *.*)",
+    "Tab separated file (*.tsv)",
+    "Comma separated file (*.csv)",
     # "Matrix Market file (*.mtx)",
-    # "Any file(*.*)"
+    "Any tab separated file (*.*)"
 ]
+
+AnnotationFormats = [
+    "Meta file (*.meta)",
+    "Tab separated file (*.tsv)",
+    "Comma separated file (*.csv)",
+    "Any tab separated file (*.*)",
+]
+
+def separator_from_filename(path):
+    path, ext = os.path.splitext(path)
+    if ext == ".csv":
+        return ","
+    elif ext == ".tsv":
+        return "\t"
+    elif ext == ".count" or ext == ".meta":
+        return "\t"
+    else:  # assume tab separated
+        return "\t"
 
 
 def RecentPath_asqstandarditem(pathitem):
@@ -100,6 +118,24 @@ def init_recent_paths_model(model, paths, relpaths=[]):
             item.setSelectable(False)
             item.setToolTip(item.toolTip() + " (Missing from file system)")
         model.appendRow(item)
+
+
+def insert_recent_path(model, path, relpaths=[]):
+    # type: (QStandardItemModel, RecentPath) -> int
+    index = -1
+    for i in range(model.rowCount()):
+        item = model.item(i, 0)
+        pathitem = item.data(Qt.UserRole)
+        if isinstance(pathitem, RecentPath) and \
+                samepath(pathitem.abspath, path.abspath):
+            index = i
+            break
+    if index != -1:
+        item = model.takeRow(index)
+    else:
+        item = RecentPath_asqstandarditem(path)
+    model.insertRow(0, item)
+    return 0
 
 
 def samepath(p1, p2):
@@ -449,7 +485,8 @@ class OWLoadData(widget.OWWidget):
         else:
             try:
                 with open(path, "rt", encoding="latin-1") as f:
-                    ncols = len(next(csv.reader(f, delimiter="\t")))
+                    sep = separator_from_filename(path)
+                    ncols = len(next(csv.reader(f, delimiter=sep)))
                     nrows = sum(1 for _ in f)
             except OSError:
                 pass
@@ -499,11 +536,7 @@ class OWLoadData(widget.OWWidget):
             self, acceptMode=QFileDialog.AcceptOpen,
             fileMode=QFileDialog.ExistingFile
         )
-        filters = [
-            "Meta file (*.meta)",
-            "Tab separated file (*.tsv *.*)",
-            "Comma separated file (*.csv, *.*)",
-        ]
+        filters = AnnotationFormats
         dlg.setNameFilters(filters)
 
         if filters:
@@ -511,9 +544,10 @@ class OWLoadData(widget.OWWidget):
         if dlg.exec_() == QFileDialog.Accepted:
             f = dlg.selectedNameFilter()
             filename = dlg.selectedFiles()[0]
-            m = self.row_annotations_combo.model()
+            m = self.row_annotations_combo.model()  # type: QStandardItemModel
             pathitem = RecentPath.create(filename, [])
-            m.insertRow(0, RecentPath_asqstandarditem(pathitem))
+            index = insert_recent_path(m, pathitem)
+            self.row_annotations_combo.setCurrentIndex(index)
 
     @Slot()
     def browse_col_annotations(self):
@@ -521,11 +555,7 @@ class OWLoadData(widget.OWWidget):
             self, acceptMode=QFileDialog.AcceptOpen,
             fileMode=QFileDialog.ExistingFile
         )
-        filters = [
-            "Meta file (*.meta)",
-            "Tab separated file (*.tsv *.*)",
-            "Comma separated file (*.csv, *.*)",
-        ]
+        filters = AnnotationFormats
         dlg.setNameFilters(filters)
 
         if filters:
@@ -533,9 +563,10 @@ class OWLoadData(widget.OWWidget):
         if dlg.exec_() == QFileDialog.Accepted:
             f = dlg.selectedNameFilter()
             filename = dlg.selectedFiles()[0]
-            m = self.col_annotations_combo.model()
+            m = self.col_annotations_combo.model()  # type: QStandardItemModel
             pathitem = RecentPath.create(filename, [])
-            m.insertRow(0, RecentPath_asqstandarditem(pathitem))
+            index = insert_recent_path(m, pathitem)
+            self.col_annotations_combo.setCurrentIndex(index)
 
     def commit(self):
         path = self._current_path
@@ -609,7 +640,9 @@ class OWLoadData(widget.OWWidget):
         userows_mask = usecols_mask = None
 
         if _skip_col is not None:
-            ncols = pd.read_csv(path, sep="\t", index_col=None, nrows=1).shape[1]
+            ncols = pd.read_csv(
+                path, sep=separator_from_filename(path), index_col=None,
+                nrows=1).shape[1]
             usecols_mask = np.array([
                 not _skip_col(i) or i in header_cols_indices
                 for i in range(ncols)
@@ -624,7 +657,8 @@ class OWLoadData(widget.OWWidget):
                 return r
 
         df = pd.read_csv(
-            path, sep="\t", index_col=header_cols, header=header_rows,
+            path, sep=separator_from_filename(path),
+            index_col=header_cols, header=header_rows,
             skiprows=_skip_row, usecols=_usecols
         )
         if _skip_row is not None:
@@ -648,7 +682,8 @@ class OWLoadData(widget.OWWidget):
 
         if row_annot is not None:
             row_annot_df = pd.read_csv(
-                row_annot, sep="\t", header=0, index_col=None
+                row_annot, sep=separator_from_filename(row_annot),
+                header=0, index_col=None
             )
             if userows_mask is not None:
                 # NOTE: we account for column header/ row index
@@ -673,7 +708,8 @@ class OWLoadData(widget.OWWidget):
 
         if col_annot is not None:
             col_annot_df = pd.read_csv(
-                col_annot, sep="\t", header=0, index_col=None
+                col_annot, sep=separator_from_filename(col_annot),
+                header=0, index_col=None
             )
             if usecols_mask is not None:
                 expected = len(usecols_mask) - leading_cols
