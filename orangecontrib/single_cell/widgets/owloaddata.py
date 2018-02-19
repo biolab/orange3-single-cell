@@ -72,9 +72,15 @@ Formats = [
     "Tab separated file (*.tsv)",
     "Comma separated file (*.csv)",
     # "Matrix Market file (*.mtx)",
-    # "Any file(*.*)"
+    "Any tab separated file (*.*)"
 ]
 
+AnnotationFormats = [
+    "Meta file (*.meta)",
+    "Tab separated file (*.tsv)",
+    "Comma separated file (*.csv)",
+    "Any tab separated file (*.*)",
+]
 
 def separator_from_filename(path):
     path, ext = os.path.splitext(path)
@@ -84,8 +90,8 @@ def separator_from_filename(path):
         return "\t"
     elif ext == ".count" or ext == ".meta":
         return "\t"
-    else:
-        return None
+    else:  # assume tab separated
+        return "\t"
 
 
 def RecentPath_asqstandarditem(pathitem):
@@ -512,11 +518,7 @@ class OWLoadData(widget.OWWidget):
             self, acceptMode=QFileDialog.AcceptOpen,
             fileMode=QFileDialog.ExistingFile
         )
-        filters = [
-            "Meta file (*.meta)",
-            "Tab separated file (*.tsv *.*)",
-            "Comma separated file (*.csv, *.*)",
-        ]
+        filters = AnnotationFormats
         dlg.setNameFilters(filters)
 
         if filters:
@@ -534,11 +536,7 @@ class OWLoadData(widget.OWWidget):
             self, acceptMode=QFileDialog.AcceptOpen,
             fileMode=QFileDialog.ExistingFile
         )
-        filters = [
-            "Meta file (*.meta)",
-            "Tab separated file (*.tsv)",
-            "Comma separated file (*.csv)",
-        ]
+        filters = AnnotationFormats
         dlg.setNameFilters(filters)
 
         if filters:
