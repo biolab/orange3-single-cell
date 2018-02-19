@@ -120,6 +120,24 @@ def init_recent_paths_model(model, paths, relpaths=[]):
         model.appendRow(item)
 
 
+def insert_recent_path(model, path, relpaths=[]):
+    # type: (QStandardItemModel, RecentPath) -> int
+    index = -1
+    for i in range(model.rowCount()):
+        item = model.item(i, 0)
+        pathitem = item.data(Qt.UserRole)
+        if isinstance(pathitem, RecentPath) and \
+                samepath(pathitem.abspath, path.abspath):
+            index = i
+            break
+    if index != -1:
+        item = model.takeRow(index)
+    else:
+        item = RecentPath_asqstandarditem(path)
+    model.insertRow(0, item)
+    return 0
+
+
 def samepath(p1, p2):
     return (os.path.normpath(os.path.normcase(p1)) ==
             os.path.normpath(os.path.normcase(p2)))
@@ -526,9 +544,10 @@ class OWLoadData(widget.OWWidget):
         if dlg.exec_() == QFileDialog.Accepted:
             f = dlg.selectedNameFilter()
             filename = dlg.selectedFiles()[0]
-            m = self.row_annotations_combo.model()
+            m = self.row_annotations_combo.model()  # type: QStandardItemModel
             pathitem = RecentPath.create(filename, [])
-            m.insertRow(0, RecentPath_asqstandarditem(pathitem))
+            index = insert_recent_path(m, pathitem)
+            self.row_annotations_combo.setCurrentIndex(index)
 
     @Slot()
     def browse_col_annotations(self):
@@ -544,9 +563,10 @@ class OWLoadData(widget.OWWidget):
         if dlg.exec_() == QFileDialog.Accepted:
             f = dlg.selectedNameFilter()
             filename = dlg.selectedFiles()[0]
-            m = self.col_annotations_combo.model()
+            m = self.col_annotations_combo.model()  # type: QStandardItemModel
             pathitem = RecentPath.create(filename, [])
-            m.insertRow(0, RecentPath_asqstandarditem(pathitem))
+            index = insert_recent_path(m, pathitem)
+            self.col_annotations_combo.setCurrentIndex(index)
 
     def commit(self):
         path = self._current_path
