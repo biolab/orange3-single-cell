@@ -69,11 +69,23 @@ def infer_options(path):
 
 Formats = [
     "Count file (*.count)",
-    "Tab separated file (*.tsv *.*)",
-    "Comma separated file (*.csv, *.*)",
+    "Tab separated file (*.tsv)",
+    "Comma separated file (*.csv)",
     # "Matrix Market file (*.mtx)",
     # "Any file(*.*)"
 ]
+
+
+def separator_from_filename(path):
+    path, ext = os.path.splitext(path)
+    if ext == ".csv":
+        return ","
+    elif ext == ".tsv":
+        return "\t"
+    elif ext == ".count" or ext == ".meta":
+        return "\t"
+    else:
+        return None
 
 
 def RecentPath_asqstandarditem(pathitem):
@@ -449,7 +461,8 @@ class OWLoadData(widget.OWWidget):
         else:
             try:
                 with open(path, "rt", encoding="latin-1") as f:
-                    ncols = len(next(csv.reader(f, delimiter="\t")))
+                    sep = separator_from_filename(path)
+                    ncols = len(next(csv.reader(f, delimiter=sep)))
                     nrows = sum(1 for _ in f)
             except OSError:
                 pass
@@ -523,8 +536,8 @@ class OWLoadData(widget.OWWidget):
         )
         filters = [
             "Meta file (*.meta)",
-            "Tab separated file (*.tsv *.*)",
-            "Comma separated file (*.csv, *.*)",
+            "Tab separated file (*.tsv)",
+            "Comma separated file (*.csv)",
         ]
         dlg.setNameFilters(filters)
 
@@ -609,7 +622,9 @@ class OWLoadData(widget.OWWidget):
         userows_mask = usecols_mask = None
 
         if _skip_col is not None:
-            ncols = pd.read_csv(path, sep="\t", index_col=None, nrows=1).shape[1]
+            ncols = pd.read_csv(
+                path, sep=separator_from_filename(path), index_col=None,
+                nrows=1).shape[1]
             usecols_mask = np.array([
                 not _skip_col(i) or i in header_cols_indices
                 for i in range(ncols)
@@ -624,7 +639,8 @@ class OWLoadData(widget.OWWidget):
                 return r
 
         df = pd.read_csv(
-            path, sep="\t", index_col=header_cols, header=header_rows,
+            path, sep=separator_from_filename(path),
+            index_col=header_cols, header=header_rows,
             skiprows=_skip_row, usecols=_usecols
         )
         if _skip_row is not None:
@@ -648,7 +664,8 @@ class OWLoadData(widget.OWWidget):
 
         if row_annot is not None:
             row_annot_df = pd.read_csv(
-                row_annot, sep="\t", header=0, index_col=None
+                row_annot, sep=separator_from_filename(row_annot),
+                header=0, index_col=None
             )
             if userows_mask is not None:
                 # NOTE: we account for column header/ row index
@@ -673,7 +690,8 @@ class OWLoadData(widget.OWWidget):
 
         if col_annot is not None:
             col_annot_df = pd.read_csv(
-                col_annot, sep="\t", header=0, index_col=None
+                col_annot, sep=separator_from_filename(col_annot),
+                header=0, index_col=None
             )
             if usecols_mask is not None:
                 expected = len(usecols_mask) - leading_cols
