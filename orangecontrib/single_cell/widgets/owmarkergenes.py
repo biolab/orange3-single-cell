@@ -146,9 +146,12 @@ class OWMarkerGenes(widget.OWWidget):
         self.commit()
 
     def commit(self):
-        table = self.view.model().sourceModel()
+        model = self.view.model()
+        assert isinstance(model, QSortFilterProxyModel)
+        table = model.sourceModel()
         assert isinstance(table, TableModel)
-        rows = [mi.row() for mi in self.view.selectionModel().selectedRows(0)]
+        rows = [model.mapToSource(mi).row()
+                for mi in self.view.selectionModel().selectedRows(0)]
         if rows:
             rows = table.mapToSourceRows(rows)
             output = table.source[rows]
