@@ -18,7 +18,7 @@ sed '/^file/ d' \
 CONDA_PACKAGE=$( find "$BUILD/conda" \
   -name "orange3-single-cell*" \
   -exec echo "file://{}" \; )
-echo "file://$CONDA_PACKAGE" >> $NEW_SPEC
+echo "$CONDA_PACKAGE" >> $NEW_SPEC
 
 # Build new installer
 ./build-conda-installer.sh \
