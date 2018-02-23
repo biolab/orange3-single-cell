@@ -7,7 +7,7 @@ from typing import Optional
 import networkx as nx
 import numpy as np
 from AnyQt.QtCore import Qt, pyqtSignal as Signal, QObject
-from AnyQt.QtWidgets import QSlider, QPushButton, QCheckBox, QWidget
+from AnyQt.QtWidgets import QSlider, QCheckBox, QWidget
 from sklearn.neighbors import NearestNeighbors
 
 from Orange.data import Table, DiscreteVariable
@@ -21,6 +21,7 @@ from Orange.widgets.utils.concurrent import ThreadExecutor
 from Orange.widgets.utils.signals import Input, Output
 from Orange.widgets.widget import Msg
 from orangecontrib.single_cell.widgets.louvain import best_partition
+import Orange.statistics.util as ut
 
 try:
     from orangecontrib.network.network import Graph
@@ -163,7 +164,7 @@ class OWLouvainClustering(widget.OWWidget):
     class Error(widget.OWWidget.Error):
         data_has_nans = Msg(
             'Data has missing values. Please impute the missing values before '
-            'continuing\n'
+            'continuing'
         )
         empty_dataset = Msg('No features in data')
         general_error = Msg('Error occured during clustering\n{}')
@@ -185,35 +186,55 @@ class OWLouvainClustering(widget.OWWidget):
         pca_box = gui.vBox(self.controlArea, 'PCA Preprocessing')
         self.apply_pca_cbx = gui.checkBox(
             pca_box, self, 'apply_pca', label='Apply PCA preprocessing',
-            callback=self._invalidate_graph,
+            callback=self._update_apply_pca,
         )  # type: QCheckBox
         self.pca_components_slider = gui.hSlider(
             pca_box, self, 'pca_components', label='Components: ', minValue=2,
             maxValue=_MAX_PCA_COMPONENTS,
-            callback=self._invalidate_pca_projection,
+            callback=self._update_pca_components,
         )  # type: QSlider
 
         graph_box = gui.vBox(self.controlArea, 'Graph parameters')
         self.metric_combo = gui.comboBox(
             graph_box, self, 'metric_idx', label='Distance metric',
-            items=[m[0] for m in METRICS], callback=self._invalidate_graph,
+            items=[m[0] for m in METRICS], callback=self._update_metric,
             orientation=Qt.Horizontal,
         )  # type: gui.OrangeComboBox
         self.k_neighbours_spin = gui.spin(
             graph_box, self, 'k_neighbours', minv=1, maxv=_MAX_K_NEIGBOURS,
             label='k neighbours', controlWidth=80, alignment=Qt.AlignRight,
-            callback=self._invalidate_graph,
+            callback=self._update_k_neighbors,
         )  # type: gui.SpinBoxWFocusOut
         self.cls_epsilon_spin = gui.spin(
             graph_box, self, 'resolution', 0, 5., 1e-2, spinType=float,
             label='Resolution', controlWidth=80, alignment=Qt.AlignRight,
-            callback=self._invalidate_partition,
+            callback=self._update_resolution,
         )  # type: gui.SpinBoxWFocusOut
 
         self.apply_button = gui.auto_commit(
-            self.controlArea, self, 'auto_commit', 'Apply', box=False,
-            commit=lambda: self.commit(force=True), callback=self.commit,
+            self.controlArea, self, 'auto_commit', 'Apply', box=None,
+            commit=self.commit,
         )  # type: QWidget
+
+    def _update_apply_pca(self):
+        self._invalidate_graph()
+        self.commit()
+
+    def _update_pca_components(self):
+        self._invalidate_pca_projection()
+        self.commit()
+
+    def _update_metric(self):
+        self._invalidate_graph()
+        self.commit()
+
+    def _update_k_neighbors(self):
+        self._invalidate_graph()
+        self.commit()
+
+    def _update_resolution(self):
+        self._invalidate_partition()
+        self.commit()
 
     def _compute_pca_projection(self):
         if self.pca_projection is None and self.apply_pca:
@@ -260,7 +281,7 @@ class OWLouvainClustering(widget.OWWidget):
 
         self.__state = self.State.Pending
 
-    def commit(self, force=False):
+    def commit(self):
         self.Error.clear()
         # Kill any running jobs
         self.cancel()
@@ -269,12 +290,8 @@ class OWLouvainClustering(widget.OWWidget):
         if self.data is None:
             return
 
-        # We commit if auto_commit is on or when we force commit
-        if not self.auto_commit and not force:
-            return
-
         # Make sure the dataset is ok
-        if np.any(np.isnan(self.data.X)):
+        if ut.countnans(self.data.X) > 0:
             self.Error.data_has_nans()
             return
 
@@ -339,19 +356,28 @@ class OWLouvainClustering(widget.OWWidget):
 
     def _invalidate_partition(self):
         self.partition = None
-        self.commit()
 
     @Inputs.data
     def set_data(self, data):
         self.closeContext()
         self.Error.clear()
-        self.data = data
-        self._invalidate_pca_projection()
+
+        prev_data, self.data = self.data, data
+        self.openContext(self.data)
+
+        # If X hasn't changed, there's no reason to recompute clusters
+        if prev_data and self.data and np.array_equal(self.data.X, prev_data.X):
+            if self.auto_commit:
+                self._send_data()
+            return
+
+        # Clear the outputs
         self.Outputs.annotated_data.send(None)
         if Graph is not None:
             self.Outputs.graph.send(None)
-        self.openContext(self.data)
 
+        # Clear internal state
+        self._invalidate_pca_projection()
         if self.data is None:
             return
 
