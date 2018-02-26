@@ -675,7 +675,7 @@ class OWLoadData(widget.OWWidget):
             leading_cols = len(header_cols_indices)
 
         X = df.values
-        attrs = [ContinuousVariable(str(g)) for g in df.columns]
+        attrs = [ContinuousVariable.make(str(g)) for g in df.columns]
 
         self.Error.row_annotation_mismatch.clear()
         self.Error.col_annotation_mismatch.clear()
@@ -702,7 +702,7 @@ class OWLoadData(widget.OWWidget):
                 #     assert np.all(row_annot_df.iloc[:, 0] == df.index)
 
             if row_annot_df is not None:
-                metas += [StringVariable(str(name))
+                metas += [StringVariable.make(str(name))
                           for name in row_annot_df.columns]
                 M = row_annot_df.values
 
