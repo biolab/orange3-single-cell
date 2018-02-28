@@ -630,8 +630,9 @@ class OWLoadData(widget.OWWidget):
         else:
             col_annot = None
 
-        X = M = None
-        attrs, metas = [], []
+        meta_parts = []  # type: List[pd.DataFrame]
+        attrs = []  # type: List[ContinuousVariable]
+        metas = []  # type: List[StringVariable]
 
         rstate = np.random.RandomState(0x667)
 
@@ -716,6 +717,10 @@ class OWLoadData(widget.OWWidget):
         X = df.values
         attrs = [ContinuousVariable.make(str(g)) for g in df.columns]
 
+        meta_df = df.iloc[:, :0]  # Take the index # type: pd.DataFrame
+        meta_df_index = df.index
+        meta_parts = (meta_df, )
+
         self.Error.row_annotation_mismatch.clear()
         self.Error.col_annotation_mismatch.clear()
 
@@ -741,9 +746,33 @@ class OWLoadData(widget.OWWidget):
                 #     assert np.all(row_annot_df.iloc[:, 0] == df.index)
 
             if row_annot_df is not None:
-                metas += [StringVariable.make(str(name))
-                          for name in row_annot_df.columns]
-                M = row_annot_df.values
+                # Try to match the leading columns with the meta_df_index.
+                # If found then drop the columns (or index if the level does
+                # not have a name but the annotation col does)
+                drop_cols = []
+                drop_index_level = []
+                for i in range(meta_df_index.nlevels):
+                    meta_df_level = meta_df_index.get_level_values(i)
+                    if np.all(row_annot_df.iloc[:, i] == meta_df_level):
+                        if meta_df_level.name is None:
+                            drop_index_level.append(i)
+                        elif meta_df_level.name == row_annot_df.columns[i].name:
+                            drop_cols.append(i)
+
+                if drop_cols:
+                    row_annot_df = row_annot_df.drop(columns=drop_cols)
+
+                if drop_index_level:
+                    for i in reversed(drop_index_level):
+                        if isinstance(meta_df.index, pd.MultiIndex):
+                            meta_df_index = meta_df_index.droplevel(i)
+                        else:
+                            assert i == 0
+                            meta_df_index = pd.RangeIndex(meta_df_index.size)
+                    meta_df = pd.DataFrame({}, index=meta_df_index)
+
+            if row_annot_df is not None:
+                meta_parts = (meta_df, row_annot_df)
 
         if col_annot is not None:
             col_annot_df = pd.read_csv(
@@ -766,6 +795,22 @@ class OWLoadData(widget.OWWidget):
                 names = [str(c) for c in col_annot_df.columns]
                 for var, values in zip(attrs, col_annot_df.values):
                     var.attributes.update({n: v for n, v in zip(names, values)})
+
+        if meta_parts:
+            if len(meta_parts) > 1:
+                assert all(len(meta_df) == len(m) for m in meta_parts)
+                meta_df = pd.concat(meta_parts, axis=1)
+            else:
+                meta_df = meta_parts[0]
+
+            if not meta_df.index.is_integer():
+                meta_df = meta_df.reset_index()
+            metas = [StringVariable.make(str(name))
+                     for name in meta_df.columns]
+            M = meta_df.values
+        else:
+            metas = None
+            M = None
 
         domain = Orange.data.Domain(attrs, metas=metas)
         d = Orange.data.Table.from_numpy(domain, X, None, M)
