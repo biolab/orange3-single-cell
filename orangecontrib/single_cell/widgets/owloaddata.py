@@ -28,6 +28,7 @@ from Orange.data import ContinuousVariable, StringVariable
 
 from Orange.widgets import widget, gui, settings
 from Orange.widgets.utils.filedialogs import RecentPath
+from Orange.widgets.utils.buttons import VariableTextPushButton
 
 
 class Options(SimpleNamespace):
@@ -156,6 +157,11 @@ class OWLoadData(widget.OWWidget):
     class Outputs:
         data = widget.Output("Data", Orange.data.Table)
 
+    class Information(widget.OWWidget.Information):
+        modified = widget.Msg(
+            "Uncommited changes\nPress 'Load data' to submit changes"
+        )
+
     class Warning(widget.OWWidget.Warning):
         sampling_in_effect = widget.Msg("Sampling is in effect.")
 
@@ -262,7 +268,9 @@ class OWLoadData(widget.OWWidget):
         gui.radioButtons(
             box, self, "_cells_in_rows",
             ["Genes in rows, cells in columns",
-             "Cells in rows, genes in columns"])
+             "Cells in rows, genes in columns"],
+            callback=self._invalidate
+        )
 
         box = gui.widgetBox(
             self.controlArea, "Sample Data", spacing=-1)
@@ -321,6 +329,7 @@ class OWLoadData(widget.OWWidget):
             sizeAdjustPolicy=QComboBox.AdjustToMinimumContentsLengthWithIcon,
             minimumContentsLength=18
         )
+        self.row_annotations_combo.activated.connect(self._invalidate)
         hl.addWidget(self.row_annotations_combo)
         hl.addWidget(QPushButton("...", box, autoDefault=False,
                                  icon=icon_open_dir,
@@ -340,6 +349,7 @@ class OWLoadData(widget.OWWidget):
             sizeAdjustPolicy=QComboBox.AdjustToMinimumContentsLengthWithIcon,
             minimumContentsLength=18
         )
+        self.col_annotations_combo.activated.connect(self._invalidate)
         hl.addWidget(self.col_annotations_combo)
         hl.addWidget(QPushButton("...", box, autoDefault=False,
                                  icon=icon_open_dir,
@@ -349,8 +359,10 @@ class OWLoadData(widget.OWWidget):
         form.addRow(cb, w)
 
         self.controlArea.layout().addStretch(10)
-
-        button = QPushButton("Load data", default=True)
+        self.load_data_button = button = VariableTextPushButton(
+            "Load data", autoDefault=True, textChoiceList=["Load data", "Reload"]
+        )
+        self.load_data_button.setAutoDefault(True)
         button.clicked.connect(self.commit, Qt.QueuedConnection)
         self.controlArea.layout().addWidget(button, alignment=Qt.AlignRight)
 
@@ -385,39 +397,47 @@ class OWLoadData(widget.OWWidget):
         if self._sample_rows_enabled != enabled:
             self._sample_rows_enabled = enabled
             self._update_warning()
+            self._invalidate()
 
     def set_sample_cols_enabled(self, enabled):
         if self._sample_cols_enabled != enabled:
             self._sample_cols_enabled = enabled
             self._update_warning()
+            self._invalidate()
 
     def set_sample_rows_p(self, p):
         if self._sample_rows_p != p:
             self._sample_rows_p = p
             self._update_warning()
+            self._invalidate()
 
     def set_sample_cols_p(self, p):
         if self._sample_cols_p != p:
             self._sample_cols_p = p
             self._update_warning()
+            self._invalidate()
 
     def set_header_rows_count(self, n):
         if self._header_rows_count != n:
             self._header_rows_count = n
             self.header_rows_spin.setValue(n)
+            self._invalidate()
 
     def set_header_cols_count(self, n):
         if self._header_cols_count != n:
             self._header_cols_count = n
             self.header_cols_spin.setValue(n)
+            self._invalidate()
 
     def set_row_annotations_enabled(self, enabled):
         if self._row_annotations_enabled != enabled:
             self._row_annotations_enabled = enabled
+            self._invalidate()
 
     def set_col_annotations_enabled(self, enabled):
         if self._col_annotations_enabled != enabled:
             self._col_annotations_enabled = enabled
+            self._invalidate()
 
     def set_current_path(self, path):
         if samepath(self._current_path, path):
@@ -459,6 +479,7 @@ class OWLoadData(widget.OWWidget):
         self._current_path = path
         self.recent_combo.setCurrentIndex(0)
         self._update_summary()
+        self._invalidate()
 
     def _update_summary(self):
         path = self._current_path
@@ -548,6 +569,7 @@ class OWLoadData(widget.OWWidget):
             pathitem = RecentPath.create(filename, [])
             index = insert_recent_path(m, pathitem)
             self.row_annotations_combo.setCurrentIndex(index)
+            self._invalidate()
 
     @Slot()
     def browse_col_annotations(self):
@@ -567,6 +589,23 @@ class OWLoadData(widget.OWWidget):
             pathitem = RecentPath.create(filename, [])
             index = insert_recent_path(m, pathitem)
             self.col_annotations_combo.setCurrentIndex(index)
+            self._invalidate()
+
+    def _invalidate(self):
+        self.set_modified(True)
+
+    def set_modified(self, modified):
+        if modified:
+            text = "Load data"
+        else:
+            text = "Reload"
+
+        self.load_data_button.setText(text)
+        self.load_data_button.setAutoDefault(modified)
+        # Setting autoDefault once also sets default which persists even after
+        # settings autoDefault back to False??
+        self.load_data_button.setDefault(modified)
+        self.Information.modified(shown=modified)
 
     def commit(self):
         path = self._current_path
@@ -591,8 +630,9 @@ class OWLoadData(widget.OWWidget):
         else:
             col_annot = None
 
-        X = M = None
-        attrs, metas = [], []
+        meta_parts = []  # type: List[pd.DataFrame]
+        attrs = []  # type: List[ContinuousVariable]
+        metas = []  # type: List[StringVariable]
 
         rstate = np.random.RandomState(0x667)
 
@@ -675,7 +715,11 @@ class OWLoadData(widget.OWWidget):
             leading_cols = len(header_cols_indices)
 
         X = df.values
-        attrs = [ContinuousVariable(str(g)) for g in df.columns]
+        attrs = [ContinuousVariable.make(str(g)) for g in df.columns]
+
+        meta_df = df.iloc[:, :0]  # Take the index # type: pd.DataFrame
+        meta_df_index = df.index
+        meta_parts = (meta_df, )
 
         self.Error.row_annotation_mismatch.clear()
         self.Error.col_annotation_mismatch.clear()
@@ -702,9 +746,33 @@ class OWLoadData(widget.OWWidget):
                 #     assert np.all(row_annot_df.iloc[:, 0] == df.index)
 
             if row_annot_df is not None:
-                metas += [StringVariable(str(name))
-                          for name in row_annot_df.columns]
-                M = row_annot_df.values
+                # Try to match the leading columns with the meta_df_index.
+                # If found then drop the columns (or index if the level does
+                # not have a name but the annotation col does)
+                drop_cols = []
+                drop_index_level = []
+                for i in range(meta_df_index.nlevels):
+                    meta_df_level = meta_df_index.get_level_values(i)
+                    if np.all(row_annot_df.iloc[:, i] == meta_df_level):
+                        if meta_df_level.name is None:
+                            drop_index_level.append(i)
+                        elif meta_df_level.name == row_annot_df.columns[i].name:
+                            drop_cols.append(i)
+
+                if drop_cols:
+                    row_annot_df = row_annot_df.drop(columns=drop_cols)
+
+                if drop_index_level:
+                    for i in reversed(drop_index_level):
+                        if isinstance(meta_df.index, pd.MultiIndex):
+                            meta_df_index = meta_df_index.droplevel(i)
+                        else:
+                            assert i == 0
+                            meta_df_index = pd.RangeIndex(meta_df_index.size)
+                    meta_df = pd.DataFrame({}, index=meta_df_index)
+
+            if row_annot_df is not None:
+                meta_parts = (meta_df, row_annot_df)
 
         if col_annot is not None:
             col_annot_df = pd.read_csv(
@@ -728,9 +796,27 @@ class OWLoadData(widget.OWWidget):
                 for var, values in zip(attrs, col_annot_df.values):
                     var.attributes.update({n: v for n, v in zip(names, values)})
 
+        if meta_parts:
+            if len(meta_parts) > 1:
+                assert all(len(meta_df) == len(m) for m in meta_parts)
+                meta_df = pd.concat(meta_parts, axis=1)
+            else:
+                meta_df = meta_parts[0]
+
+            if not meta_df.index.is_integer():
+                meta_df = meta_df.reset_index()
+            metas = [StringVariable.make(str(name))
+                     for name in meta_df.columns]
+            M = meta_df.values
+        else:
+            metas = None
+            M = None
+
         domain = Orange.data.Domain(attrs, metas=metas)
         d = Orange.data.Table.from_numpy(domain, X, None, M)
         self.Outputs.data.send(d)
+
+        self.set_modified(False)
 
     def onDeleteWidget(self):
         super().onDeleteWidget()
