@@ -2,7 +2,7 @@ import os
 import sys
 import csv
 from itertools import chain
-from typing import List
+from typing import List, Tuple
 from types import SimpleNamespace
 
 from serverfiles import sizeformat
@@ -186,6 +186,11 @@ class OWLoadData(widget.OWWidget):
     _row_annotations_enabled = settings.Setting(False)
 
     _last_path = settings.Setting("")  # type: str
+    #: Open file dialog states. Tuples of directory and selected name filter.
+    _last_dialog_state = settings.Setting(("", ""))  # type: Tuple[str, str]
+    _last_row_annot_dialog_state = settings.Setting(("", ""))  # type: Tuple[str, str]
+    _last_col_annot_dialog_state = settings.Setting(("", ""))  # type: Tuple[str, str]
+
     _header_rows_count = settings.Setting(1)  # type: int
     _header_cols_count = settings.Setting(1)  # type: int
     _sample_rows_enabled = settings.Setting(False)  # type: bool
@@ -596,16 +601,23 @@ class OWLoadData(widget.OWWidget):
 
     @Slot()
     def browse(self):
-        dlg = QFileDialog(self)
-        dlg.setAcceptMode(QFileDialog.AcceptOpen)
-        dlg.setFileMode(QFileDialog.ExistingFile)
-
+        dlg = QFileDialog(
+            self, acceptMode=QFileDialog.AcceptOpen,
+            fileMode=QFileDialog.ExistingFile
+        )
         filters = Formats
         dlg.setNameFilters(filters)
-        if filters:
-            dlg.selectNameFilter(filters[0])
+
+        lastdir, lastfilter = self._last_dialog_state
+        if os.path.isdir(lastdir):
+            dlg.setDirectory(lastdir)
+        if lastfilter:
+            dlg.selectNameFilter(lastfilter)
+
         if dlg.exec_() == QFileDialog.Accepted:
-            f = dlg.selectedNameFilter()
+            self._last_dialog_state = (
+                dlg.directory().absolutePath(), dlg.selectedNameFilter()
+            )
             filename = dlg.selectedFiles()[0]
             self.set_current_path(filename)
 
@@ -618,10 +630,16 @@ class OWLoadData(widget.OWWidget):
         filters = AnnotationFormats
         dlg.setNameFilters(filters)
 
-        if filters:
-            dlg.selectNameFilter(filters[0])
+        lastdir, lastfilter = self._last_row_annot_dialog_state
+        if os.path.isdir(lastdir):
+            dlg.setDirectory(lastdir)
+        if lastfilter:
+            dlg.selectNameFilter(lastfilter)
+
         if dlg.exec_() == QFileDialog.Accepted:
-            f = dlg.selectedNameFilter()
+            self._last_row_annot_dialog_state = (
+                dlg.directory().absolutePath(), dlg.selectedNameFilter()
+            )
             filename = dlg.selectedFiles()[0]
             m = self.row_annotations_combo.model()  # type: QStandardItemModel
             pathitem = RecentPath.create(filename, [])
@@ -638,10 +656,16 @@ class OWLoadData(widget.OWWidget):
         filters = AnnotationFormats
         dlg.setNameFilters(filters)
 
-        if filters:
-            dlg.selectNameFilter(filters[0])
+        lastdir, lastfilter = self._last_col_annot_dialog_state
+        if os.path.exists(lastdir):
+            dlg.setDirectory(lastdir)
+        if lastfilter:
+            dlg.selectNameFilter(lastfilter)
+
         if dlg.exec_() == QFileDialog.Accepted:
-            f = dlg.selectedNameFilter()
+            self._last_col_annot_dialog_state = (
+                dlg.directory().absolutePath(), dlg.selectedNameFilter()
+            )
             filename = dlg.selectedFiles()[0]
             m = self.col_annotations_combo.model()  # type: QStandardItemModel
             pathitem = RecentPath.create(filename, [])
