@@ -74,7 +74,7 @@ Formats = [
     "Count file (*.count)",
     "Tab separated file (*.tsv)",
     "Comma separated file (*.csv)",
-    "10x results - Matrix Market Exchange format (*.mtx)",
+    "10x gene-barcode matrix (matrix.mtx)",
     "Any tab separated file (*.*)"
 ]
 
@@ -522,6 +522,20 @@ class OWLoadData(widget.OWWidget):
             self.set_col_annotations_enabled(True)
         else:
             self.col_annotations_combo.setCurrentIndex(-1)
+
+        if path.endswith(".mtx") \
+                and opts.row_annotation_file is not None \
+                and opts.column_annotation_file is not None \
+                and os.path.basename(opts.row_annotation_file) == "barcodes.tsv" \
+                and os.path.basename(opts.column_annotation_file) == "genes.tsv":
+            # 10x gene-barcode matrix
+            # TODO: The genes/barcodes files should be unconditionally loaded
+            # alongside the mtx. The row/col annotations might be used to
+            # specify additional sources. For the time being they are put in
+            # the corresponding comboboxes and made uneditable.
+            self.annotation_files_box.setEnabled(False)
+        else:
+            self.annotation_files_box.setEnabled(True)
 
         self._invalidate()
 
