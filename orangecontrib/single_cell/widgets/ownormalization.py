@@ -1,11 +1,15 @@
 from AnyQt.QtCore import Qt, QTimer
+from AnyQt.QtWidgets import QListView
 
-from Orange.data import Table, DiscreteVariable
+from Orange.data import Table, DiscreteVariable, ContinuousVariable
 from Orange.widgets import widget, gui, settings
-from Orange.widgets.utils.itemmodels import DomainModel
+from Orange.widgets.utils.itemmodels import DomainModel, PyListModel
 from Orange.widgets.widget import Input, Output
+from Orange.preprocess.preprocess import PreprocessorList, Preprocess
 
 from orangecontrib.single_cell.preprocess.scnormalize import SCNormalizer
+from orangecontrib.single_cell.preprocess.scbnorm import LINKS, LINK_IDENTITY, LINK_LOG, \
+    SCBatchNormalizer
 
 
 class OWNormalization(widget.OWWidget):
@@ -21,7 +25,7 @@ class OWNormalization(widget.OWWidget):
 
     class Outputs:
         data = Output("Data", Table)
-        preprocessor = Output("Preprocessor", SCNormalizer)
+        preprocessor = Output("Preprocessor", Preprocess)
 
     want_main_area = False
     resizing_enabled = False
@@ -33,6 +37,9 @@ class OWNormalization(widget.OWWidget):
     normalize_cells = settings.Setting(True)
     log_check = settings.Setting(True)
     log_base = 2
+
+    batch_link = LINK_IDENTITY
+    batch_vars = ()
 
     def __init__(self):
         self.data = None
@@ -64,6 +71,21 @@ class OWNormalization(widget.OWWidget):
                  callback=self.on_changed,
                  checkCallback=self.on_changed, controlWidth=60)
 
+        # Batch effects
+        box2 = gui.vBox(self.controlArea, "Variables to regress out (batch effects)")
+        self.batch_link_combo = gui.comboBox(
+            box2, self, 'batch_link',
+            callback=self._batch_changed,
+            sendSelectedValue=True)
+        self.batch_link_combo.setModel(PyListModel(LINKS.keys()))
+
+        self.batch_attrs = DomainModel(order=(DomainModel.CLASSES, DomainModel.METAS),
+                                       valid_types=(DiscreteVariable, ContinuousVariable))
+        self.varview = view = QListView(selectionMode=QListView.MultiSelection)
+        view.setModel(self.batch_attrs)
+        view.selectionModel().selectionChanged.connect(self._batch_changed)
+        box2.layout().addWidget(view)
+
         gui.auto_commit(self.controlArea, self, 'autocommit', '&Apply')
         QTimer.singleShot(0, self.commit)
 
@@ -74,6 +96,7 @@ class OWNormalization(widget.OWWidget):
 
         if self.data is None:
             self.attrs_model.set_domain(None)
+            self.batch_attrs.set_domain(None)
             self.commit()
             self.info.setText("No data on input")
             return
@@ -82,12 +105,17 @@ class OWNormalization(widget.OWWidget):
                           (len(data), len(data.domain.attributes)))
 
         self.attrs_model.set_domain(data.domain)
+        self.batch_attrs.set_domain(data.domain)
         self.normalize_check.setEnabled(len(self.attrs_model) > 0)
         self.combo_attrs.setEnabled(self.normalize_cells)
 
         self.Outputs.data.send(None)
         self.openContext(self.data.domain)
         self.on_changed()
+
+    def _batch_changed(self):
+        self.batch_vars = tuple(self.batch_attrs[ind.row()].name
+                                for ind in self.varview.selectionModel().selectedRows())
 
     def on_changed(self):
         self.commit()
@@ -107,24 +135,27 @@ class OWNormalization(widget.OWWidget):
         pp = SCNormalizer(equalize_var=library_var,
                           normalize_cells=self.normalize_cells,
                           log_base=log_base)
+
+        pp_batch = SCBatchNormalizer(link=self.batch_link,
+                                     nonzero_only=self.batch_link == LINK_LOG,
+                                     batch_vars=self.batch_vars)
+
         data = None
         if self.data is not None:
-            data = pp(self.data)
+            data = pp_batch(pp(self.data))
 
         self.Outputs.data.send(data)
-        self.Outputs.preprocessor.send(pp)
+        self.Outputs.preprocessor.send(PreprocessorList([pp, pp_batch]))
 
 
 if __name__ == "__main__":
-    from sys import argv
     from AnyQt.QtWidgets import QApplication
 
     app = QApplication([])
     ow = OWNormalization()
 
     # Load test file from arguments
-    test_file = argv[1] if len(argv) >= 2 else "matrix_counts_sample.tab"
-    table = Table(test_file)
+    table = Table("iris")
     ow.set_data(table)
 
     ow.show()
