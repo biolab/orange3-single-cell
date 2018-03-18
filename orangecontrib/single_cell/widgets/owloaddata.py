@@ -1,13 +1,14 @@
 import os
 import sys
 import csv
-
+from itertools import chain
 from typing import List
 from types import SimpleNamespace
 
 from serverfiles import sizeformat
 
 import scipy.io
+import scipy.sparse
 import numpy as np
 
 import pandas as pd
@@ -44,7 +45,7 @@ class Options(SimpleNamespace):
 
     # supplementary column/rows annotation files
     row_annotation_file = None
-    column_annotations_file = None
+    column_annotation_file = None
 
 
 def infer_options(path):
@@ -55,10 +56,11 @@ def infer_options(path):
     if ext == ".mtx":
         genes_path = os.path.join(dirname, "genes.tsv")
         if os.path.isfile(genes_path):
-            options.row_annotation_file = genes_path
+            options.column_annotation_file = genes_path
         barcodes_path = os.path.join(dirname, "barcodes.tsv")
         if os.path.isfile(barcodes_path):
-            options.column_annotations_file = barcodes_path
+            options.row_annotation_file = barcodes_path
+        options.transposed = True
     elif ext == ".count":
         meta_path = os.path.join(dirname, basename_no_ext + ".meta")
         if os.path.isfile(meta_path):
@@ -72,7 +74,7 @@ Formats = [
     "Count file (*.count)",
     "Tab separated file (*.tsv)",
     "Comma separated file (*.csv)",
-    # "Matrix Market file (*.mtx)",
+    "10x gene-barcode matrix (matrix.mtx)",
     "Any tab separated file (*.*)"
 ]
 
@@ -82,6 +84,7 @@ AnnotationFormats = [
     "Comma separated file (*.csv)",
     "Any tab separated file (*.*)",
 ]
+
 
 def separator_from_filename(path):
     path, ext = os.path.splitext(path)
@@ -199,7 +202,6 @@ class OWLoadData(widget.OWWidget):
         super().__init__()
         self._current_path = ""
         icon_open_dir = self.style().standardIcon(QStyle.SP_DirOpenIcon)
-        icon_reload = self.style().standardIcon(QStyle.SP_BrowserReload)
 
         # Top grid with file selection combo box
         grid = QGridLayout()
@@ -264,7 +266,10 @@ class OWLoadData(widget.OWWidget):
         hl.addWidget(QLabel("column(s) are row labels", box))
         hl.addStretch(10)
         box.layout().addLayout(hl)
-        box = gui.widgetBox(self.controlArea, "Input Data Structure")
+
+        self.data_struct_box = box = gui.widgetBox(
+            self.controlArea, "Input Data Structure"
+        )
         gui.radioButtons(
             box, self, "_cells_in_rows",
             ["Genes in rows, cells in columns",
@@ -311,14 +316,18 @@ class OWLoadData(widget.OWWidget):
         grid.addWidget(suffix, 1, 2)
         grid.setColumnStretch(3, 10)
 
-        box = gui.widgetBox(self.controlArea, "Cell && Gene Annotation Files")
+        self.annotation_files_box = box = gui.widgetBox(
+            self.controlArea, "Cell && Gene Annotation Files"
+        )
         form = QFormLayout(
             formAlignment=Qt.AlignLeft,
             rowWrapPolicy=QFormLayout.WrapAllRows,
         )
         box.layout().addLayout(form)
 
-        cb = QCheckBox("Cell annotations", checked=self._row_annotations_enabled)
+        self.row_annotations_cb = cb = QCheckBox(
+            "Cell annotations", checked=self._row_annotations_enabled
+        )
         self._row_annotations_w = w = QWidget(enabled=self._row_annotations_enabled)
         cb.toggled.connect(self.set_row_annotations_enabled)
         cb.toggled.connect(w.setEnabled)
@@ -338,7 +347,9 @@ class OWLoadData(widget.OWWidget):
         #                          icon=icon_reload))
         form.addRow(cb, w)
 
-        cb = QCheckBox("Gene annotations", checked=self._col_annotations_enabled)
+        self.col_annotations_cb = cb = QCheckBox(
+            "Gene annotations", checked=self._col_annotations_enabled
+        )
         self._col_annotations_w = w = QWidget(enabled=self._col_annotations_enabled)
         cb.toggled.connect(self.set_col_annotations_enabled)
         cb.toggled.connect(w.setEnabled)
@@ -432,11 +443,13 @@ class OWLoadData(widget.OWWidget):
     def set_row_annotations_enabled(self, enabled):
         if self._row_annotations_enabled != enabled:
             self._row_annotations_enabled = enabled
+            self.row_annotations_cb.setChecked(enabled)
             self._invalidate()
 
     def set_col_annotations_enabled(self, enabled):
         if self._col_annotations_enabled != enabled:
             self._col_annotations_enabled = enabled
+            self.col_annotations_cb.setChecked(enabled)
             self._invalidate()
 
     def set_current_path(self, path):
@@ -463,22 +476,67 @@ class OWLoadData(widget.OWWidget):
             item = model.takeRow(index)
         else:
             item = RecentPath_asqstandarditem(pathitem)
-        # TODO: Restore or guess load options
+
+        opts = infer_options(path)
 
         if path.endswith(".count"):
             self.set_header_rows_count(1)
             self.set_header_cols_count(1)
-            enabled = False
+            fixed_format = False
+        elif path.endswith(".mtx"):
+            self.set_header_rows_count(0)
+            self.set_header_cols_count(0)
+            fixed_format = False
+            self._cells_in_rows = False
         else:
-            enabled = True
+            fixed_format = True
 
-        self.header_rows_spin.setEnabled(enabled)
-        self.header_cols_spin.setEnabled(enabled)
+        if opts.transposed is not None:
+            self._cells_in_rows = not opts.transposed
+
+        self.data_struct_box.setEnabled(fixed_format)
+        self.header_rows_spin.setEnabled(fixed_format)
+        self.header_cols_spin.setEnabled(fixed_format)
 
         model.insertRow(0, item)
         self._current_path = path
         self.recent_combo.setCurrentIndex(0)
         self._update_summary()
+
+        if opts.row_annotation_file is not None:
+            index = insert_recent_path(
+                self.row_annotations_combo.model(),
+                RecentPath.create(opts.row_annotation_file, [])
+            )
+            self.row_annotations_combo.setCurrentIndex(index)
+            self.set_row_annotations_enabled(True)
+        else:
+            self.row_annotations_combo.setCurrentIndex(-1)
+
+        if opts.column_annotation_file is not None:
+            index = insert_recent_path(
+                self.col_annotations_combo.model(),
+                RecentPath.create(opts.column_annotation_file, [])
+            )
+            self.col_annotations_combo.setCurrentIndex(index)
+            self.set_col_annotations_enabled(True)
+        else:
+            self.col_annotations_combo.setCurrentIndex(-1)
+
+        if path.endswith(".mtx") \
+                and opts.row_annotation_file is not None \
+                and opts.column_annotation_file is not None \
+                and os.path.basename(opts.row_annotation_file) == "barcodes.tsv" \
+                and os.path.basename(opts.column_annotation_file) == "genes.tsv":
+            # 10x gene-barcode matrix
+            # TODO: The genes/barcodes files should be unconditionally loaded
+            # alongside the mtx. The row/col annotations might be used to
+            # specify additional sources. For the time being they are put in
+            # the corresponding comboboxes and made uneditable.
+            self.annotation_files_box.setEnabled(False)
+        else:
+            self.annotation_files_box.setEnabled(True)
+
         self._invalidate()
 
     def _update_summary(self):
@@ -696,30 +754,66 @@ class OWLoadData(widget.OWWidget):
                 userows_mask.append(r)
                 return r
 
-        df = pd.read_csv(
-            path, sep=separator_from_filename(path),
-            index_col=header_cols, header=header_rows,
-            skiprows=_skip_row, usecols=_usecols
-        )
-        if _skip_row is not None:
-            userows_mask = np.array(userows_mask, dtype=bool)
+        meta_df_index = None
+        row_annot_header = 0
+        row_annot_columns = None
+        col_annot_header = 0
+        col_annot_columns = None
 
-        if transpose:
-            df = df.transpose()
-            userows_mask, usecols_mask = usecols_mask, userows_mask
-            _usecols, _userows = _userows, _usecols
-            leading_rows = len(header_cols_indices)
-            leading_cols = len(header_rows_indices)
+        if os.path.splitext(path)[1] == ".mtx":
+            # 10x cellranger output
+            X = scipy.io.mmread(path)
+            assert isinstance(X, scipy.sparse.coo_matrix)
+            if transpose:
+                X = X.T
+            if _skip_row is not None:
+                userows_mask = np.array(
+                    [not _skip_row(i) for i in range(X.shape[0])]
+                )
+                X = X.tocsr()[np.flatnonzero(userows_mask)]
+            if _skip_col is not None:
+                usecols_mask = np.array(
+                    [not _skip_col(i) for i in range(X.shape[1])]
+                )
+                X = X.tocsc()[:, np.flatnonzero(usecols_mask)]
+            X = X.todense(order="F")
+            if userows_mask is not None:
+                meta_df = pd.DataFrame({}, index=np.flatnonzero(userows_mask))
+            else:
+                meta_df = pd.DataFrame({}, index=pd.RangeIndex(X.shape[0]))
+
+            meta_df_index = meta_df.index
+
+            row_annot_header = None
+            row_annot_columns = ["Barcodes"]
+            col_annot_header = None
+            col_annot_columns = ["Id", "Gene"]
+            leading_cols = leading_rows = 0
         else:
-            leading_rows = len(header_rows_indices)
-            leading_cols = len(header_cols_indices)
+            df = pd.read_csv(
+                path, sep=separator_from_filename(path),
+                index_col=header_cols, header=header_rows,
+                skiprows=_skip_row, usecols=_usecols
+            )
 
-        X = df.values
-        attrs = [ContinuousVariable.make(str(g)) for g in df.columns]
+            if _skip_row is not None:
+                userows_mask = np.array(userows_mask, dtype=bool)
 
-        meta_df = df.iloc[:, :0]  # Take the index # type: pd.DataFrame
-        meta_df_index = df.index
-        meta_parts = (meta_df, )
+            if transpose:
+                df = df.transpose()
+                userows_mask, usecols_mask = usecols_mask, userows_mask
+                leading_rows = len(header_cols_indices)
+                leading_cols = len(header_rows_indices)
+            else:
+                leading_rows = len(header_rows_indices)
+                leading_cols = len(header_cols_indices)
+
+            X = df.values
+            attrs = [ContinuousVariable.make(str(g)) for g in df.columns]
+
+            meta_df = df.iloc[:, :0]  # Take the index # type: pd.DataFrame
+            meta_df_index = df.index
+            meta_parts = (meta_df, )
 
         self.Error.row_annotation_mismatch.clear()
         self.Error.col_annotation_mismatch.clear()
@@ -727,13 +821,14 @@ class OWLoadData(widget.OWWidget):
         if row_annot is not None:
             row_annot_df = pd.read_csv(
                 row_annot, sep=separator_from_filename(row_annot),
-                header=0, index_col=None
+                header=row_annot_header, names=row_annot_columns,
+                index_col=None
             )
             if userows_mask is not None:
                 # NOTE: we account for column header/ row index
                 expected = len(userows_mask) - leading_rows
             else:
-                expected = len(df)
+                expected = X.shape[0]
             if len(row_annot_df) != expected:
                 self.Error.row_annotation_mismatch(expected, len(row_annot_df))
                 row_annot_df = None
@@ -745,7 +840,7 @@ class OWLoadData(widget.OWWidget):
                 # if path.endswith(".count") and row_annot.endswith('.meta'):
                 #     assert np.all(row_annot_df.iloc[:, 0] == df.index)
 
-            if row_annot_df is not None:
+            if row_annot_df is not None and meta_df_index is not None:
                 # Try to match the leading columns with the meta_df_index.
                 # If found then drop the columns (or index if the level does
                 # not have a name but the annotation col does)
@@ -777,12 +872,13 @@ class OWLoadData(widget.OWWidget):
         if col_annot is not None:
             col_annot_df = pd.read_csv(
                 col_annot, sep=separator_from_filename(col_annot),
-                header=0, index_col=None
+                header=col_annot_header, names=col_annot_columns,
+                index_col=None
             )
             if usecols_mask is not None:
                 expected = len(usecols_mask) - leading_cols
             else:
-                expected = df.shape[1]
+                expected = X.shape[1]
             if len(col_annot_df) != expected:
                 self.Error.col_annotation_mismatch(expected, len(col_annot_df))
                 col_annot_df = None
@@ -791,26 +887,26 @@ class OWLoadData(widget.OWWidget):
                 col_annot_df = col_annot_df.iloc[indices]
 
             if col_annot_df is not None:
-                assert len(col_annot_df) == df.shape[1]
+                assert len(col_annot_df) == X.shape[1]
+                if not attrs and X.shape[1]:  # No column names yet
+                    attrs = [ContinuousVariable.make(str(v))
+                             for v in col_annot_df.iloc[:, 0]]
                 names = [str(c) for c in col_annot_df.columns]
                 for var, values in zip(attrs, col_annot_df.values):
                     var.attributes.update({n: v for n, v in zip(names, values)})
 
         if meta_parts:
-            if len(meta_parts) > 1:
-                assert all(len(meta_df) == len(m) for m in meta_parts)
-                meta_df = pd.concat(meta_parts, axis=1)
-            else:
-                meta_df = meta_parts[0]
-
-            if not meta_df.index.is_integer():
-                meta_df = meta_df.reset_index()
-            metas = [StringVariable.make(str(name))
-                     for name in meta_df.columns]
-            M = meta_df.values
+            meta_parts = [df_.reset_index() if not df_.index.is_integer()
+                          else df_ for df_ in meta_parts]
+            metas = [StringVariable.make(name)
+                     for name in chain(*(_.columns for _ in meta_parts))]
+            M = np.hstack(tuple(df_.values for df_ in meta_parts))
         else:
             metas = None
             M = None
+
+        if not attrs and X.shape[1]:
+            attrs = Orange.data.Domain.from_numpy(X).attributes
 
         domain = Orange.data.Domain(attrs, metas=metas)
         d = Orange.data.Table.from_numpy(domain, X, None, M)
