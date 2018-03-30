@@ -345,6 +345,7 @@ class OWFilter(widget.OWWidget):
         elif filter_type == Data:
             x = data.X.ravel()
             x = x[np.isfinite(x)]
+            x = x[x != 0]
             self._counts = x
             MAX_DISPLAY_SIZE = 20000
             if x.size > MAX_DISPLAY_SIZE:

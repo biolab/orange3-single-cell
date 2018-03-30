@@ -1,10 +1,11 @@
+from unittest.mock import patch
+
 import numpy as np
 
 from Orange.data import Table, Domain, ContinuousVariable
 from Orange.widgets.tests.base import WidgetTest
 from orangecontrib.single_cell.widgets.owlouvainclustering import \
     OWLouvainClustering
-
 
 # Deterministic tests
 np.random.seed(42)
@@ -31,9 +32,10 @@ class TestOWLouvain(WidgetTest):
         np.random.shuffle(data)
 
         table = Table.from_numpy(domain=Domain.from_numpy(X=data), X=data)
+
         self.send_signal(self.widget.Inputs.data, table)
         self.widget.k_neighbours = 4
-        self.widget.commit(force=True)
+        self.widget.unconditional_commit()
         output = self.get_output(self.widget.Outputs.annotated_data, wait=1000)
 
         clustering = output.get_column_view('Cluster')[0].astype(int)
@@ -48,7 +50,7 @@ class TestOWLouvain(WidgetTest):
         table = Table.from_numpy(domain=Domain.from_numpy(X=data), X=data)
         self.send_signal(self.widget.Inputs.data, table)
         self.widget.apply_pca = False
-        self.widget.commit(force=True)
+        self.widget.unconditional_commit()
 
         self.assertTrue(self.widget.Error.data_has_nans.is_shown())
 
@@ -60,5 +62,41 @@ class TestOWLouvain(WidgetTest):
         table.get_column_view(meta_var)[0][:] = meta
 
         self.send_signal(self.widget.Inputs.data, table)
-        self.widget.commit(force=True)
-        self.show()
+        self.widget.unconditional_commit()
+        self.assertTrue(self.widget.Error.empty_dataset.is_shown())
+
+    def test_do_not_recluster_on_same_data(self):
+        """Do not recluster data points when targets or metas change."""
+
+        # Prepare some dummy data
+        x = np.eye(5)
+        y1, y2 = np.ones((5, 1)), np.ones((5, 2))
+        meta1, meta2 = np.ones((5, 1)), np.ones((5, 2))
+
+        table1 = Table.from_numpy(
+            domain=Domain.from_numpy(X=x, Y=y1, metas=meta1),
+            X=x, Y=y1, metas=meta1,
+        )
+        # X is same, should not cause update
+        table2 = Table.from_numpy(
+            domain=Domain.from_numpy(X=x, Y=y2, metas=meta2),
+            X=x, Y=y2, metas=meta2,
+        )
+        # X is different, should cause update
+        table3 = table1.copy()
+        table3.X[:, 0] = 1
+
+        with patch.object(self.widget, 'commit') as commit:
+            self.send_signal(self.widget.Inputs.data, table1)
+            self.commit_and_wait()
+            call_count = commit.call_count
+
+            # Sending data with same X should not recompute the clustering
+            self.send_signal(self.widget.Inputs.data, table2)
+            self.commit_and_wait()
+            self.assertEqual(call_count, commit.call_count)
+
+            # Sending data with different X should recompute the clustering
+            self.send_signal(self.widget.Inputs.data, table3)
+            self.commit_and_wait()
+            self.assertEqual(call_count + 1, commit.call_count)
