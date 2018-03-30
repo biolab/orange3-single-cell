@@ -10,12 +10,12 @@ LINK_LOG = "Log link"
 
 LINKS = {
     LINK_IDENTITY: lambda x: x,
-    LINK_LOG: lambda x: np.log(x)
+    LINK_LOG: np.log
 }
 
 INV_LINKS = {
     LINK_IDENTITY: lambda x: x,
-    LINK_LOG: lambda x: np.exp(x)
+    LINK_LOG: np.exp
 }
 
 
@@ -99,12 +99,11 @@ class ScBatchNormalizeModel:
     def transform(self, data):
         """ Apply transformation. Genes in new data must have had been available to fit. """
         if len(self.batch_vars) == 0:
-            return Table.from_table(domain=data.domain,
-                                    source=data)
+            return data
         else:
             atts = data.domain.attributes
             assert all((a.name in self.models for a in atts))
-            assert (data.domain.index(b) for b in self.batch_vars)
+            assert all(b in data.domain for b in self.batch_vars)
             Z = self._design_matrix(data)
             W = np.hstack((self.models[a.name].reshape((Z.shape[1], 1)) for a in atts))
             Xc = data.X.copy()
@@ -112,14 +111,11 @@ class ScBatchNormalizeModel:
                 nz = np.where(Xc)
                 Xn = INV_LINKS[self.link](LINKS[self.link](Xc[nz]) - Z.dot(W)[nz])
                 Xc[nz] = Xn
-
             else:
                 Xc = INV_LINKS[self.link](LINKS[self.link](Xc) - Z.dot(W))
-            return Table.from_numpy(domain=data.domain,
-                                    metas=data.metas,
-                                    X=Xc,
-                                    Y=data.Y,
-                                    W=data.W)
+            new_data = data.copy()
+            new_data.X = Xc
+            return new_data
 
     def __call__(self, data):
         """ Transform data (alias). """

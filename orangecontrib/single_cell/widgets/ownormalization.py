@@ -1,24 +1,75 @@
-from AnyQt.QtCore import Qt, QTimer
-from AnyQt.QtWidgets import QListView
+import numpy as np
+import logging
+from scipy.stats import pearsonr
 
-from Orange.data import Table, DiscreteVariable, ContinuousVariable
+from AnyQt.QtCore import Qt, QTimer, QItemSelection, QItemSelectionRange, QItemSelectionModel
+from Orange.data import Table, DiscreteVariable, ContinuousVariable, Variable
 from Orange.widgets import widget, gui, settings
-from Orange.widgets.utils.itemmodels import DomainModel, PyListModel
+from Orange.widgets.utils.itemmodels import DomainModel
 from Orange.widgets.widget import Input, Output
 from Orange.preprocess.preprocess import PreprocessorList, Preprocess
+from Orange.preprocess.score import Scorer
 
 from orangecontrib.single_cell.preprocess.scnormalize import SCNormalizer
-from orangecontrib.single_cell.preprocess.scbnorm import LINKS, LINK_IDENTITY, LINK_LOG, \
-    SCBatchNormalizer
+from orangecontrib.single_cell.widgets.owscoregenes import TableModel, TableView
+
+from orangecontrib.single_cell.preprocess.scbnorm import LINKS, LINK_LOG, SCBatchNormalizer
+from sklearn.preprocessing import OneHotEncoder
+
+log = logging.getLogger(__name__)
+
+
+class ScBatchScorer(Scorer):
+    """
+    For Continuous batch variables,
+        calculate a percentage of genes significantly (p < alpha)
+        correlated with the variable.
+
+    For Discrete batch variables,
+        calculate the *relative size of union* of
+        *significantly correlated genes* (p < alpha) for each value (one-hot encoding).
+    """
+
+    feature_type = Variable
+    class_type = Variable
+    supports_sparse_data = True
+    friendly_name = "score"
+    name = "ScBatchScore"
+
+    def __init__(self, alpha=0.05):
+        self.alpha = alpha
+
+    def score_data(self, data, feature):
+        if feature is None:
+            raise ValueError("Scorer %s computes on a per-feature basis. ", self.__class__)
+        if not all((isinstance(att, ContinuousVariable) for att in data.domain.attributes)):
+            raise ValueError("All variables in the data must be Continuous!")
+
+        a = data.get_column_view(feature.name)[0]
+        if isinstance(feature, ContinuousVariable):
+            w = np.array([pearsonr(a, data.get_column_view(att.name)[0])[1] < self.alpha
+                          for att in data.domain.attributes]).mean()
+        else:
+            A = OneHotEncoder(sparse=False).fit_transform(a.reshape((len(a), 1)))
+            W = np.array([[pearsonr(a, data.get_column_view(att.name)[0])[1] < self.alpha
+                          for att in data.domain.attributes] for a in A.T])
+            w = W.sum(axis=0).astype(bool).mean()
+
+        return w
+
+    def __call__(self, data, feature=None):
+        return self.score_data(data, feature)
 
 
 class OWNormalization(widget.OWWidget):
     name = 'Normalize'
-    description = 'Basic normalization of single cell count data'
+    description = 'Normalization of single cell count data'
     icon = 'icons/Normalization.svg'
     priority = 160
 
     DEFAULT_CELL_NORM = "(One group per cell)"
+    SCORERS = (ScBatchScorer, )
+    LINK_FUNCTIONS = sorted(LINKS.keys())
 
     class Inputs:
         data = Input("Data", Table)
@@ -27,19 +78,30 @@ class OWNormalization(widget.OWWidget):
         data = Output("Data", Table)
         preprocessor = Output("Preprocessor", Preprocess)
 
+    # Widget settings
     want_main_area = False
     resizing_enabled = False
-
     settingsHandler = settings.DomainContextHandler()
-    selected_attr = settings.Setting(DEFAULT_CELL_NORM)
-    autocommit = settings.Setting(True)
+    autocommit = settings.Setting(True, schema_only=True)
 
-    normalize_cells = settings.Setting(True)
-    log_check = settings.Setting(True)
-    log_base = 2
+    # Settings (basic preprocessor)
+    normalize_cells = settings.Setting(True, schema_only=True)
+    selected_attr_index = settings.Setting(0, schema_only=True)
+    log_check = settings.Setting(True, schema_only=True)
+    log_base = settings.Setting(2, schema_only=True)
 
-    batch_link = LINK_IDENTITY
-    batch_vars = ()
+    # Settings (batch preprocessor)
+    batch_link_index = settings.Setting(0, schema_only=True)
+    batch_vars_selected = settings.Setting([], schema_only=True)
+    batch_vars_all = []
+    batch_vars_names = []
+
+    # Preprocessors
+    pp = None
+    pp_batch = None
+
+    # ranksView global settings
+    sorting = settings.Setting((0, Qt.DescendingOrder))
 
     def __init__(self):
         self.data = None
@@ -51,18 +113,18 @@ class OWNormalization(widget.OWWidget):
             self.controlArea, "Data from multiple libraries")
         self.normalize_check = gui.checkBox(box0,
                                 self, "normalize_cells",
-                                "Normalize cell profiles on:",
-                                callback=self.on_changed_normalize,
+                                "Normalize median expressions on cell groups:",
+                                callback=self.on_changed,
                                 addSpace=True)
-        attrs_model = self.attrs_model = DomainModel(
+
+        self.attrs_model = DomainModel(
             placeholder=self.DEFAULT_CELL_NORM,
             order=(DomainModel.CLASSES, DomainModel.METAS),
             valid_types=DiscreteVariable)
-        combo_attrs = self.combo_attrs = gui.comboBox(
-            box0, self, 'selected_attr',
-            callback=self.on_changed,
-            sendSelectedValue=True)
-        combo_attrs.setModel(attrs_model)
+
+        self.combo_attrs = gui.comboBox(
+            box0, self, 'selected_attr_index',
+            callback=self.on_changed)
 
         # Steps and parameters
         box1 = gui.widgetBox(self.controlArea, 'Further steps and parameters')
@@ -71,81 +133,196 @@ class OWNormalization(widget.OWWidget):
                  callback=self.on_changed,
                  checkCallback=self.on_changed, controlWidth=60)
 
-        # Batch effects
+        # Batch effects - link function
         box2 = gui.vBox(self.controlArea, "Variables to regress out (batch effects)")
         self.batch_link_combo = gui.comboBox(
-            box2, self, 'batch_link',
-            callback=self._batch_changed,
-            sendSelectedValue=True)
-        self.batch_link_combo.setModel(PyListModel(LINKS.keys()))
+            box2, self, 'batch_link_index',
+            callback=self.on_changed,
+            items=self.LINK_FUNCTIONS)
 
-        self.batch_attrs = DomainModel(order=(DomainModel.CLASSES, DomainModel.METAS),
-                                       valid_types=(DiscreteVariable, ContinuousVariable))
-        self.varview = view = QListView(selectionMode=QListView.MultiSelection)
-        view.setModel(self.batch_attrs)
-        view.selectionModel().selectionChanged.connect(self._batch_changed)
+        # Batch effects - variables
+        self.ranksModel = model = TableModel(parent=self)  # type: TableModel
+        self.ranksView = view = TableView(self)            # type: TableView
         box2.layout().addWidget(view)
+        view.setModel(model)
+        view.setColumnWidth(0, 30)
+        view.setSelectionMode(TableView.MultiSelection)
+        view.selectionModel().selectionChanged.connect(self.on_select)
+        view.horizontalHeader().sectionClicked.connect(self.on_header_click)
 
+        # Autocommit
         gui.auto_commit(self.controlArea, self, 'autocommit', '&Apply')
-        QTimer.singleShot(0, self.commit)
+
+    ### Called once at the arrival of new data ###
 
     @Inputs.data
     def set_data(self, data):
-        self.closeContext()
         self.data = data
 
         if self.data is None:
+            self.selected_attr_index = 0
             self.attrs_model.set_domain(None)
-            self.batch_attrs.set_domain(None)
-            self.commit()
+
+            self.batch_vars_selected.clear()
+            self.ranksModel.clear()
+            self.ranksModel.resetSorting(True)
             self.info.setText("No data on input")
+            self.commit()
             return
 
         self.info.setText("%d cells, %d features." %
                           (len(data), len(data.domain.attributes)))
 
         self.attrs_model.set_domain(data.domain)
-        self.batch_attrs.set_domain(data.domain)
         self.normalize_check.setEnabled(len(self.attrs_model) > 0)
         self.combo_attrs.setEnabled(self.normalize_cells)
+        self.combo_attrs.setModel(self.attrs_model)
+        self.set_batch_variables()
 
-        self.Outputs.data.send(None)
-        self.openContext(self.data.domain)
-        self.on_changed()
+        # Implicit commit
+        self.update_state()
 
-    def _batch_changed(self):
-        self.batch_vars = tuple(self.batch_attrs[ind.row()].name
-                                for ind in self.varview.selectionModel().selectedRows())
+    def set_batch_variables(self):
+        """ Search for meta variables and classes in new data. """
+        self.batch_vars_all = self.data.domain.metas + self.data.domain.class_vars
+        self.batch_vars_names = tuple(a.name for a in self.batch_vars_all)
+        if self.data is not None and len(self.batch_vars_all) == 0:
+            return
+
+        self.ranksModel.setVerticalHeaderLabels(self.batch_vars_all)
+        self.ranksView.setVHeaderFixedWidthFromLabel(max(self.batch_vars_names, key=len))
+
+    ### Event handlers ###
 
     def on_changed(self):
-        self.commit()
-
-    def on_changed_normalize(self):
+        """ Update graphics, model parameters and commit. """
         self.combo_attrs.setEnabled(self.normalize_cells)
+        self.update_state()
         self.commit()
 
-    def commit(self):
+    def on_select(self):
+        """ Save indices of attributes in the original, unsorted domain.
+            Warning: this method must not call update_scores; """
+        selected_rows = self.ranksModel.mapToSourceRows([
+            i.row() for i in self.ranksView.selectionModel().selectedRows(0)])
+        self.batch_vars_selected.clear()
+        self.batch_vars_selected.extend([self.batch_vars_all[i].name for i in selected_rows])
+        self.update_preprocessors()
+        self.commit()
+
+    def on_header_click(self):
+        """ Store the header states. """
+        sort_order = self.ranksModel.sortOrder()
+        sort_column = self.ranksModel.sortColumn() - 1  # -1 for '#' (discrete count) column
+        self.sorting = (sort_column, sort_order)
+
+    ### Updates to model parameters / scores ###
+
+    def update_state(self):
+        """ Updates preprocessors and scores in the correct order. """
+        self.update_preprocessors()
+        self.update_scores()
+
+    def update_selection(self):
+        """ Update selected rows (potentially from loaded scheme) at once."""
+        sel_model = self.ranksView.selectionModel()
+        ncol = self.ranksModel.columnCount()
+        model = self.ranksModel
+        selection = QItemSelection()
+        selected_rows = [self.batch_vars_names.index(b)
+                         for b in self.batch_vars_selected.copy()
+                         if b in self.batch_vars_names]
+        if len(selected_rows):
+            for row in model.mapFromSourceRows(selected_rows):
+                selection.append(QItemSelectionRange(
+                    model.index(row, 0), model.index(row, ncol - 1)))
+            sel_model.select(selection, QItemSelectionModel.ClearAndSelect)
+        else:
+            self.commit()
+
+    def update_preprocessors(self):
+        """ Update parameters of processors. """
         log_base = self.log_base if self.log_check else None
         library_var = None
+        selected_attr = self.attrs_model[self.selected_attr_index]
+        batch_link = self.LINK_FUNCTIONS[self.batch_link_index]
+
         if self.data is not None and \
                 self.normalize_cells and \
-                self.selected_attr in self.data.domain:
-            library_var = self.data.domain[self.selected_attr]
+                selected_attr in self.data.domain:
+            library_var = self.data.domain[selected_attr]
 
-        pp = SCNormalizer(equalize_var=library_var,
-                          normalize_cells=self.normalize_cells,
-                          log_base=log_base)
+        self.pp = SCNormalizer(equalize_var=library_var,
+                               normalize_cells=self.normalize_cells,
+                               log_base=log_base)
 
-        pp_batch = SCBatchNormalizer(link=self.batch_link,
-                                     nonzero_only=self.batch_link == LINK_LOG,
-                                     batch_vars=self.batch_vars)
+        self.pp_batch = SCBatchNormalizer(link=batch_link,
+                                          nonzero_only=batch_link == LINK_LOG,
+                                          batch_vars=self.batch_vars_selected)
 
+    def update_scores(self):
+        """ Update scores for current data and preprocessors. """
+        if self.data is None:
+            self.ranksModel.clear()
+            return
+
+        method_scores = tuple(self.get_method_scores(method)
+                              for method in self.SCORERS)
+
+        labels = tuple(method.friendly_name for method in self.SCORERS)
+
+        model_array = np.column_stack(
+            ([len(a.values) if a.is_discrete else np.nan
+              for a in self.batch_vars_all],) +
+            (method_scores if method_scores else ())
+        )
+
+        for column, values in enumerate(model_array.T):
+            self.ranksModel.setExtremesFrom(column, values)
+
+        # Update, but retain previous selection
+        self.ranksModel.wrap(model_array.tolist())
+        self.ranksModel.setHorizontalHeaderLabels(('#',) + labels)
+        self.ranksView.setColumnWidth(0, 40)
+
+        # Rows must be reselected again as ranksModel.wrap resets the selection
+        self.update_selection()
+
+        # Re-apply sort
+        try:
+            sort_column, sort_order = self.sorting
+            if sort_column < len(labels):
+                self.ranksModel.sort(sort_column + 1, sort_order)  # +1 for '#' (discrete count) column
+                self.ranksView.horizontalHeader().setSortIndicator(sort_column + 1, sort_order)
+        except ValueError:
+            pass
+
+    def get_method_scores(self, method):
+        """ Compute scores for all batch variables.
+            Scores must be computed after applying the first pre-processor. """
+        assert self.pp is not None
+        estimator = method()
+        data = self.pp(self.data)
+        try:
+            scores = np.array([estimator.score_data(data=data, feature=attr)
+                               for attr in self.batch_vars_all])
+        except ValueError:
+            log.error(
+                "Scorer %s wasn't able to compute scores at all",
+                estimator.name)
+            scores = np.full(len(self.batch_vars_all), np.nan)
+        return scores
+
+    ### Set output ###
+
+    def commit(self):
+        """ Update parameters to preprocessors and set output signals. """
         data = None
         if self.data is not None:
-            data = pp_batch(pp(self.data))
+            data = self.pp_batch(self.pp(self.data))
 
         self.Outputs.data.send(data)
-        self.Outputs.preprocessor.send(PreprocessorList([pp, pp_batch]))
+        self.Outputs.preprocessor.send(PreprocessorList([self.pp, self.pp_batch]))
 
 
 if __name__ == "__main__":
