@@ -3,7 +3,7 @@ import unittest
 
 import numpy as np
 
-from Orange.data import Table
+from Orange.data import Table, Domain
 
 from orangecontrib.single_cell.preprocess.scnormalize import SCNormalizer
 
@@ -79,3 +79,9 @@ class ScNormalizeTest(unittest.TestCase):
 
         self.assertEqual(np.nansum(data2.X), np.sum(data1.X))
 
+    def test_normalize_categorical(self):
+        pp = SCNormalizer()
+        dom = Domain([self.iris.domain.class_var])
+        data2 = self.iris.transform(dom)
+        norm_data = pp(data2)
+        np.testing.assert_array_equal(norm_data.X, data2.X)
