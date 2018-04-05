@@ -173,6 +173,7 @@ class OWNormalization(widget.OWWidget):
         self.info.setText("%d cells, %d features." %
                           (len(data), len(data.domain.attributes)))
 
+
         self.attrs_model.set_domain(data.domain)
         self.normalize_check.setEnabled(len(self.attrs_model) > 0)
         self.combo_attrs.setEnabled(self.normalize_cells)
@@ -184,7 +185,9 @@ class OWNormalization(widget.OWWidget):
 
     def set_batch_variables(self):
         """ Search for meta variables and classes in new data. """
-        self.batch_vars_all = self.data.domain.metas + self.data.domain.class_vars
+        self.batch_vars_all = [var
+                               for var in self.data.domain.metas + self.data.domain.class_vars
+                               if isinstance(var, ContinuousVariable) or isinstance(var, DiscreteVariable)]
         self.batch_vars_names = tuple(a.name for a in self.batch_vars_all)
         if self.data is not None and len(self.batch_vars_all) == 0:
             return
@@ -277,8 +280,8 @@ class OWNormalization(widget.OWWidget):
             (method_scores if method_scores else ())
         )
 
-        for column, values in enumerate(model_array.T):
-            self.ranksModel.setExtremesFrom(column, values)
+        # Set fixed extreme values
+        self.ranksModel.setExtremesFrom(column=1, values=[0, 1])
 
         # Update, but retain previous selection
         self.ranksModel.wrap(model_array.tolist())
