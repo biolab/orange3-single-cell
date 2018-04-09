@@ -20,14 +20,14 @@ class OWscDataSets(Orange.widgets.data.owdatasets.OWDataSets):
     DATASET_DIR = "sc-datasets"
 
     HEADER_SCHEMA = [
-        ['islocal',     {'label': ''}],
-        ['title',       {'label': 'Title'}],
-        ['size',        {'label': 'Size'}],
-        ['instances',   {'label': 'Cells'}],
-        ['variables',   {'label': 'Genes'}],
-        ['taxid',       {'label': 'Organism'}],
-        ['target',      {'label': 'Target'}],
-        ['tags',        {'label': 'Tags'}]
+        ['islocal',      {'label': ''}],
+        ['title',        {'label': 'Title'}],
+        ['size',         {'label': 'Size'}],
+        ['instances',    {'label': 'Cells'}],
+        ['num_of_genes', {'label': 'Genes'}],
+        ['taxid',        {'label': 'Organism'}],
+        ['target',       {'label': 'Target'}],
+        ['tags',         {'label': 'Tags'}]
     ]
 
     def load_data(self, path):
