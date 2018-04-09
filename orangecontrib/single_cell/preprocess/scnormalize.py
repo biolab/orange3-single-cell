@@ -32,9 +32,11 @@ class SCNormalizer(Preprocess):
         Y = data.get_column_view(self.equalize_var)[0] if self.equalize_var is not None else None
         proj.fit(data.X, Y)
         attributes = [var.copy(compute_value=ScShared(proj, variable=var))
+                      if var.is_continuous else var
                       for var in data.domain.attributes]
         for var in attributes:
-            var.number_of_decimals = max(3, var.number_of_decimals)
+            if var.is_continuous:
+                var.number_of_decimals = max(3, var.number_of_decimals)
         normalized_domain = Domain(
             attributes, data.domain.class_vars, data.domain.metas)
         return data.transform(normalized_domain)
