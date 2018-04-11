@@ -1,64 +1,20 @@
 import numpy as np
 import logging
-from scipy.stats import pearsonr
 
-from AnyQt.QtCore import Qt, QTimer, QItemSelection, QItemSelectionRange, QItemSelectionModel
-from Orange.data import Table, DiscreteVariable, ContinuousVariable, Variable
+from AnyQt.QtCore import Qt, QItemSelection, QItemSelectionRange, QItemSelectionModel
+from Orange.data import Table, DiscreteVariable, ContinuousVariable
 from Orange.widgets import widget, gui, settings
 from Orange.widgets.utils.itemmodels import DomainModel
 from Orange.widgets.widget import Input, Output
 from Orange.preprocess.preprocess import PreprocessorList, Preprocess
-from Orange.preprocess.score import Scorer
+
 
 from orangecontrib.single_cell.preprocess.scnormalize import SCNormalizer
 from orangecontrib.single_cell.widgets.owscoregenes import TableModel, TableView
 
-from orangecontrib.single_cell.preprocess.scbnorm import LINKS, LINK_LOG, SCBatchNormalizer
-from sklearn.preprocessing import OneHotEncoder
+from orangecontrib.single_cell.preprocess.scbnorm import LINKS, LINK_LOG, SCBatchNormalizer, ScBatchScorer
 
 log = logging.getLogger(__name__)
-
-
-class ScBatchScorer(Scorer):
-    """
-    For Continuous batch variables,
-        calculate a percentage of genes significantly (p < alpha)
-        correlated with the variable.
-
-    For Discrete batch variables,
-        calculate the *relative size of union* of
-        *significantly correlated genes* (p < alpha) for each value (one-hot encoding).
-    """
-
-    feature_type = Variable
-    class_type = Variable
-    supports_sparse_data = True
-    friendly_name = "score"
-    name = "ScBatchScore"
-
-    def __init__(self, alpha=0.05):
-        self.alpha = alpha
-
-    def score_data(self, data, feature):
-        if feature is None:
-            raise ValueError("Scorer %s computes on a per-feature basis. ", self.__class__)
-        if not all((isinstance(att, ContinuousVariable) for att in data.domain.attributes)):
-            raise ValueError("All variables in the data must be Continuous!")
-
-        a = data.get_column_view(feature.name)[0]
-        if isinstance(feature, ContinuousVariable):
-            w = np.array([pearsonr(a, data.get_column_view(att.name)[0])[1] < self.alpha
-                          for att in data.domain.attributes]).mean()
-        else:
-            A = OneHotEncoder(sparse=False).fit_transform(a.reshape((len(a), 1)))
-            W = np.array([[pearsonr(a, data.get_column_view(att.name)[0])[1] < self.alpha
-                          for att in data.domain.attributes] for a in A.T])
-            w = W.sum(axis=0).astype(bool).mean()
-
-        return w
-
-    def __call__(self, data, feature=None):
-        return self.score_data(data, feature)
 
 
 class OWNormalization(widget.OWWidget):
