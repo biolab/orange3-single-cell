@@ -38,7 +38,7 @@ def welcome_screen_specs():
             icon=image_filename("CellTypeDiscovery.svg"),
             active_icon=image_filename("CellTypeDiscoveryColor.svg"),
             text="Cell Type Discovery",
-            tooltip="Use k-means clustering and tSNE to observe cell types",
+            tooltip="Use Louvain clustering and tSNE to find cell types",
         ),
         WelcomeScreenSpecs.Item(
             path=workflow_filename("Showcase-Markers.ows"),

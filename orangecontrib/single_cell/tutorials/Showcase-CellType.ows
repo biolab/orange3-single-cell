@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<scheme description="Load the data from our database, see the expression values in a spreadsheet, and use k-Means to find clusters. Visualize cell landscape in a t-SNE projection and inspect the results of clustering. Select a subset of cells in t-SNE to examine their type or gene expression statistics in the Box Plot." title="Cell landscape and clustering" version="2.0">
+<scheme description="Load the data from scOrange single cell database, see the expression values in a spreadsheet, and use Louvain clustering to find cell groups. Visualize cell landscape in a t-SNE projection and inspect the results of clustering. Select a subset of cells in t-SNE to examine their type or gene expression statistics in the Box Plot." title="Cell landscape and clustering" version="2.0">
 	<nodes>
 		<node id="0" name="t-SNE" position="(360.0, 181.0)" project_name="Orange3-SingleCell" qualified_name="orangecontrib.single_cell.widgets.owtsne.OWtSNE" title="t-SNE" version="" />
 		<node id="1" name="Data Table" position="(254.0, 293.0)" project_name="Orange3" qualified_name="Orange.widgets.data.owtable.OWDataTable" title="Data Table" version="" />
@@ -16,7 +16,7 @@
 	<annotations>
 		<text font-family="Helvetica" font-size="14" id="0" rect="(45.0, 115.0, 150.0, 82.0)" type="text/plain">Load the data on bone marrow mononuclear cells with AML (Zheng et. al. 2017).  </text>
 		<text font-family="Helvetica" font-size="20" id="1" rect="(15.0, 116.0, 150.0, 32.0)" type="text/plain">(1)</text>
-		<text font-family="Helvetica" font-size="14" id="2" rect="(243.0, 351.0, 150.0, 82.0)" type="text/plain">See the data in a spreadsheet. Data comes with pre-normalized expressions values.</text>
+		<text font-family="Helvetica" font-size="14" id="2" rect="(243.0, 351.0, 150.0, 82.0)" type="text/plain">See the data in a spreadsheet. Input gene expression data is already normalized.</text>
 		<text font-family="Helvetica" font-size="20" id="3" rect="(213.0, 352.0, 150.0, 32.0)" type="text/plain">(2)</text>
 		<text font-family="Helvetica" font-size="20" id="4" rect="(228.0, 50.0, 150.0, 32.0)" type="text/plain">(3)</text>
 		<text font-family="Helvetica" font-size="20" id="5" rect="(344.0, 236.0, 150.0, 32.0)" type="text/plain">(4)</text>
@@ -41,7 +41,7 @@ dHRlcl9zaXplcRJLAFgTAAAAbGFiZWxfb25seV9zZWxlY3RlZHETiVgLAAAAcG9pbnRfd2lkdGhx
 FEsOWAkAAABzaG93X2dyaWRxFYlYCwAAAHNob3dfbGVnZW5kcRaIWA0AAABzaG93X3JlZ19saW5l
 cReJWBEAAAB0b29sdGlwX3Nob3dzX2FsbHEYiXVYCwAAAF9fdmVyc2lvbl9fcRlLAlgQAAAAY29u
 dGV4dF9zZXR0aW5nc3EaXXEbKGNPcmFuZ2Uud2lkZ2V0cy5zZXR0aW5ncwpDb250ZXh0CnEcKYFx
-HX1xHihYBAAAAHRpbWVxH0dB1q+RwJ+tMlgGAAAAdmFsdWVzcSB9cSEoaA19cSIoWAoAAABhdHRy
+HX1xHihYBAAAAHRpbWVxH0dB1rOU/6wymFgGAAAAdmFsdWVzcSB9cSEoaA19cSIoWAoAAABhdHRy
 X2NvbG9ycSNYBwAAAENsdXN0ZXJxJEtlhnElWAoAAABhdHRyX2xhYmVscSZOSv7///+GcSdYCgAA
 AGF0dHJfc2hhcGVxKFgEAAAAVHlwZXEpS2WGcSpYCQAAAGF0dHJfc2l6ZXErTkr+////hnEsdWgZ
 SwJ1WAoAAABhdHRyaWJ1dGVzcS19cS4oWAQAAABIQkcxcS9LAlgEAAAASEJHMnEwSwJYBgAAAFMx
@@ -1028,7 +1028,7 @@ ZWRXaWRnZXRHZW9tZXRyeXEGQzIB2dDLAAIAAAAAAq4AAAM/AAAH9wAABUgAAAKuAAADVQAAB/cA
 AAVIAAAAAAAAAAAKAHEHWAsAAABzZWxlY3Rfcm93c3EIiFgVAAAAc2hvd19hdHRyaWJ1dGVfbGFi
 ZWxzcQmIWBIAAABzaG93X2Rpc3RyaWJ1dGlvbnNxColYCwAAAF9fdmVyc2lvbl9fcQtLAVgQAAAA
 Y29udGV4dF9zZXR0aW5nc3EMXXENY09yYW5nZS53aWRnZXRzLnNldHRpbmdzCkNvbnRleHQKcQ4p
-gXEPfXEQKFgEAAAAdGltZXERR0HWr5HAJqFzWAYAAAB2YWx1ZXNxEn1xEyhYDQAAAHNlbGVjdGVk
+gXEPfXEQKFgEAAAAdGltZXERR0HWs5T/Q2HQWAYAAAB2YWx1ZXNxEn1xEyhYDQAAAHNlbGVjdGVk
 X2NvbHNxFF1xFShLAEsBSwJLA0sESwVLBksHSwhLCUsKSwtLDEsNSw5LD0sQSxFLEksTSxRLFUsW
 SxdLGEsZSxpLG0scSx1LHksfSyBLIUsiSyNLJEslSyZLJ0soSylLKksrSyxLLUsuSy9LMEsxSzJL
 M0s0SzVLNks3SzhLOUs6SztLPEs9Sz5LP0tAS0FLQktDS0RLRUtGS0dLSEtJS0pLS0tMS01LTktP
@@ -1985,7 +1985,7 @@ BgAAAHRzbmUteXIJCAAASwJ1dWJldS4=
 		<properties format="pickle" node_id="4">gAN9cQAoWAsAAABhdXRvX2NvbW1pdHEBiFgSAAAAY29udHJvbEFyZWFWaXNpYmxlcQKIWBMAAABz
 YXZlZFdpZGdldEdlb21ldHJ5cQNOWAsAAABfX3ZlcnNpb25fX3EESwFYEAAAAGNvbnRleHRfc2V0
 dGluZ3NxBV1xBmNPcmFuZ2Uud2lkZ2V0cy5zZXR0aW5ncwpDb250ZXh0CnEHKYFxCH1xCShYBAAA
-AHRpbWVxCkdB1q+RwC32F1gGAAAAdmFsdWVzcQt9cQwoWAkAAABhcHBseV9wY2FxDYhK/v///4Zx
+AHRpbWVxCkdB1rOU/0uH7FgGAAAAdmFsdWVzcQt9cQwoWAkAAABhcHBseV9wY2FxDYhK/v///4Zx
 DlgMAAAAa19uZWlnaGJvdXJzcQ9LHkr+////hnEQWAoAAABtZXRyaWNfaWR4cRFLAEr+////hnES
 WA4AAABwY2FfY29tcG9uZW50c3ETSxlK/v///4ZxFFgKAAAAcmVzb2x1dGlvbnEVRz/wAAAAAAAA
 Sv7///+GcRZoBEsBdVgKAAAAYXR0cmlidXRlc3EXfXEYKFgEAAAASEJHMXEZSwJYBAAAAEhCRzJx
