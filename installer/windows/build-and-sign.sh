@@ -6,7 +6,7 @@ DIST="$( cd "$(dirname "$0")/../../dist" ; pwd -P )"
 
 # Build updated conda package
 mkdir -p "$BUILD/conda"
-rm -rf "$BUILD/conda/*"
+rm -rf "$BUILD/conda"/*
 conda build "$INSTALLER/conda" \
   --output-folder "$BUILD/conda"
 
