@@ -34,21 +34,21 @@ def welcome_screen_specs():
 
     items = [
         WelcomeScreenSpecs.Item(
-            path=workflow_filename("ShowCase-CellType.ows"),
+            path=workflow_filename("Showcase-CellType.ows"),
             icon=image_filename("CellTypeDiscovery.svg"),
             active_icon=image_filename("CellTypeDiscoveryColor.svg"),
             text="Cell Type Discovery",
-            tooltip="Use k-means clustering and tSNE to observe cell types",
+            tooltip="Use Louvain clustering and tSNE to find cell types",
         ),
         WelcomeScreenSpecs.Item(
-            path=workflow_filename("ShowCase-Markers.ows"),
+            path=workflow_filename("Showcase-Markers.ows"),
             icon=image_filename("Biomarkers.svg"),
             active_icon=image_filename("BiomarkersColor.svg"),
             text="Biomarkers",
             tooltip="Visualize markers on tSNE plot"
         ),
         WelcomeScreenSpecs.Item(
-            path=workflow_filename("ShowCase-Prediction.ows"),
+            path=workflow_filename("Showcase-Prediction.ows"),
             icon=image_filename("PopulationPrediction.svg"),
             active_icon=image_filename("PopulationPredictionColor.svg"),
             text="Population Prediction",
