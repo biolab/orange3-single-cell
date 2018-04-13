@@ -1,5 +1,6 @@
 import numpy as np
 import unittest
+from itertools import product
 from scipy.stats import pearsonr
 from Orange.data import Table, ContinuousVariable, DiscreteVariable, Domain
 from orangecontrib.single_cell.preprocess.scbnorm import *
@@ -134,3 +135,13 @@ class ScBatchNormalize(unittest.TestCase):
         pp = SCBatchNormalizer(batch_vars=())
         data1 = pp(self.data_lin)
         assert np.linalg.norm(data1.X - self.data_lin.X) == 0
+
+    def test_scorer_correlations(self):
+        """ Matrix form correlations should equal default numpy implementations. """
+        A = self.data_lin.X[:, :10]
+        B = self.data_log.X[:, :10]
+        C, P = ScBatchScorer.correlations(A, B)
+        for i, j in product(range(A.shape[1]), range(B.shape[1])):
+            c, p = pearsonr(A[:, i], B[:, j])
+            assert abs(C[i, j] - c) < 1e-3
+            assert abs(P[i, j] - p) < 1e-3

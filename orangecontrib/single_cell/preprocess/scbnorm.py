@@ -1,8 +1,12 @@
 import numpy as np
-from Orange.data import Domain, Table, ContinuousVariable, DiscreteVariable
+from scipy.stats import pearsonr
+from scipy.special import betainc as betai
+from sklearn.preprocessing import OneHotEncoder
+
+from Orange.data import Domain, Table, ContinuousVariable, DiscreteVariable, Variable
 from Orange.data.util import SharedComputeValue
 from Orange.preprocess.preprocess import Preprocess, Continuize
-
+from Orange.preprocess.score import Scorer
 
 # Link / inverse link functions
 LINK_IDENTITY = "Identity link"
@@ -17,6 +21,68 @@ INV_LINKS = {
     LINK_IDENTITY: lambda x: x,
     LINK_LOG: np.exp
 }
+
+
+class ScBatchScorer(Scorer):
+    """
+    For Continuous batch variables,
+        calculate a percentage of genes significantly (p < alpha)
+        correlated with the variable.
+
+    For Discrete batch variables,
+        calculate the *relative size of union* of
+        *significantly correlated genes* (p < alpha) for each value (one-hot encoding).
+    """
+
+    feature_type = Variable
+    class_type = Variable
+    supports_sparse_data = True
+    friendly_name = "score"
+    name = "ScBatchScore"
+
+    @staticmethod
+    def _std(A):
+        """ Numpy implementation fails on matrices with one column. """
+        return np.power(np.var(A, axis=0), 0.5)
+
+    @staticmethod
+    def correlations(A, B):
+        """ Fast approximation to Pearson corr. and p-values for variables in two matrices."""
+        # Correlation coefficients
+        M = (A - A.mean(axis=0)).T.dot(B - B.mean(axis=0)) / A.shape[0]
+        S = np.outer(ScBatchScorer._std(A), ScBatchScorer._std(B))
+        S[S == 0] = 1.0
+        M[S == 0] = 0.0
+        rf = M / S
+
+        # P-values
+        df = A.shape[0] - 2
+        ts = rf * rf * (df / (1 - rf * rf))
+        pf = betai(0.5 * df, 0.5, np.array(df / (df + ts), dtype=float))
+        return rf, pf
+
+    def __init__(self, alpha=0.05):
+        self.alpha = alpha
+
+    def score_data(self, data, feature):
+        if feature is None:
+            raise ValueError("Scorer %s computes on a per-feature basis. ", self.__class__)
+        if not all((isinstance(att, ContinuousVariable) for att in data.domain.attributes)):
+            raise ValueError("All variables in the data must be Continuous!")
+
+        a = data.get_column_view(feature.name)[0].reshape((len(data), 1))
+        if isinstance(feature, ContinuousVariable):
+            _, p = self.correlations(a, data.X)
+            w = (p < self.alpha).mean()
+        else:
+            B = OneHotEncoder(sparse=False).fit_transform(a)
+            _, P = self.correlations(B, data.X)
+            w = (P < self.alpha).sum(axis=0).astype(bool).mean()
+        return w
+
+    def __call__(self, data, feature=None):
+        return self.score_data(data, feature)
+
 
 
 class ScBatchShared(SharedComputeValue):
