@@ -6,6 +6,8 @@ from AnyQt.QtWidgets import QApplication
 from AnyQt.QtGui import QStandardItemModel, QStandardItem
 from AnyQt.QtCore import Qt
 
+from Orange.widgets.gui import IndicatorItemDelegate
+
 from orangecontrib.bioinformatics.ncbi.taxonomy import shortname, common_taxids
 from orangecontrib.bioinformatics.widgets.utils.data import GENE_AS_ATTRIBUTE_NAME, TAX_ID
 
@@ -36,6 +38,23 @@ class OWscDataSets(Orange.widgets.data.owdatasets.OWDataSets):
         data.attributes[TAX_ID] = info.taxid
         data.attributes[GENE_AS_ATTRIBUTE_NAME] = True  # Will all data sets have gene names in columns?
         return data
+
+    def assign_delegates(self):
+        self.view.setItemDelegateForColumn(
+            self.Header.islocal, IndicatorItemDelegate(self, role=Qt.DisplayRole)
+        )
+        self.view.setItemDelegateForColumn(
+            self.Header.size,
+            Orange.widgets.data.owdatasets.SizeDelegate(self))
+
+        self.view.setItemDelegateForColumn(
+            self.Header.instances,
+            Orange.widgets.data.owdatasets.NumericalDelegate(self)
+        )
+        self.view.setItemDelegateForColumn(
+            self.Header.num_of_genes,
+            Orange.widgets.data.owdatasets.NumericalDelegate(self)
+        )
 
     def create_model(self):
         allkeys = set(self.allinfo_local)
