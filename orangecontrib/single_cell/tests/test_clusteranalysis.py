@@ -1,134 +1,167 @@
 import Orange
 import numpy as np
 import matplotlib.pyplot as plt
-from collections import OrderedDict
+import time
 from scipy.stats import hypergeom
-from fastcluster import linkage
-from scipy.spatial.distance import pdist, squareform
-
-
-class SortDistanceMatrix:
-    def seriation(Z, N, cur_index):
-        '''
-            Source: https://gmarti.gitlab.io/ml/2017/09/07/how-to-sort-distance-matrix.html
-            input:
-                - Z is a hierarchical tree (dendrogram)
-                - N is the number of points given to the clustering process
-                - cur_index is the position in the tree for the recursive traversal
-            output:
-                - order implied by the hierarchical tree Z
-
-            seriation computes the order implied by a hierarchical tree (dendrogram)
-        '''
-        if cur_index < N:
-            return [cur_index]
-        else:
-            left = int(Z[cur_index - N, 0])
-            right = int(Z[cur_index - N, 1])
-            return (SortDistanceMatrix.seriation(Z, N, left) + SortDistanceMatrix.seriation(Z, N, right))
-
-    def compute_serial_matrix(dist_mat, method="ward"):
-        '''
-            input:
-                - dist_mat is a distance matrix
-                - method = ["ward","single","average","complete"]
-            output:
-                - seriated_dist is the input dist_mat,
-                  but with re-ordered rows and columns
-                  according to the seriation, i.e. the
-                  order implied by the hierarchical tree
-                - res_order is the order implied by
-                  the hierarhical tree
-                - res_linkage is the hierarhical tree (dendrogram)
-
-            compute_serial_matrix transforms a distance matrix into
-            a sorted distance matrix according to the order implied
-            by the hierarchical tree (dendrogram)
-        '''
-        N = len(dist_mat)
-        flat_dist_mat = squareform(dist_mat)
-        res_linkage = linkage(flat_dist_mat, method=method, preserve_input=True)
-        res_order = SortDistanceMatrix.seriation(res_linkage, N, N + N - 2)
-        seriated_dist = np.zeros((N, N))
-        a, b = np.triu_indices(N, k=1)
-        seriated_dist[a, b] = dist_mat[[res_order[i] for i in a], [res_order[j] for j in b]]
-        seriated_dist[b, a] = seriated_dist[a, b]
-
-        return seriated_dist, res_order, res_linkage
+from Orange.data import Domain, DiscreteVariable, ContinuousVariable, Table
+from sklearn.cluster.bicluster import SpectralBiclustering
 
 
 class ClusterAnalysis:
     """
     Analysis of single cell clusters based on enriched genes.
 
+    Parameters
+    ----------
+    data : Orange table of cells with genes as attributes and each row has a defined cluster
+    genes : list of indexes of genes (bound to 'data' table)
+    n_enriched : positive integer of desirable number of enriched genes per cluster
+
+
     Attributes
     ----------
-    data : Orange table of already clustered cells with genes as attributes
-
+    data : Orange table of cells with genes as attributes and each cell belongs to a cluster
+    clusters_all : list of in which cluster belongs each cell
+    clusters : ordered list of all clusters
+    genes : list of genes for which we want the output
     n_enriched : number of enriched genes per cluster
+    model : result table of percentage expressing
+    o_model : result Orange.data.Table of percentage expressing
+    row_order_ : order of clusters after spectral biclustering
+    column_order_ : order of genes after spectral biclustering
     """
 
-    def __init__(self, data, n_enriched=1):
+    def __init__(self, data, genes=None, n_enriched=1):
         self.data = data
-        self.clusters = np.array([d["Cluster"].value for d in self.data])  # get a cluster for every row
-        self.n_enriched = n_enriched  # number of most enriched genes per cluster
-        self.enriched_genes = None
-        self.enriched_genes = None
+        self.clusters_all = np.array([d["Cluster"].value for d in self.data])  # get a cluster for every row
+        self.clusters = sorted(set(self.clusters_all))
+        self.genes = None
+        if n_enriched > 0:
+            self.n_enriched = n_enriched  # number of most enriched genes per cluster
+            self.gene_selection()
+            self.genes.extend(genes)
+        else:
+            self.genes = genes  # predefined genes selection
         self.model = None
+        self.o_model = None
+        self.row_order_ = None
+        self.column_order_ = None
 
     def gene_selection(self):
+        """
+        Enriched genes for per cluster for DISCRETE data.
+        """
+        res_enriched = dict()  # {cluster:[most_enriched_genes_for_cluster]}
+        res = list()
 
-        res = OrderedDict()  # most enriched genes
-
+        # get a list of all genes
         genes = np.array([d.name for d in self.data.domain.attributes])
 
-        Z = self.data.X > 0  # Is gene expressed - discretize data
+        Z = self.data.X
+
+        # n, M for hyergeometric
         count_all_pos = np.sum(Z, axis=0)  # n - all positive
         count_all = Z.shape[0]  # M - all
 
-        for c in sorted(set(self.clusters)):
-            cells = Z[self.clusters == c]  # get all cells that belong to cluster c
+        # for each cluster we calculate the n_enriched most enriched
+        for c in self.clusters:
+            # get all cells that belong to cluster c
+            cells = Z[self.clusters_all == c]
 
-            count_cluster_pos = np.sum(cells, axis=0)  # k - positive in cluster
-            count_cluster = cells.shape[0]  # N - all in cluster
+            # k, N for hyergeometric
+            count_cluster_pos = np.sum(cells, axis=0)  # k - positive in cluster c
+            count_cluster = cells.shape[0]  # N - all in cluster c
 
+            # calculate cdf for every gene
             enriched_percent = [hypergeom.cdf(count_cluster_pos[i], count_all, count_all_pos[i], count_cluster) for i in
                                 range(len(genes))]
-            zipped = list(zip(*sorted(zip(enriched_percent, range(len(enriched_percent))), key=lambda x: x[0])))
 
-            enriched_genes = zipped[1][:self.n_enriched]
-            res[c] = enriched_genes
+            # slower sorting
+            # zipped = list(zip(*sorted(zip(enriched_percent, range(len(enriched_percent))), key=lambda x: x[0])))
+            # enriched_genes = zipped[1][:self.n_enriched]
 
-        self.enriched_genes = res
+            # get only those with lowest percentage (faster)
+            enriched_genes = np.argpartition(enriched_percent, self.n_enriched)[:self.n_enriched]
+            res_enriched[c] = enriched_genes
+            res.extend(enriched_genes)
+
+        self.enriched_genes = res_enriched
+        self.genes = res
 
     def percentage_expressing(self):
         """
-        Percentage of expressed for each enriched gene for each cluster.
+        Expression percentage for each enriched gene for each cluster.
         """
-        Z = data.X > 0
+        Z = self.data.X
         res = list()
 
-        for c, _ in self.enriched_genes.items():
-            # print(c)
-            cells = Z[self.clusters == c]
-            res.append(np.ravel([list(sum(cells[:, gene]) / cells.shape[0] for gene in genes) for _, genes in
-                                 self.enriched_genes.items()]))
+        for c in self.clusters:
+            cells = Z[self.clusters_all == c]
+            res.append([sum(cells[:, gene]) / cells.shape[0] for gene in self.genes])
         self.model = np.array(res)
 
     def sort_percentage_expressing(self):
         """
         Sort clusters based on expressed percentages.
+
+        Returns
+        --------
+        o_model : Orange table of biclustered expressed percentages.
         """
-        _, permutation, _ = SortDistanceMatrix.compute_serial_matrix(squareform(pdist(CA.model)))
-        self.model = self.model[np.argsort(permutation)]
+        if (len(self.genes) < 2):
+            self.column_order_ = range(len(self.genes))
+            self.row_order_ = range(len(self.clusters))
+            return
 
-        temp = OrderedDict()
-        enriched_genes = list(self.enriched_genes.items())
-        for i in permutation:
-            key, value = enriched_genes[i]
-            temp[key] = value
+        best_score = np.iinfo(np.dtype('uint16')).max
+        best_fit = None
+        best_model = None
 
-        self.enriched_genes = temp
+        # find the best biclusters (needs revision)
+        limit = int(min(len(self.genes), len(self.clusters)) / 2)
+        for i in range(2, limit):
+            # perform biclustering
+            model = SpectralBiclustering(
+                n_clusters=i, method='log', random_state=0)
+            model.fit(self.model)
+            fit_data = self.model[np.argsort(model.row_labels_)]
+            fit_data = fit_data[:, np.argsort(model.column_labels_)]
+
+            # calculate score and safe the lowest one
+            score = self._neighbor_distance(fit_data)
+            if score < best_score:
+                best_score = score
+                best_fit = fit_data
+                best_model = model
+
+        self.model = best_fit
+        self.row_order_ = np.argsort(best_model.row_labels_)
+        self.column_order_ = np.argsort(best_model.column_labels_)
+
+        # create orange table (robust)
+        dmn = np.ravel(list([self.data.domain.attributes[self.genes[i]].name for i in self.column_order_]))
+        mts = DiscreteVariable.make('Cluster', values=self.clusters)
+        self.o_model = Table.from_numpy(Domain([ContinuousVariable.make(column) for column in dmn], metas=[mts]),
+                                        self.model, metas=np.array([self.row_order_]).T)
+        return self.o_model
+
+    def _neighbor_distance(self, X):
+        """
+        Calculate euclicean distance between neighbors in rows and columns
+
+        Params
+        ----------
+        X : (n_clusters, n_genes) : biclustered matrix of expressing percentage
+
+        Return
+        ----------
+        res : sum of distances
+        """
+        # rows
+        res = np.sum([np.linalg.norm(X[i - 1] - X[i]) for i in range(1, len(X))])
+        # columns
+        res += np.sum([np.linalg.norm(X[:, i - 1] - X[:, i]) for i in range(1, len(X[0]))])
+        return res
 
     def draw_pyplot(self):
         """
@@ -136,11 +169,8 @@ class ClusterAnalysis:
         percentage of expressed.
         """
         circle_mult = .4
-        x_len = range(len(self.model[0]))
-        y_len = range(len(self.enriched_genes))
-
-        genes = np.ravel([list(self.data.domain.attributes[gene].name for gene in genes) for _, genes in
-                          self.enriched_genes.items()])
+        x_len = range(len(self.column_order_))
+        y_len = range(len(self.row_order_))
 
         ## Plot
         fig, ax = plt.subplots()
@@ -149,14 +179,19 @@ class ClusterAnalysis:
             for j in range(len(self.model[0])):
                 ax.add_artist(plt.Circle((j, i), self.model[i][j] * circle_mult))
 
-        plt.xlim(-1, len(self.model[0]))
-        plt.ylim(-1, len(self.enriched_genes))
+        plt.xlim(-1, len(self.column_order_))
+        plt.ylim(-1, len(self.row_order_))
 
-        ## Y axis
-        plt.yticks(y_len, list(self.enriched_genes.keys()), rotation='horizontal')
+        ## Y axis - clusters
+        clusters_list = self.clusters
+        clusters = [clusters_list[i] for i in self.row_order_]
+        plt.yticks(y_len, clusters, rotation='horizontal')
         plt.margins(0.2)
 
-        ## X axis
+        ## X axis - genes
+        genes_list = self.genes
+        genes = np.ravel(list([self.data.domain.attributes[genes_list[i]].name for i in self.column_order_]))
+
         plt.xticks(x_len, genes, rotation='vertical')
         plt.margins(0.2)
 
@@ -166,13 +201,20 @@ class ClusterAnalysis:
 
 
 if __name__ == '__main__':
-    # np.set_printoptions(linewidth=160)
     # Example usage
     data = Orange.data.Table('a.pickle')
-    CA = ClusterAnalysis(data, n_enriched=2)
-    CA.gene_selection()
-    CA.percentage_expressing()
-    CA.sort_percentage_expressing()
+    # discretize
+    data.X = data.X > 0
 
+    start = time.time()
+    print("START")
+    CA = ClusterAnalysis(data, n_enriched=2, genes=[1,2,3,4])
+    print('gene selection time: {:f}'.format(time.time() - start))
+    CA.percentage_expressing()
+    print('percentage expressing: {:f}'.format(time.time() - start))
+    CA.sort_percentage_expressing()
+    print('sorting time: {:f}'.format(time.time() - start))
     CA.draw_pyplot()
     print('DONE')
+    end = time.time()
+    print(end - start)
