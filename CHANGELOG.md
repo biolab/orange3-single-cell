@@ -1,6 +1,11 @@
 Change Log
 ==========
 
+Version 0.4 (2018-04-16)
+------------------------
+##### New Features and Widgets
+ * Normalize: batch normalization using a linear model
+
 Version 0.3 (2018-02-19)
 ------------------------
 ##### New Features and Widgets
