@@ -50,7 +50,9 @@ class OWClusterAnalysis(widget.OWWidget):
             CA = ClusterAnalysis(data, n_enriched=2, genes=[1, 2, 3, 4])
             CA.percentage_expressing()
             self.table = CA.sort_percentage_expressing()
-            self.rows = self.table.domain["Cluster"]
+            # Referencing the Cluster variable directly doesn't preserve the order of clusters.
+            clusters = [self.table.domain["Cluster"].values[ix] for ix in self.table.get_column_view("Cluster")[0]]
+            self.rows = DiscreteVariable("Cluster", clusters, ordered=True)
             self.columns = DiscreteVariable("Gene", [var.name for var in self.table.domain.variables], ordered=True)
             self.tableview.set_variables(self.rows, self.columns)
             self.tableview.update_table(self.table.X, formatstr="{:.5f}")
