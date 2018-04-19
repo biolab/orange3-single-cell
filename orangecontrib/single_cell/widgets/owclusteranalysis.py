@@ -1,15 +1,14 @@
-from AnyQt.QtGui import QStandardItemModel
 import numpy as np
-from Orange.data import (DiscreteVariable, Table)
-from Orange.data.filter import Values, FilterDiscrete
+from AnyQt.QtGui import QStandardItemModel
+from Orange.data import (DiscreteVariable, Table, Domain)
 from Orange.widgets import widget, gui
 from Orange.widgets.settings import Setting, ContextSetting, DomainContextHandler
 from Orange.widgets.utils.annotated_data import ANNOTATED_DATA_SIGNAL_NAME, create_annotated_table
 from Orange.widgets.utils.itemmodels import DomainModel
 from Orange.widgets.utils.sql import check_sql_input
 
-from orangecontrib.single_cell.widgets.contingency_table import ContingencyTable
 from orangecontrib.single_cell.widgets.clusteranalysis import ClusterAnalysis
+from orangecontrib.single_cell.widgets.contingency_table import ContingencyTable
 
 
 class OWClusterAnalysis(widget.OWWidget):
@@ -86,11 +85,12 @@ class OWClusterAnalysis(widget.OWWidget):
         CA = ClusterAnalysis(self.data, n_enriched=2, clustering_var=self.clustering_var.name)
         CA.percentage_expressing()
         self.table = CA.sort_percentage_expressing()
-        # Referencing the Cluster variable directly doesn't preserve the order of clusters.
-        clusters = [self.clustering_var.values[ix] for ix in self.table.get_column_view("Cluster")[0]]
-        self.rows = DiscreteVariable("Cluster", clusters, ordered=True)
-        self.columns = DiscreteVariable("Gene", [var.name for var in self.table.domain.variables], ordered=True)
-        self.tableview.set_variables(self.rows, self.columns)
+        # Referencing the variable in the table directly doesn't preserve the order of clusters.
+        self.clusters = [self.clustering_var.values[ix] for ix in self.table.get_column_view("Cluster")[0]]
+        genes = [var.name for var in self.table.domain.variables]
+        self.rows = self.clustering_var
+        self.columns = DiscreteVariable("Gene", genes, ordered=True)
+        self.tableview.set_headers(self.clusters, self.columns.values, self.rows.name, self.columns.name)
         self.tableview.update_table(self.table.X, formatstr="{:.2f}")
         self._invalidate()
 
@@ -98,9 +98,25 @@ class OWClusterAnalysis(widget.OWWidget):
         self._invalidate()
 
     def commit(self):
-        # TODO: Implement outputs for Selected Data and Data here.
+        if len(self.selection):
+            cluster_ids = set()
+            column_ids = set()
+            for (ir, ic) in self.selection:
+                cluster_ids.add(ir)
+                column_ids.add(ic)
+            new_domain = Domain([self.data.domain[self.columns.values[col]] for col in column_ids],
+                                self.data.domain.class_vars,
+                                self.data.domain.metas)
+            selected_data = self.data.transform(new_domain)
+            # TODO: Filter rows/clusters based on selection.
+            annotated_data = create_annotated_table(self.data,
+                                                    np.where(np.in1d(self.data.ids, selected_data.ids, True)))
+        else:
+            selected_data = None
+            annotated_data = create_annotated_table(self.data, [])
+        self.send("Selected Data", selected_data)
+        self.send(ANNOTATED_DATA_SIGNAL_NAME, annotated_data)
         self.send("Contingency Table", self.table)
-        pass
 
     def _invalidate(self):
         self.selection = self.tableview.get_selection()
