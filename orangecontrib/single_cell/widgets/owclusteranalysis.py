@@ -1,6 +1,7 @@
 import numpy as np
 from AnyQt.QtGui import QStandardItemModel
 from Orange.data import (DiscreteVariable, Table, Domain)
+from Orange.data.filter import Values, FilterDiscrete
 from Orange.widgets import widget, gui
 from Orange.widgets.settings import Setting, ContextSetting, DomainContextHandler
 from Orange.widgets.utils.annotated_data import ANNOTATED_DATA_SIGNAL_NAME, create_annotated_table
@@ -107,8 +108,10 @@ class OWClusterAnalysis(widget.OWWidget):
             new_domain = Domain([self.data.domain[self.columns.values[col]] for col in column_ids],
                                 self.data.domain.class_vars,
                                 self.data.domain.metas)
-            selected_data = self.data.transform(new_domain)
-            # TODO: Filter rows/clusters based on selection.
+            selected_data = Values([FilterDiscrete(self.clustering_var, [self.clustering_var.values[ir]])
+                                    for ir in cluster_ids],
+                                   conjunction=False)(self.data)
+            selected_data = selected_data.transform(new_domain)
             annotated_data = create_annotated_table(self.data,
                                                     np.where(np.in1d(self.data.ids, selected_data.ids, True)))
         else:
