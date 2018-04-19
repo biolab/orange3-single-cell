@@ -34,6 +34,9 @@ class OWClusterAnalysis(widget.OWWidget):
         self.feature_model = DomainModel(valid_types=DiscreteVariable)
         self.table = None
 
+        box = gui.vBox(self.controlArea, "Info")
+        self.infobox = gui.widgetLabel(box, self._get_info_string(None))
+
         self.apply_button = gui.auto_commit(
             self.controlArea, self, "auto_apply", "&Apply", box=False)
 
@@ -41,11 +44,21 @@ class OWClusterAnalysis(widget.OWWidget):
         self.tableview = ContingencyTable(self, self.tablemodel)
         self.mainArea.layout().addWidget(self.tableview)
 
+    def _get_info_string(self, cluster_variable):
+        formatstr = "Cells: {0}\nGenes: {1}\nClusters: {2}"
+        if self.data:
+            return formatstr.format(len(self.data),
+                                    len(self.data.domain.attributes),
+                                    len(self.data.domain[cluster_variable].values))
+        else:
+            return formatstr.format(*["No input data"]*3)
+
     @check_sql_input
     def set_data(self, data):
         self.data = data
         self.rows = None
         self.columns = None
+        self.infobox.setText(self._get_info_string("Cluster"))
         if self.data:
             CA = ClusterAnalysis(data, n_enriched=2, genes=[1, 2, 3, 4])
             CA.percentage_expressing()
