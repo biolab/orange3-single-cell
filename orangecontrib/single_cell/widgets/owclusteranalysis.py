@@ -17,7 +17,8 @@ class OWClusterAnalysis(widget.OWWidget):
 
     inputs = [("Data", Table, "set_data", widget.Default)]
     outputs = [("Selected Data", Table),
-               (ANNOTATED_DATA_SIGNAL_NAME, Table)]
+               (ANNOTATED_DATA_SIGNAL_NAME, Table),
+               ("Contingency Table", Table)]
 
     settingsHandler = DomainContextHandler(metas_in_res=True)
     rows = ContextSetting(None)
@@ -88,13 +89,15 @@ class OWClusterAnalysis(widget.OWWidget):
         self.rows = DiscreteVariable("Cluster", clusters, ordered=True)
         self.columns = DiscreteVariable("Gene", [var.name for var in self.table.domain.variables], ordered=True)
         self.tableview.set_variables(self.rows, self.columns)
-        self.tableview.update_table(self.table.X, formatstr="{:.5f}")
+        self.tableview.update_table(self.table.X, formatstr="{:.2f}")
+        self._invalidate()
 
     def handleNewSignals(self):
         self._invalidate()
 
     def commit(self):
         # TODO: Implement outputs for Selected Data and Data here.
+        self.send("Contingency Table", self.table)
         pass
 
     def _invalidate(self):
