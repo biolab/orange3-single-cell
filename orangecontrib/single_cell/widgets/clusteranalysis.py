@@ -41,6 +41,7 @@ class ClusterAnalysis:
             for class_var in self.data.domain.class_vars:
                 if class_var.name.lower() == clustering_var.lower():
                     self.class_var = class_var
+        self.class_var = self.data.domain[clustering_var]
 
         self.clusters_all = self.data.get_column_view(self.class_var)[0]
         self.clusters = self.class_var.values
