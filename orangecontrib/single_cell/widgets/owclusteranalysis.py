@@ -1,8 +1,10 @@
 from AnyQt.QtGui import QStandardItemModel
+import numpy as np
 from Orange.data import (DiscreteVariable, Table)
+from Orange.data.filter import Values, FilterDiscrete
 from Orange.widgets import widget, gui
 from Orange.widgets.settings import Setting, ContextSetting, DomainContextHandler
-from Orange.widgets.utils.annotated_data import ANNOTATED_DATA_SIGNAL_NAME
+from Orange.widgets.utils.annotated_data import ANNOTATED_DATA_SIGNAL_NAME, create_annotated_table
 from Orange.widgets.utils.itemmodels import DomainModel
 from Orange.widgets.utils.sql import check_sql_input
 
@@ -81,7 +83,7 @@ class OWClusterAnalysis(widget.OWWidget):
 
     def _run_cluster_analysis(self):
         self.infobox.setText(self._get_info_string(self.clustering_var.name))
-        CA = ClusterAnalysis(self.data, n_enriched=2, genes=[1, 2, 3, 4], clustering_var=self.clustering_var.name)
+        CA = ClusterAnalysis(self.data, n_enriched=2, clustering_var=self.clustering_var.name)
         CA.percentage_expressing()
         self.table = CA.sort_percentage_expressing()
         # Referencing the Cluster variable directly doesn't preserve the order of clusters.
@@ -125,7 +127,8 @@ def test():
     app = QApplication([])
 
     w = OWClusterAnalysis()
-    data = Table("testdata.tab")
+    data = Table("../../../../testdata.tab")
+    data.X = data.X > 0
     w.set_data(data)
     w.handleNewSignals()
     w.show()
