@@ -16,6 +16,7 @@ class ClusterAnalysis:
     data : Orange table of cells with genes as attributes and each row has a defined cluster
     genes : list of indexes of genes (bound to 'data' table)
     n_enriched : positive integer of desirable number of enriched genes per cluster
+    clustering_var : string of preferred row class_var
 
 
     Attributes
@@ -31,10 +32,22 @@ class ClusterAnalysis:
     column_order_ : order of genes after spectral biclustering
     """
 
-    def __init__(self, data, genes=None, n_enriched=1):
+    def __init__(self, data, genes=[], n_enriched=1, clustering_var='Cluster'):
         self.data = data
-        self.clusters_all = np.array([d["Cluster"].value for d in self.data])  # get a cluster for every row
-        self.clusters = sorted(set(self.clusters_all))
+
+        # TODO: input handling
+        self.class_var = self.data.domain.class_var
+        if self.class_var is None:
+            for class_var in self.data.domain.class_vars:
+                if class_var.name.lower() == clustering_var.lower():
+                    self.class_var = class_var
+
+        self.clusters_all = self.data.get_column_view(self.class_var)[0]
+        self.clusters = self.class_var.values
+        #self.clusters_all = np.array([d["Cluster"].value for d in self.data])  # get a
+        #self.clusters = sorted(set(self.clusters_all))
+
+        # TODO: input handling
         self.genes = None
         if n_enriched > 0:
             self.n_enriched = n_enriched  # number of most enriched genes per cluster
@@ -42,6 +55,7 @@ class ClusterAnalysis:
             self.genes.extend(genes)
         else:
             self.genes = genes  # predefined genes selection
+
         self.model = None
         self.o_model = None
         self.row_order_ = None
@@ -54,34 +68,38 @@ class ClusterAnalysis:
         res_enriched = dict()  # {cluster:[most_enriched_genes_for_cluster]}
         res = list()
 
-        # get a list of all genes
-        genes = np.array([d.name for d in self.data.domain.attributes])
+        # get a list of indexes of all genes
+        genes = set(range(len(self.data.domain.attributes)))
 
         Z = self.data.X
 
-        # n, M for hyergeometric
+        # n, M for hypergeometric
         count_all_pos = np.sum(Z, axis=0)  # n - all positive
         count_all = Z.shape[0]  # M - all
 
         # for each cluster we calculate the n_enriched most enriched
-        for c in self.clusters:
+        for c in range(len(self.clusters)):
             # get all cells that belong to cluster c
             cells = Z[self.clusters_all == c]
 
-            # k, N for hyergeometric
+            # k, N for hypergeometric
             count_cluster_pos = np.sum(cells, axis=0)  # k - positive in cluster c
             count_cluster = cells.shape[0]  # N - all in cluster c
 
             # calculate cdf for every gene
             enriched_percent = [hypergeom.cdf(count_cluster_pos[i], count_all, count_all_pos[i], count_cluster) for i in
-                                range(len(genes))]
+                                genes]
 
             # slower sorting
-            # zipped = list(zip(*sorted(zip(enriched_percent, range(len(enriched_percent))), key=lambda x: x[0])))
-            # enriched_genes = zipped[1][:self.n_enriched]
+            zipped = list(zip(*sorted(zip(enriched_percent, genes), key=lambda x: x[0])))
+            enriched_genes = zipped[1][:self.n_enriched]
 
-            # get only those with lowest percentage (faster)
-            enriched_genes = np.argpartition(enriched_percent, self.n_enriched)[:self.n_enriched]
+            # remove found enriched genes from list of all genes (insure every cluster has 2 unique enriched genes)
+            genes = list(set(genes) - set(enriched_genes))
+
+            # get only those with lowest percentage (faster sorting))
+            #enriched_genes = np.argpartition(enriched_percent, self.n_enriched)[:self.n_enriched]
+
             res_enriched[c] = enriched_genes
             res.extend(enriched_genes)
 
@@ -95,7 +113,7 @@ class ClusterAnalysis:
         Z = self.data.X
         res = list()
 
-        for c in self.clusters:
+        for c in range(len(self.clusters)):
             cells = Z[self.clusters_all == c]
             res.append([sum(cells[:, gene]) / cells.shape[0] for gene in self.genes])
         self.model = np.array(res)
@@ -118,7 +136,8 @@ class ClusterAnalysis:
         best_model = None
 
         # find the best biclusters (needs revision)
-        limit = int(min(len(self.genes), len(self.clusters)) / 2)
+        limit = int(min(len(self.genes), len(self.clusters)) / 2) - 1
+        limit = 3 if limit < 3 else limit
         for i in range(2, limit):
             # perform biclustering
             model = SpectralBiclustering(
@@ -130,6 +149,7 @@ class ClusterAnalysis:
             # calculate score and safe the lowest one
             score = self._neighbor_distance(fit_data)
             if score < best_score:
+                print(i, score)
                 best_score = score
                 best_fit = fit_data
                 best_model = model
@@ -201,14 +221,17 @@ class ClusterAnalysis:
 
 
 if __name__ == '__main__':
-    # Example usage
-    data = Orange.data.Table('a.pickle')
+    # Example usages
+    data = Orange.data.Table('data/bone_marrow_louvain.pickle')
+    #exit()
     # discretize
     data.X = data.X > 0
 
     start = time.time()
     print("START")
-    CA = ClusterAnalysis(data, n_enriched=2, genes=[1,2,3,4])
+    CA = ClusterAnalysis(data, n_enriched=2)
+    #CA = ClusterAnalysis(data, n_enriched=2, clustering_var='Type', genes=[1,2,3])
+    #CA = ClusterAnalysis(data, n_enriched=3, clustering_var='Cluster', genes=[0,100,200,300])
     print('gene selection time: {:f}'.format(time.time() - start))
     CA.percentage_expressing()
     print('percentage expressing: {:f}'.format(time.time() - start))
