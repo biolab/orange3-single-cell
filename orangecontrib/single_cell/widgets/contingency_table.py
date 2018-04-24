@@ -2,7 +2,7 @@ import unicodedata
 from math import isnan, isinf, sqrt, pi
 
 from AnyQt.QtCore import Qt, QItemSelection, QItemSelectionModel
-from AnyQt.QtGui import QStandardItem, QColor, QFont, QBrush
+from AnyQt.QtGui import QStandardItem, QColor, QFont, QBrush, QPainter
 from AnyQt.QtWidgets import QTableView, QSizePolicy, QHeaderView, QStyledItemDelegate
 from Orange.widgets import gui
 
@@ -70,6 +70,7 @@ class CircleItemDelegate(BorderedItemDelegate, gui.VerticalItemDelegate):
             radius = max(1, max_radius*sqrt(area/pi))
             painter.setPen(Qt.transparent)
             painter.setBrush(Qt.blue)
+            painter.setRenderHint(QPainter.Antialiasing)
             painter.drawEllipse(rect.center(), radius, radius)
         else:
             BorderedItemDelegate.paint(self, painter, option, index)
