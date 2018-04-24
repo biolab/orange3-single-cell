@@ -10,7 +10,7 @@ from Orange.widgets.utils.annotated_data import ANNOTATED_DATA_SIGNAL_NAME, crea
 from Orange.widgets.utils.itemmodels import DomainModel
 from Orange.widgets.utils.sql import check_sql_input
 
-from orangecontrib.single_cell.widgets.clusteranalysis import ClusterAnalysis
+from orangecontrib.single_cell.preprocess.clusteranalysis import ClusterAnalysis
 from orangecontrib.single_cell.widgets.contingency_table import ContingencyTable
 
 
@@ -122,11 +122,17 @@ class OWClusterAnalysis(widget.OWWidget):
 
     def _run_cluster_analysis(self):
         self.infobox.setText(self._get_info_string(self.clustering_var.name))
-        CA = ClusterAnalysis(self.data, n_enriched=2, clustering_var=self.clustering_var.name)
+        CA = ClusterAnalysis(self.data, self.clustering_var.name)
+        if self.gene_selection == 0:
+            CA.enriched_genes_per_cluster(self.n_genes_per_cluster)
+        elif self.gene_selection == 1:
+            CA.enriched_genes_data(self.n_most_enriched)
+        elif self.gene_selection == 2:
+            pass
         CA.percentage_expressing()
         self.table = CA.sort_percentage_expressing()
         # Referencing the variable in the table directly doesn't preserve the order of clusters.
-        self.clusters = [self.clustering_var.values[ix] for ix in self.table.get_column_view("Cluster")[0]]
+        self.clusters = [self.clustering_var.values[ix] for ix in self.table.get_column_view(self.clustering_var.name)[0]]
         genes = [var.name for var in self.table.domain.variables]
         self.rows = self.clustering_var
         self.columns = DiscreteVariable("Gene", genes, ordered=True)
