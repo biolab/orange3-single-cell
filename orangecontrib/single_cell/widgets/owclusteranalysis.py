@@ -1,5 +1,7 @@
 import numpy as np
+from AnyQt.QtCore import Qt
 from AnyQt.QtGui import QStandardItemModel
+from AnyQt.QtWidgets import QGridLayout
 from Orange.data import (DiscreteVariable, Table, Domain)
 from Orange.data.filter import Values, FilterDiscrete
 from Orange.widgets import widget, gui
@@ -27,6 +29,9 @@ class OWClusterAnalysis(widget.OWWidget):
     columns = ContextSetting(None)
     clustering_var = ContextSetting(None)
     selection = ContextSetting(set())
+    gene_selection = ContextSetting(0)
+    n_genes_per_cluster = ContextSetting(3)
+    n_most_enriched = ContextSetting(20)
     auto_apply = Setting(True)
 
     want_main_area = True
@@ -44,6 +49,40 @@ class OWClusterAnalysis(widget.OWWidget):
         box = gui.vBox(self.controlArea, "Rows")
         gui.comboBox(box, self, "clustering_var", sendSelectedValue=True,
                      model=self.feature_model, callback=self._run_cluster_analysis)
+
+        layout = QGridLayout()
+        bg = gui.radioButtonsInBox(
+            self.controlArea, self, "gene_selection", orientation=layout,
+            box="Gene Selection", callback=self._run_cluster_analysis)
+
+        layout.addWidget(
+            gui.appendRadioButton(bg, "", addToLayout=False), 1, 1)
+        cb = gui.hBox(None, margin=0)
+        gui.widgetLabel(cb, "Top")
+        gui.spin(
+            cb, self, "n_genes_per_cluster", minv=2, maxv=30,
+            controlWidth=60, alignment=Qt.AlignRight)
+        gui.widgetLabel(cb, "genes per cluster")
+        gui.rubber(cb)
+        layout.addWidget(cb, 1, 2, Qt.AlignLeft)
+
+        layout.addWidget(
+            gui.appendRadioButton(bg, "", addToLayout=False), 2, 1)
+        mb = gui.hBox(None, margin=0)
+        gui.widgetLabel(mb, "Top")
+        gui.spin(
+            mb, self, "n_most_enriched", minv=2, maxv=30,
+            controlWidth=60, alignment=Qt.AlignRight)
+        gui.widgetLabel(mb, "highest enrichments")
+        gui.rubber(mb)
+        layout.addWidget(mb, 2, 2, Qt.AlignLeft)
+
+        layout.addWidget(
+            gui.appendRadioButton(bg, "", addToLayout=False), 3, 1)
+        sb = gui.hBox(None, margin=0)
+        gui.widgetLabel(sb, "User-provided list of genes")
+        gui.rubber(sb)
+        layout.addWidget(sb, 3, 2)
 
         gui.rubber(self.controlArea)
 
