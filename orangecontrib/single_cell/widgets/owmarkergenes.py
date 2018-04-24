@@ -1,10 +1,12 @@
 import sys
 import os
-
-from AnyQt.QtCore import Qt, QSize, QSortFilterProxyModel, QModelIndex
-from AnyQt.QtWidgets import QTreeView, QLineEdit
-
 import Orange.data
+
+from AnyQt.QtCore import (
+    Qt, QSize, QSortFilterProxyModel, QModelIndex,
+    QItemSelection, QItemSelectionModel, QItemSelectionRange
+)
+from AnyQt.QtWidgets import QTreeView, QLineEdit
 
 from Orange.widgets import widget, gui, settings
 from Orange.widgets.utils.itemmodels import TableModel
@@ -32,6 +34,32 @@ class FilterProxyModel(QSortFilterProxyModel):
             return True
 
 
+class MarkerGroupContextHandler(settings.ContextHandler):
+
+    def __init__(self):
+        super().__init__()
+
+    def match(self, context, group, *args):
+        if not context.group == group:
+            return self.NO_MATCH
+
+        return self.PERFECT_MATCH
+
+    def new_context(self, group):
+        context = super().new_context()
+        context.group = group
+        return context
+
+    def settings_from_widget(self, widget, *args):
+        super().settings_from_widget(widget, *args)
+
+        context = widget.current_context
+        if context is None:
+            return
+
+        context.group = widget.selected_group
+
+
 class OWMarkerGenes(widget.OWWidget):
     name = "Marker Genes"
     icon = 'icons/MarkerGenes.svg'
@@ -44,6 +72,9 @@ class OWMarkerGenes(widget.OWWidget):
 
     selected_group = settings.Setting("")  # type: str
     header_state = settings.Setting(b'')   # type: bytes
+
+    settingsHandler = MarkerGroupContextHandler()
+    selected_rows = settings.ContextSetting([])
 
     def __init__(self):
         super().__init__()
@@ -80,6 +111,26 @@ class OWMarkerGenes(widget.OWWidget):
             view.header().restoreState(self.header_state)
         self.commit()
 
+    def set_selection(self):
+        if len(self.selected_rows):
+            header_count = self.view.header().count() - 1
+
+            if self.view.model().rowCount() <= self.selected_rows[-1]:
+                return
+
+            selection = QItemSelection()
+
+            for row_index in self.selected_rows:
+                selection.append(
+                    QItemSelectionRange(
+                        self.view.model().index(row_index, 0),
+                        self.view.model().index(row_index, header_count)
+                    )
+                )
+
+            self.view.selectionModel().select(
+                selection, QItemSelectionModel.ClearAndSelect)
+
     def set_source(self, data):
         # type: (Orange.data.Table) -> None
         """
@@ -89,9 +140,11 @@ class OWMarkerGenes(widget.OWWidget):
         """
         self.source = data
         domain = data.domain
+
         if domain.metas:
             group = domain.metas[0]
             groupcol, _ = data.get_column_view(group)
+
             if group.is_string:
                 group_values = list(map(str, unique(groupcol)))
             elif group.is_discrete:
@@ -102,6 +155,7 @@ class OWMarkerGenes(widget.OWWidget):
                 idx = group_values.index(self.selected_group)
             except ValueError:
                 idx = -1
+
             self.group_cb.clear()
             self.group_cb.addItems(group_values)
             if idx != -1:
@@ -113,6 +167,7 @@ class OWMarkerGenes(widget.OWWidget):
             self._setup()
 
     def set_group_index(self, group_index):
+        self.closeContext()
         self.group_index = group_index
         self.selected_group = self.group_cb.itemText(group_index)
         self._setup()
@@ -125,6 +180,7 @@ class OWMarkerGenes(widget.OWWidget):
         proxy.setFilterFixedString(string)
 
     def _setup(self):
+        self.closeContext()
         data = self.source
         group = data.domain.metas[0]
         gvec = data.get_column_view(group)[0]
@@ -137,9 +193,18 @@ class OWMarkerGenes(widget.OWWidget):
         data = data[mask]
         rest = data[:, data.domain.metas[1:]]
         model = TableModel(rest, parent=self)
+
+        # set column colors to white
+        for col in model.columns:
+            col.background.setRgb(255, 255, 255)
+
         if self.proxy_model.sourceModel():
             self.proxy_model.sourceModel().deleteLater()
         self.proxy_model.setSourceModel(model)
+
+        self.openContext(self.selected_group)
+        self.set_selection()
+
         self.commit()
 
     def _on_selection_changed(self):
@@ -152,11 +217,14 @@ class OWMarkerGenes(widget.OWWidget):
         assert isinstance(table, TableModel)
         rows = [model.mapToSource(mi).row()
                 for mi in self.view.selectionModel().selectedRows(0)]
+
         if rows:
             rows = table.mapToSourceRows(rows)
             output = table.source[rows]
         else:
             output = table.source
+
+        self.selected_rows = [mi.row() for mi in self.view.selectionModel().selectedRows(0)]
         self.Outputs.genes.send(output)
 
     def closeEvent(self, event):
