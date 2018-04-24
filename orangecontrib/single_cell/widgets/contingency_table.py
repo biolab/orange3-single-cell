@@ -76,8 +76,6 @@ class CircleItemDelegate(BorderedItemDelegate, gui.VerticalItemDelegate):
             BorderedItemDelegate.paint(self, painter, option, index)
 
 
-
-
 class ContingencyTable(QTableView):
     """
     A contingency table widget which can be used wherever ``QTableView`` could be used.
@@ -136,11 +134,11 @@ class ContingencyTable(QTableView):
         m = self.tablemodel.columnCount()
         index = self.tablemodel.index
         selection = None
-        if i == j == 1 or i == n - 1 and j == m - 1:
+        if i == j == 1 or not self.circles and i == n - 1 and j == m - 1:
             selection = QItemSelection(index(2, 2), index(n - 1, m - 1))
-        elif i in (1, n - 1):
+        elif i == 1 or not self.circles and i == n - 1:
             selection = QItemSelection(index(2, j), index(n - 1, j))
-        elif j in (1, m - 1):
+        elif j == 1 or not self.circles and j == m - 1:
             selection = QItemSelection(index(i, 2), index(i, m - 1))
 
         if selection is not None:
