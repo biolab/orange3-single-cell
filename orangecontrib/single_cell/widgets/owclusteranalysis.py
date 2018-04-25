@@ -116,6 +116,7 @@ class OWClusterAnalysis(widget.OWWidget):
 
     @check_sql_input
     def set_data(self, data):
+        self.Error.clear()
         if self.feature_model:
             self.closeContext()
         self.data = data
@@ -159,6 +160,7 @@ class OWClusterAnalysis(widget.OWWidget):
             self._set_gene_selection()
 
     def _set_gene_selection(self):
+        self.Error.clear()
         if self.ca is not None:
             if self.gene_selection == 0:
                 self.ca.enriched_genes_per_cluster(self.n_genes_per_cluster)
@@ -166,15 +168,20 @@ class OWClusterAnalysis(widget.OWWidget):
                 self.ca.enriched_genes_data(self.n_most_enriched)
             elif self.gene_selection == 2:
                 self.ca.enriched_genes(self.gene_list)
-            self.ca.percentage_expressing()
-            self.table = self.ca.sort_percentage_expressing()
-            # Referencing the variable in the table directly doesn't preserve the order of clusters.
-            self.clusters = [self.clustering_var.values[ix] for ix in self.table.get_column_view(self.clustering_var.name)[0]]
-            genes = [var.name for var in self.table.domain.variables]
-            self.rows = self.clustering_var
-            self.columns = DiscreteVariable("Gene", genes, ordered=True)
-            self.tableview.set_headers(self.clusters, self.columns.values, circles=True)
-            self.tableview.update_table(self.table.X, formatstr="{:.2f}")
+            if len(self.ca.genes) < 2:
+                self.error("At least two genes must be selected.")
+                self.table = None
+                self.tablemodel.clear()
+            else:
+                self.ca.percentage_expressing()
+                self.table = self.ca.sort_percentage_expressing()
+                # Referencing the variable in the table directly doesn't preserve the order of clusters.
+                self.clusters = [self.clustering_var.values[ix] for ix in self.table.get_column_view(self.clustering_var.name)[0]]
+                genes = [var.name for var in self.table.domain.variables]
+                self.rows = self.clustering_var
+                self.columns = DiscreteVariable("Gene", genes, ordered=True)
+                self.tableview.set_headers(self.clusters, self.columns.values, circles=True)
+                self.tableview.update_table(self.table.X, formatstr="{:.2f}")
             self._invalidate()
 
     def handleNewSignals(self):
