@@ -64,7 +64,7 @@ class OWClusterAnalysis(widget.OWWidget):
         cb = gui.hBox(None, margin=0)
         gui.widgetLabel(cb, "Top")
         gui.spin(
-            cb, self, "n_genes_per_cluster", minv=2, maxv=30,
+            cb, self, "n_genes_per_cluster", minv=1, maxv=10,
             controlWidth=60, alignment=Qt.AlignRight, callback=self._set_gene_selection)
         gui.widgetLabel(cb, "genes per cluster")
         gui.rubber(cb)
@@ -74,7 +74,7 @@ class OWClusterAnalysis(widget.OWWidget):
         mb = gui.hBox(None, margin=0)
         gui.widgetLabel(mb, "Top")
         gui.spin(
-            mb, self, "n_most_enriched", minv=2, maxv=30,
+            mb, self, "n_most_enriched", minv=1, maxv=50,
             controlWidth=60, alignment=Qt.AlignRight, callback=self._set_gene_selection)
         gui.widgetLabel(mb, "highest enrichments")
         gui.rubber(mb)
@@ -160,6 +160,7 @@ class OWClusterAnalysis(widget.OWWidget):
             self._set_gene_selection()
 
     def _set_gene_selection(self):
+        self.Warning.clear()
         self.Error.clear()
         if self.ca is not None:
             if self.gene_selection == 0:
@@ -167,7 +168,10 @@ class OWClusterAnalysis(widget.OWWidget):
             elif self.gene_selection == 1:
                 self.ca.enriched_genes_data(self.n_most_enriched)
             elif self.gene_selection == 2:
-                self.ca.enriched_genes(self.gene_list)
+                # TODO: Get the number of genes from the library.
+                if len(self.gene_list) > 50:
+                    self.warning("Only first 50 reference genes shown.")
+                self.ca.enriched_genes(self.gene_list[:50])
             if len(self.ca.genes) < 2:
                 self.error("At least two genes must be selected.")
                 self.table = None
