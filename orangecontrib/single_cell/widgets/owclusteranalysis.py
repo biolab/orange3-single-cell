@@ -138,7 +138,10 @@ class OWClusterAnalysis(widget.OWWidget):
         if data is not None:
             self.gene_list = data.get_column_view("Name")[0]
             gene_list_radio.setDisabled(False)
-            gene_list_radio.click()
+            if self.gene_selection == 2:
+                self._set_gene_selection()
+            else:
+                gene_list_radio.click()
         else:
             self.gene_list = None
             gene_list_radio.setDisabled(True)
