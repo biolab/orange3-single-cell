@@ -8,12 +8,14 @@ from AnyQt.QtCore import (
 )
 from AnyQt.QtWidgets import QTreeView, QLineEdit
 
+from Orange.data.io import UrlReader
+from Orange.misc.environ import data_dir
 from Orange.widgets import widget, gui, settings
 from Orange.widgets.utils.itemmodels import TableModel
 
 
-def resource_path(path):
-    return os.path.join(os.path.dirname(__file__), path)
+def local_cache_path(path):
+    return os.path.join(data_dir(), path)
 
 
 class FilterProxyModel(QSortFilterProxyModel):
@@ -65,6 +67,11 @@ class OWMarkerGenes(widget.OWWidget):
     icon = 'icons/MarkerGenes.svg'
     priority = 158
 
+    URL = "https://docs.google.com/spreadsheets/d/1ik-Ju5F-" \
+          "wcsFhjszM7pRZXTTfSJl_EQOn3uNIzYfAY4/edit#gid=0"
+    DIR_NAME = "datasets/sc/"
+    FILE_NAME = DIR_NAME + "markers.tab"
+
     class Outputs:
         genes = widget.Output("Genes", Orange.data.Table)
 
@@ -75,6 +82,12 @@ class OWMarkerGenes(widget.OWWidget):
 
     settingsHandler = MarkerGroupContextHandler()
     selected_rows = settings.ContextSetting([])
+
+    class Error(widget.OWWidget.Error):
+        file_not_found = widget.Msg("File not found.")
+
+    class Warning(widget.OWWidget.Warning):
+        local_data = widget.Msg("File not found, local cached data is shown.")
 
     def __init__(self):
         super().__init__()
@@ -105,11 +118,34 @@ class OWMarkerGenes(widget.OWWidget):
         )
         self.controlArea.layout().addWidget(view)
 
-        # NEEDS updating/
-        self.set_source(Orange.data.Table(resource_path("data/markers.tab")))
+        self.read_data()
         if self.header_state:
             view.header().restoreState(self.header_state)
+
+    def read_data(self):
+        try:
+            data = UrlReader(self.URL).read()
+        except Exception:
+            data = self._read_cached_data()
+            if data is None:
+                return
+        else:
+            dir_path = local_cache_path(self.DIR_NAME)
+            if not os.path.exists(dir_path):
+                os.makedirs(dir_path)
+            data.save(local_cache_path(self.FILE_NAME))
+        self.set_source(data)
         self.commit()
+
+    def _read_cached_data(self):
+        data = None
+        try:
+            data = Orange.data.Table(local_cache_path(self.FILE_NAME))
+        except OSError:
+            self.Error.file_not_found()
+        else:
+            self.Warning.local_data()
+        return data
 
     def set_selection(self):
         if len(self.selected_rows):

@@ -1,23 +1,14 @@
 import unittest
-import os
 
 from Orange.data import ContinuousVariable, Domain, Table
 from Orange.widgets.tests.base import WidgetTest
 
-from orangecontrib.single_cell.widgets import owmarkergenes
-from orangecontrib.single_cell.widgets.owmarkergenes import OWMarkerGenes, resource_path
+from orangecontrib.single_cell.widgets.owmarkergenes import OWMarkerGenes
 
 
 class TestOWMarkerGenes(WidgetTest):
     def setUp(self):
         self.widget = self.create_widget(OWMarkerGenes)
-
-    def test_resource_path(self):
-        dir_path = os.path.dirname(owmarkergenes.__file__)
-        file_name = 'test_file_name'
-
-        self.assertEqual(resource_path(file_name), os.path.join(dir_path, file_name))
-        self.assertRaises(OSError, Table, resource_path("wrong_path"))
 
     def test_set_source(self):
         w = self.widget
@@ -54,6 +45,14 @@ class TestOWMarkerGenes(WidgetTest):
         # change group
         w.set_group_index(w.group_index + 1)
         self.assertNotEqual(w.group_cb.itemText(w.group_index - 1), w.selected_group)
+
+    def test_read_data(self):
+        self.widget.URL = "https://docs.google.com/spreadsheets/test_url"
+        self.widget.read_data()
+        self.assertNotEqual(self.widget.Warning.local_data.is_shown(),
+                            self.widget.Error.file_not_found.is_shown())
+        self.assertEqual(self.widget.Warning.local_data.is_shown(),
+                         self.widget.source is not None)
 
 
 if __name__ == '__main__':
