@@ -205,7 +205,7 @@ class OWClusterAnalysis(widget.OWWidget):
                                     for ir in cluster_ids],
                                    conjunction=False)(self.data)
             selected_data = selected_data.transform(new_domain)
-            annotated_data = create_annotated_table(self.data,
+            annotated_data = create_annotated_table(self.data.transform(new_domain),
                                                     np.where(np.in1d(self.data.ids, selected_data.ids, True)))
         else:
             selected_data = None
