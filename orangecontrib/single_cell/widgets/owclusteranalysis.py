@@ -177,8 +177,7 @@ class OWClusterAnalysis(widget.OWWidget):
                 self.table = None
                 self.tablemodel.clear()
             else:
-                self.ca.percentage_expressing()
-                self.table = self.ca.sort_percentage_expressing()
+                self.table = self.ca.o_model
                 # Referencing the variable in the table directly doesn't preserve the order of clusters.
                 self.clusters = [self.clustering_var.values[ix] for ix in self.table.get_column_view(self.clustering_var.name)[0]]
                 genes = [var.name for var in self.table.domain.variables]
