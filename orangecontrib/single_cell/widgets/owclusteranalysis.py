@@ -17,6 +17,7 @@ from orangecontrib.single_cell.widgets.contingency_table import ContingencyTable
 class OWClusterAnalysis(widget.OWWidget):
     name = "Cluster Analysis"
     description = "Perform cluster analysis."
+    icon = "icons/ClusterAnalysis.svg"
     priority = 2011
 
     inputs = [("Data", Table, "set_data", widget.Default),
