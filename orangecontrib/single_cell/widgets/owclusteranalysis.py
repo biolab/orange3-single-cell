@@ -152,7 +152,7 @@ class OWClusterAnalysis(widget.OWWidget):
 
     def _run_cluster_analysis(self):
         self.infobox.setText(self._get_info_string(self.clustering_var.name))
-        self.ca = ClusterAnalysis(self.data, self.clustering_var.name)
+        self.ca = ClusterAnalysis(self.data.copy(), self.clustering_var.name)
         self._set_gene_selection()
 
     def _gene_selection_changed(self):
