@@ -93,8 +93,7 @@ class OWClusterAnalysis(widget.OWWidget):
         self.apply_button = gui.auto_commit(
             self.controlArea, self, "auto_apply", "&Apply", box=False)
 
-        self.tablemodel = QStandardItemModel(self)
-        self.tableview = ContingencyTable(self, self.tablemodel)
+        self.tableview = ContingencyTable(self)
         self.mainArea.layout().addWidget(self.tableview)
 
     def _get_current_gene_selection(self):
@@ -131,9 +130,9 @@ class OWClusterAnalysis(widget.OWWidget):
                 self.clustering_var = self.feature_model[0]
                 self._run_cluster_analysis()
             else:
-                self.tablemodel.clear()
+                self.tableview.clear()
         else:
-            self.tablemodel.clear()
+            self.tableview.clear()
 
     def set_genes(self, data):
         gene_list_radio = self.gene_selection_radio_group.group.buttons()[2]
@@ -152,6 +151,7 @@ class OWClusterAnalysis(widget.OWWidget):
 
     def _run_cluster_analysis(self):
         self.infobox.setText(self._get_info_string(self.clustering_var.name))
+        # TODO: Remove when ClusterAnalysis no longer alters inputed data.
         self.ca = ClusterAnalysis(self.data.copy(), self.clustering_var.name)
         self._set_gene_selection()
 
@@ -176,7 +176,7 @@ class OWClusterAnalysis(widget.OWWidget):
             if len(self.ca.genes) < 2:
                 self.error("At least two genes must be selected.")
                 self.table = None
-                self.tablemodel.clear()
+                self.tableview.clear()
             else:
                 self.table = self.ca.o_model
                 # Referencing the variable in the table directly doesn't preserve the order of clusters.

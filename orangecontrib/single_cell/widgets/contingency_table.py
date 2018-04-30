@@ -2,7 +2,7 @@ import unicodedata
 from math import isnan, isinf, sqrt, pi
 
 from AnyQt.QtCore import Qt, QItemSelection, QItemSelectionModel
-from AnyQt.QtGui import QStandardItem, QColor, QFont, QBrush, QPainter
+from AnyQt.QtGui import QStandardItem, QColor, QFont, QBrush, QPainter, QStandardItemModel
 from AnyQt.QtWidgets import QTableView, QSizePolicy, QHeaderView, QStyledItemDelegate
 from Orange.widgets import gui
 
@@ -102,7 +102,7 @@ class ContingencyTable(QTableView):
         Default is ``unicodedata.lookup("N-ARY SUMMATION")``.
     """
 
-    def __init__(self, parent, tablemodel):
+    def __init__(self, parent):
         super().__init__(editTriggers=QTableView.NoEditTriggers)
 
         self.circles = False
@@ -111,10 +111,10 @@ class ContingencyTable(QTableView):
         self.headerv = None
         self.headerh = None
         self.parent = parent
-        self.tablemodel = tablemodel
 
         self.corner_string = unicodedata.lookup("N-ARY SUMMATION")
 
+        self.tablemodel = QStandardItemModel(self)
         self.setModel(self.tablemodel)
         self.horizontalHeader().hide()
         self.verticalHeader().hide()
@@ -364,3 +364,9 @@ class ContingencyTable(QTableView):
             self._set_item(len(self.classesv) + 2, len(self.classesh) + 2, _sum_item(int(rowsum.sum())))
 
         self.set_selection(selected_indexes)
+
+    def clear(self):
+        """
+        Clears the table.
+        """
+        self.tablemodel.clear()
