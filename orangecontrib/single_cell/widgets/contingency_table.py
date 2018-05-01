@@ -119,11 +119,14 @@ class ContingencyTable(QTableView):
         self.horizontalHeader().hide()
         self.verticalHeader().hide()
         self.horizontalHeader().setMinimumSectionSize(60)
-        self.selectionModel().selectionChanged.connect(self.parent._invalidate)
         self.setShowGrid(False)
         self.setSizePolicy(QSizePolicy.MinimumExpanding,
                            QSizePolicy.MinimumExpanding)
         self.clicked.connect(self._cell_clicked)
+
+    def mouseReleaseEvent(self, e):
+        super().mouseReleaseEvent(e)
+        self.parent._invalidate()
 
     def _cell_clicked(self, model_index):
         """Handle cell click event"""
@@ -189,14 +192,16 @@ class ContingencyTable(QTableView):
         self.headerh = headerh
         self.initialize(**kwargs)
 
-    def initialize(self, circles=False):
+    def initialize(self, circles=False, bold_headers=True):
         """
         Initializes table structure. Class headers must be set beforehand.
 
         Parameters
         ----------
         circles : :obj:`bool`, optional
-            Turns on circle display. All table values should be between 0 and 1 (inclusive).
+            Turns on circle display. All table values should be between 0 and 1 (inclusive). Defaults to False.
+        bold_headers : :obj:`bool`, optional
+            Whether the headers are bold or not. Defaults to True.
         """
         assert self.classesv is not None and self.classesh is not None
 
@@ -237,7 +242,8 @@ class ContingencyTable(QTableView):
                 i, j = ix(p)
                 item = self._item(i, j)
                 item.setData(label, Qt.DisplayRole)
-                item.setFont(bold_font)
+                if bold_headers:
+                    item.setFont(bold_font)
                 if not (i == 1 and self.circles):
                     item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
                 item.setFlags(Qt.ItemIsEnabled)

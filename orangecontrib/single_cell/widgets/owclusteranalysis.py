@@ -184,7 +184,7 @@ class OWClusterAnalysis(widget.OWWidget):
                 genes = [var.name for var in self.table.domain.variables]
                 self.rows = self.clustering_var
                 self.columns = DiscreteVariable("Gene", genes, ordered=True)
-                self.tableview.set_headers(self.clusters, self.columns.values, circles=True)
+                self.tableview.set_headers(self.clusters, self.columns.values, circles=True, bold_headers=False)
 
                 def tooltip(i, j):
                     return ("cluster: {}\ngene: {}\nfraction expressing: {:.2f}".format(
