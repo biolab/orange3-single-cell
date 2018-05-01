@@ -306,8 +306,8 @@ class ContingencyTable(QTableView):
             2D array with color values, defaults to no color.
         formatstr : :obj:`str`, optional
             Format string for cell data, defaults to ``"{}"``.
-        tooltip : :obj:`(str, str) -> str`, optional
-            Function which takes vertical class and horizontal class (strings) as arguments and returns
+        tooltip : :obj:`(int, int) -> str`, optional
+            Function which takes vertical index and horizontal index as arguments and returns
             desired tooltip as a string. Defaults to no tooltips.
         """
         def _isinvalid(x):
@@ -338,7 +338,7 @@ class ContingencyTable(QTableView):
                     item.setData(QBrush(bkcolor), Qt.BackgroundRole)
                 item.setData("trbl", BorderRole)
                 if tooltip is not None:
-                    item.setToolTip(tooltip(self.classesv[i], self.classesh[j]))
+                    item.setToolTip(tooltip(i, j))
                 item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
                 item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
                 self._set_item(i + 2, j + 2, item)

@@ -1,6 +1,5 @@
 import numpy as np
 from AnyQt.QtCore import Qt
-from AnyQt.QtGui import QStandardItemModel
 from AnyQt.QtWidgets import QGridLayout
 from Orange.data import (DiscreteVariable, Table, Domain)
 from Orange.data.filter import Values, FilterDiscrete
@@ -52,7 +51,7 @@ class OWClusterAnalysis(widget.OWWidget):
         box = gui.vBox(self.controlArea, "Info")
         self.infobox = gui.widgetLabel(box, self._get_info_string(None))
 
-        box = gui.vBox(self.controlArea, "Rows")
+        box = gui.vBox(self.controlArea, "Cluster Variable")
         gui.comboBox(box, self, "clustering_var", sendSelectedValue=True,
                      model=self.feature_model, callback=self._run_cluster_analysis)
 
@@ -180,12 +179,19 @@ class OWClusterAnalysis(widget.OWWidget):
             else:
                 self.table = self.ca.o_model
                 # Referencing the variable in the table directly doesn't preserve the order of clusters.
-                self.clusters = [self.clustering_var.values[ix] for ix in self.table.get_column_view(self.clustering_var.name)[0]]
+                self.clusters = [self.clustering_var.values[ix]
+                                 for ix in self.table.get_column_view(self.clustering_var.name)[0]]
                 genes = [var.name for var in self.table.domain.variables]
                 self.rows = self.clustering_var
                 self.columns = DiscreteVariable("Gene", genes, ordered=True)
                 self.tableview.set_headers(self.clusters, self.columns.values, circles=True)
-                self.tableview.update_table(self.table.X, formatstr="{:.2f}")
+
+                def tooltip(i, j):
+                    return ("cluster: {}\ngene: {}\nfraction expressing: {:.2f}".format(
+                        self.clusters[i],
+                        self.columns.values[j],
+                        self.table.get_column_view(self.columns.values[j])[0][i]))
+                self.tableview.update_table(self.table.X, tooltip=tooltip)
             self._invalidate()
 
     def handleNewSignals(self):
