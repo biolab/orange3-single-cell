@@ -187,7 +187,7 @@ class OWClusterAnalysis(widget.OWWidget):
                 self.tableview.set_headers(self.clusters, self.columns.values, circles=True, bold_headers=False)
 
                 def tooltip(i, j):
-                    return ("cluster: {}\ngene: {}\nfraction expressing: {:.2f}".format(
+                    return ("<b>cluster</b>: {}<br /><b>gene</b>: {}<br /><b>fraction expressing</b>: {:.2f}".format(
                         self.clusters[i],
                         self.columns.values[j],
                         self.table.get_column_view(self.columns.values[j])[0][i]))
