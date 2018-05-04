@@ -13,6 +13,7 @@ from AnyQt.QtCore import (
 from AnyQt.QtGui import QFont, QColor
 from AnyQt.QtWidgets import QTreeView, QLineEdit
 
+from Orange.data import MISSING_VALUES
 from Orange.data.io import UrlReader
 from Orange.misc.environ import data_dir
 from Orange.widgets import widget, gui, settings
@@ -71,7 +72,10 @@ class LinkedTableModel(TableModel):
                 self._roleData[Qt.ForegroundRole][i][ref_col] = color
 
     def data(self, index, role=Qt.DisplayRole):
-        if role in (gui.LinkRole, Qt.FontRole, Qt.ForegroundRole):
+        if role == Qt.DisplayRole:
+            cell_data = super().data(index, role)
+            return "" if cell_data in MISSING_VALUES else cell_data
+        elif role in (gui.LinkRole, Qt.FontRole, Qt.ForegroundRole):
             row, col = index.row(), index.column()
             return self._roleData[role][row][col]
         return super().data(index, role)
