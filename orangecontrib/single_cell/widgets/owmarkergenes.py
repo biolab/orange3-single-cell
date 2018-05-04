@@ -19,6 +19,8 @@ from Orange.misc.environ import data_dir
 from Orange.widgets import widget, gui, settings
 from Orange.widgets.utils.itemmodels import TableModel
 
+from orangecontrib.bioinformatics.widgets.utils.data import GENE_AS_ATTRIBUTE_NAME, TAX_ID
+
 
 def local_cache_path(path):
     return os.path.join(data_dir(), path)
@@ -48,6 +50,15 @@ class HeaderLabels(EnumMeta):
 
 
 class LinkedTableModel(TableModel):
+
+    ClassVar, Meta, Attribute = range(3)
+
+    ColorForRole = {
+        ClassVar: None,
+        Meta: None,
+        Attribute: None,
+    }
+
     def __init__(self, data, parent):
         TableModel.__init__(self, data[:, data.domain.metas[:-1]], parent)
         self._data = data
@@ -97,15 +108,6 @@ class MarkerGroupContextHandler(settings.ContextHandler):
         context.group = group
         return context
 
-    def settings_from_widget(self, widget, *args):
-        super().settings_from_widget(widget, *args)
-
-        context = widget.current_context
-        if context is None:
-            return
-
-        context.group = widget.selected_group
-
 
 class OWMarkerGenes(widget.OWWidget):
     name = "Marker Genes"
@@ -141,6 +143,12 @@ class OWMarkerGenes(widget.OWWidget):
         self.filter_text = ""
         self.group_cb = gui.comboBox(self.controlArea, self, "group_index")
         self.group_cb.activated[int].connect(self.set_group_index)
+
+        # TODO: to avoid this, marker genes table should have 'tax_id' column
+        self.map_group_to_taxid = {
+            'Human': '9606',
+            'Mouse': '10090'
+        }
 
         filter = gui.lineEdit(
             self.controlArea, self, "filter_text"
@@ -279,10 +287,6 @@ class OWMarkerGenes(widget.OWWidget):
         self.view.setItemDelegateForColumn(
             ref_col, gui.LinkStyledItemDelegate(self.view))
 
-        # set column colors to white
-        for col in model.columns:
-            col.background.setRgb(255, 255, 255)
-
         if self.proxy_model.sourceModel():
             self.proxy_model.sourceModel().deleteLater()
         self.proxy_model.setSourceModel(model)
@@ -310,6 +314,12 @@ class OWMarkerGenes(widget.OWWidget):
             output = table.source
 
         self.selected_rows = [mi.row() for mi in self.view.selectionModel().selectedRows(0)]
+
+        # always false for marker genes data tables in single cell
+        output.attributes[GENE_AS_ATTRIBUTE_NAME] = False
+        # set taxonomy id in data.attributes
+        output.attributes[TAX_ID] = self.map_group_to_taxid.get(self.selected_group, '')
+
         self.Outputs.genes.send(output)
 
     def closeEvent(self, event):
