@@ -60,12 +60,18 @@ class OWClusterAnalysis(widget.OWWidget):
             self.controlArea, self, "gene_selection", orientation=layout,
             box="Gene Selection", callback=self._gene_selection_changed)
 
+        def conditional_set_gene_selection(id):
+            def f():
+                if self.gene_selection == id:
+                    return self._set_gene_selection()
+            return f
+
         layout.addWidget(gui.appendRadioButton(self.gene_selection_radio_group, "", addToLayout=False), 1, 1)
         cb = gui.hBox(None, margin=0)
         gui.widgetLabel(cb, "Top")
         gui.spin(
             cb, self, "n_genes_per_cluster", minv=1, maxv=10,
-            controlWidth=60, alignment=Qt.AlignRight, callback=self._set_gene_selection)
+            controlWidth=60, alignment=Qt.AlignRight, callback=conditional_set_gene_selection(0))
         gui.widgetLabel(cb, "genes per cluster")
         gui.rubber(cb)
         layout.addWidget(cb, 1, 2, Qt.AlignLeft)
@@ -75,7 +81,7 @@ class OWClusterAnalysis(widget.OWWidget):
         gui.widgetLabel(mb, "Top")
         gui.spin(
             mb, self, "n_most_enriched", minv=1, maxv=50,
-            controlWidth=60, alignment=Qt.AlignRight, callback=self._set_gene_selection)
+            controlWidth=60, alignment=Qt.AlignRight, callback=conditional_set_gene_selection(1))
         gui.widgetLabel(mb, "highest enrichments")
         gui.rubber(mb)
         layout.addWidget(mb, 2, 2, Qt.AlignLeft)
