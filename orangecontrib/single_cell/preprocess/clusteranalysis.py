@@ -20,8 +20,9 @@ class ClusterAnalysis:
     Attributes
     ----------
     data : Orange table of cells with genes as attributes and each cell belongs to a cluster
-    clusters_rows : list of; in which cluster belongs each cell
-    clusters_names : ordered list of all clusters
+    clusters_rows : list of indexes in which cluster belongs each cell
+    clusters_ind : list of unique indexes that appear in data
+    clusters_names : ordered list of all cluster names that appear in data
     genes : list of genes for which we want the output
     model : result table of percentage expressing
     o_model : result Orange.data.Table of percentage expressing
@@ -29,6 +30,8 @@ class ClusterAnalysis:
     column_order_ : order of genes after spectral biclustering
     enriched_matrix_low : percentages for under-expression of genes
     enriched_matrix_high : percentages for over-expression of genes
+    enriched_matrix : percentages for gene expression according to given 'enrichment' parameter
+    enrichment : set of available enrichment parameters
     """
 
     def __init__(self, data, cluster_var='Cluster'):
@@ -65,12 +68,12 @@ class ClusterAnalysis:
         Create matrix of how much each gene enriches each cluster.
         shape: (clusters_names, genes)
         """
-        # get a list of indexes of all genes
+        # get a list of indexes of all genes (NOTE: can cause bugs)
         genes = range(len(self.columns))
 
         Z = self.X
 
-        # n, M for hypergeometric
+        # n, M for hypergeometric distribution
         count_all_pos = np.sum(Z, axis=0)  # n - all positive (number of success states in the population)
         count_all = Z.shape[0]  # M - all (population size)
 
@@ -82,7 +85,7 @@ class ClusterAnalysis:
             # get all cells that belong to cluster c
             cells = Z[self.clusters_rows == self.clusters_ind[c]]
 
-            # k, N for hypergeometric
+            # k, N for hypergeometric distribution
             count_cluster_pos = np.sum(cells, axis=0)  # k - positive in cluster c ) number of observed successes)
             count_cluster = cells.shape[0]  # N - all in cluster c (number of draws)
 
@@ -90,7 +93,6 @@ class ClusterAnalysis:
             low[c] = np.array([hypergeom.cdf(count_cluster_pos[i], count_all, count_all_pos[i], count_cluster) for i in
                                genes])
             high[c] = 1 - low[c] + hypergeom.pmf(count_cluster_pos, count_all, count_all_pos, count_cluster)
-
 
         self.enriched_matrix_low = low
         self.enriched_matrix_high = high
@@ -161,7 +163,7 @@ class ClusterAnalysis:
 
             # remove found enriched genes from list of all genes (ensure every cluster has n unique enriched genes)
             to_remove_enum = enriched_genes + [g + len(self.columns) for g in enriched_genes]
-            # genes = list(set(genes) - set(enriched_genes))
+
             genes = [g for g in genes if g not in enriched_genes]
             genes_enum = [g for g in genes_enum if g not in to_remove_enum]
 
@@ -217,6 +219,13 @@ class ClusterAnalysis:
         return self._create_model(enrichment)
 
     def create_contingency_table(self):
+        """
+        Create Orange.table from results
+
+        Return
+        --------
+        o_model : Orange.Table
+        """
         # create Orange.Table for calculated model
         dmn = np.ravel(list([self.columns[self.genes[i]].name for i in self.column_order_]))
         mts = DiscreteVariable.make(self.class_var.name, values=self.clusters_names)
@@ -224,13 +233,13 @@ class ClusterAnalysis:
                                         self.model, metas=np.array([self.row_order_]).T)
         return self.o_model
 
-    def _percentage_expressing(self, enrichment):
+    def _fraction_expressing(self, enrichment):
         """
         Expression percentage and p-values for each enriched gene for each cluster.
 
         Params
         ----------
-        enrichment : string, used internally
+        enrichment : string, used internally for p-value
         """
         Z = self.X
         res = list()
@@ -240,9 +249,8 @@ class ClusterAnalysis:
             cells = Z[self.clusters_rows == self.clusters_ind[c]]
             # calculate fraction expressing
             res.append([sum(cells[:, gene] > 0) / cells.shape[0] if cells.shape[0] > 0 else 0 for gene in self.genes])
-            print(cells.shape[0])
-            print(sum(cells[:, self.genes[0]]))
-            # if 'either' we choose the lower p-value one (higher wouldn't have been chosen beforehand)
+
+            # if 'either' - we choose the lower p-value one (higher wouldn't have been chosen beforehand)
             if enrichment == 'either':
                 pvalues.append([min(self.enriched_matrix[c, gene],
                                     self.enriched_matrix[c, gene + len(self.columns)]) for gene in
@@ -258,6 +266,7 @@ class ClusterAnalysis:
         """
         Sort rows and columns based on expressed percentages.
         """
+        # if there are less than 2 genes, there is no need to sort
         if (len(self.genes) < 2):
             self.column_order_ = range(len(self.genes))
             self.row_order_ = range(len(self.clusters_names))
@@ -278,7 +287,7 @@ class ClusterAnalysis:
             fit_data = self.model[np.argsort(model.row_labels_)]
             fit_data = fit_data[:, np.argsort(model.column_labels_)]
 
-            # calculate score and safe the lowest one
+            # calculate score and save the lowest one
             score = self._neighbor_distance(fit_data)
             if score < best_score:
                 print(i, score)
@@ -309,16 +318,14 @@ class ClusterAnalysis:
         fraction_expressing : numpy matrix, fraction of expressing for enriched genes per cluster
         p-value : numpy matrix, p-values for enriched genes for each cluster
         """
-        self._percentage_expressing(enrichment)
+        self._fraction_expressing(enrichment)
         self._sort_percentage_expressing()
 
-        #if not order
-        #self.row_order_ = list(range(len(self.clusters_names)))
-        #self.column_order_ = list(range(len(self.genes)))
+        # if not order
+        # self.row_order_ = list(range(len(self.clusters_names)))
+        # self.column_order_ = list(range(len(self.genes)))
 
-        # TODO: return genes as variables not strings
-
-        res_genes = np.ravel(list([self.columns[self.genes[i]].name for i in self.column_order_]))
+        res_genes = list(np.ravel([self.columns[self.genes[i]].name for i in self.column_order_]))
         res_rows = [self.clusters_names[i] for i in self.row_order_]
         return res_rows, res_genes, self.model, self.pvalues
 
@@ -379,17 +386,16 @@ class ClusterAnalysis:
 
 if __name__ == '__main__':
     # Example usages
-    data = Orange.data.Table('data/bone_marrow_louvain.pickle')
-    #data = Orange.data.Table('data/filtered_clusters.pickle')
+    # data = Orange.data.Table('data/bone_marrow_louvain.pickle')
+    data = Orange.data.Table('data/filtered_clusters.pickle')
 
     start = time.time()
     print("START")
     CA = ClusterAnalysis(data, cluster_var='Cluster')
     # res = CA.enriched_genes(['HBG1', 'S100A9', 'HBG2'])
-    res = CA.enriched_genes_per_cluster(n=2, enrichment='either')
+    res = CA.enriched_genes_per_cluster(n=2, enrichment='low')
     # res = CA.enriched_genes_data(enrichment='either')
     CA.draw_pyplot()
-
 
     end = time.time()
     print(end - start)
