@@ -1,26 +1,36 @@
 import sys
 import os
+from enum import EnumMeta
+from collections import defaultdict
+from functools import partial
+
 import Orange.data
 
 from AnyQt.QtCore import (
     Qt, QSize, QSortFilterProxyModel, QModelIndex,
     QItemSelection, QItemSelectionModel, QItemSelectionRange
 )
+from AnyQt.QtGui import QFont, QColor
 from AnyQt.QtWidgets import QTreeView, QLineEdit
 
+from Orange.data import MISSING_VALUES
+from Orange.data.io import UrlReader
+from Orange.misc.environ import data_dir
 from Orange.widgets import widget, gui, settings
 from Orange.widgets.utils.itemmodels import TableModel
 
+from orangecontrib.bioinformatics.widgets.utils.data import GENE_AS_ATTRIBUTE_NAME, TAX_ID
 
-def resource_path(path):
-    return os.path.join(os.path.dirname(__file__), path)
+
+def local_cache_path(path):
+    return os.path.join(data_dir(), path)
 
 
 class FilterProxyModel(QSortFilterProxyModel):
     def filterAcceptsRow(self, source_row, source_parent):
         # type: (int, QModelIndex) -> bool
         model = self.sourceModel()
-        if isinstance(model, TableModel):
+        if isinstance(model, LinkedTableModel):
             table = model.source
             domain = table.domain
             index = model.mapToSourceRows(source_row)
@@ -32,6 +42,54 @@ class FilterProxyModel(QSortFilterProxyModel):
                         if var.is_string or var.is_discrete))
         else:
             return True
+
+
+class HeaderLabels(EnumMeta):
+    REFERENCE = "Reference"
+    URL = "URL"
+
+
+class LinkedTableModel(TableModel):
+
+    ClassVar, Meta, Attribute = range(3)
+
+    ColorForRole = {
+        ClassVar: None,
+        Meta: None,
+        Attribute: None,
+    }
+
+    def __init__(self, data, parent):
+        TableModel.__init__(self, data[:, data.domain.metas[:-1]], parent)
+        self._data = data
+        self._roleData = {Qt.DisplayRole: self.source}
+        self._roleData = partial(
+            defaultdict,
+            partial(defaultdict,
+                    partial(defaultdict, lambda: None)))(self._roleData)
+        self.set_column_links()
+
+    def set_column_links(self):
+        domain = self._data.domain
+        ref_col = domain.metas.index(domain[HeaderLabels.REFERENCE])
+        font = QFont()
+        font.setUnderline(True)
+        color = QColor(Qt.blue)
+        for i, row in enumerate(self._data):
+            link = row[HeaderLabels.URL].value
+            if len(link):
+                self._roleData[gui.LinkRole][i][ref_col] = link
+                self._roleData[Qt.FontRole][i][ref_col] = font
+                self._roleData[Qt.ForegroundRole][i][ref_col] = color
+
+    def data(self, index, role=Qt.DisplayRole):
+        if role == Qt.DisplayRole:
+            cell_data = super().data(index, role)
+            return "" if cell_data in MISSING_VALUES else cell_data
+        elif role in (gui.LinkRole, Qt.FontRole, Qt.ForegroundRole):
+            row, col = index.row(), index.column()
+            return self._roleData[role][row][col]
+        return super().data(index, role)
 
 
 class MarkerGroupContextHandler(settings.ContextHandler):
@@ -50,20 +108,16 @@ class MarkerGroupContextHandler(settings.ContextHandler):
         context.group = group
         return context
 
-    def settings_from_widget(self, widget, *args):
-        super().settings_from_widget(widget, *args)
-
-        context = widget.current_context
-        if context is None:
-            return
-
-        context.group = widget.selected_group
-
 
 class OWMarkerGenes(widget.OWWidget):
     name = "Marker Genes"
     icon = 'icons/MarkerGenes.svg'
     priority = 158
+
+    URL = "https://docs.google.com/spreadsheets/d/1ik-Ju5F-" \
+          "wcsFhjszM7pRZXTTfSJl_EQOn3uNIzYfAY4/edit#gid=0"
+    DIR_NAME = "datasets/sc/"
+    FILE_NAME = DIR_NAME + "markers.tab"
 
     class Outputs:
         genes = widget.Output("Genes", Orange.data.Table)
@@ -76,6 +130,12 @@ class OWMarkerGenes(widget.OWWidget):
     settingsHandler = MarkerGroupContextHandler()
     selected_rows = settings.ContextSetting([])
 
+    class Error(widget.OWWidget.Error):
+        file_not_found = widget.Msg("File not found.")
+
+    class Warning(widget.OWWidget.Warning):
+        local_data = widget.Msg("File not found, local cached data is shown.")
+
     def __init__(self):
         super().__init__()
         self.source = None
@@ -83,6 +143,12 @@ class OWMarkerGenes(widget.OWWidget):
         self.filter_text = ""
         self.group_cb = gui.comboBox(self.controlArea, self, "group_index")
         self.group_cb.activated[int].connect(self.set_group_index)
+
+        # TODO: to avoid this, marker genes table should have 'tax_id' column
+        self.map_group_to_taxid = {
+            'Human': '9606',
+            'Mouse': '10090'
+        }
 
         filter = gui.lineEdit(
             self.controlArea, self, "filter_text"
@@ -103,13 +169,37 @@ class OWMarkerGenes(widget.OWWidget):
         view.selectionModel().selectionChanged.connect(
             self._on_selection_changed
         )
+        view.viewport().setMouseTracking(True)
         self.controlArea.layout().addWidget(view)
 
-        # NEEDS updating/
-        self.set_source(Orange.data.Table(resource_path("data/markers.tab")))
+        self.read_data()
         if self.header_state:
             view.header().restoreState(self.header_state)
+
+    def read_data(self):
+        try:
+            data = UrlReader(self.URL).read()
+        except Exception:
+            data = self._read_cached_data()
+            if data is None:
+                return
+        else:
+            dir_path = local_cache_path(self.DIR_NAME)
+            if not os.path.exists(dir_path):
+                os.makedirs(dir_path)
+            data.save(local_cache_path(self.FILE_NAME))
+        self.set_source(data)
         self.commit()
+
+    def _read_cached_data(self):
+        data = None
+        try:
+            data = Orange.data.Table(local_cache_path(self.FILE_NAME))
+        except OSError:
+            self.Error.file_not_found()
+        else:
+            self.Warning.local_data()
+        return data
 
     def set_selection(self):
         if len(self.selected_rows):
@@ -192,11 +282,10 @@ class OWMarkerGenes(widget.OWWidget):
 
         data = data[mask]
         rest = data[:, data.domain.metas[1:]]
-        model = TableModel(rest, parent=self)
-
-        # set column colors to white
-        for col in model.columns:
-            col.background.setRgb(255, 255, 255)
+        model = LinkedTableModel(rest, parent=self)
+        ref_col = rest.domain.metas.index(rest.domain[HeaderLabels.REFERENCE])
+        self.view.setItemDelegateForColumn(
+            ref_col, gui.LinkStyledItemDelegate(self.view))
 
         if self.proxy_model.sourceModel():
             self.proxy_model.sourceModel().deleteLater()
@@ -214,7 +303,7 @@ class OWMarkerGenes(widget.OWWidget):
         model = self.view.model()
         assert isinstance(model, QSortFilterProxyModel)
         table = model.sourceModel()
-        assert isinstance(table, TableModel)
+        assert isinstance(table, LinkedTableModel)
         rows = [model.mapToSource(mi).row()
                 for mi in self.view.selectionModel().selectedRows(0)]
 
@@ -225,6 +314,12 @@ class OWMarkerGenes(widget.OWWidget):
             output = table.source
 
         self.selected_rows = [mi.row() for mi in self.view.selectionModel().selectedRows(0)]
+
+        # always false for marker genes data tables in single cell
+        output.attributes[GENE_AS_ATTRIBUTE_NAME] = False
+        # set taxonomy id in data.attributes
+        output.attributes[TAX_ID] = self.map_group_to_taxid.get(self.selected_group, '')
+
         self.Outputs.genes.send(output)
 
     def closeEvent(self, event):
