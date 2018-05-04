@@ -47,6 +47,15 @@ class HeaderLabels(EnumMeta):
 
 
 class LinkedTableModel(TableModel):
+
+    ClassVar, Meta, Attribute = range(3)
+
+    ColorForRole = {
+        ClassVar: None,
+        Meta: None,
+        Attribute: None,
+    }
+
     def __init__(self, data, parent):
         TableModel.__init__(self, data[:, data.domain.metas[:-1]], parent)
         self._data = data
@@ -92,15 +101,6 @@ class MarkerGroupContextHandler(settings.ContextHandler):
         context = super().new_context()
         context.group = group
         return context
-
-    def settings_from_widget(self, widget, *args):
-        super().settings_from_widget(widget, *args)
-
-        context = widget.current_context
-        if context is None:
-            return
-
-        context.group = widget.selected_group
 
 
 class OWMarkerGenes(widget.OWWidget):
@@ -274,10 +274,6 @@ class OWMarkerGenes(widget.OWWidget):
         ref_col = rest.domain.metas.index(rest.domain[HeaderLabels.REFERENCE])
         self.view.setItemDelegateForColumn(
             ref_col, gui.LinkStyledItemDelegate(self.view))
-
-        # set column colors to white
-        for col in model.columns:
-            col.background.setRgb(255, 255, 255)
 
         if self.proxy_model.sourceModel():
             self.proxy_model.sourceModel().deleteLater()
