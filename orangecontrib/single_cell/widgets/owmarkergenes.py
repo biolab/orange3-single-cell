@@ -48,7 +48,8 @@ class HeaderLabels(EnumMeta):
 
 class LinkedTableModel(TableModel):
     def __init__(self, data, parent):
-        TableModel.__init__(self, data, parent)
+        TableModel.__init__(self, data[:, data.domain.metas[:-1]], parent)
+        self._data = data
         self._roleData = {Qt.DisplayRole: self.source}
         self._roleData = partial(
             defaultdict,
@@ -57,12 +58,12 @@ class LinkedTableModel(TableModel):
         self.set_column_links()
 
     def set_column_links(self):
-        domain = self.source.domain
+        domain = self._data.domain
         ref_col = domain.metas.index(domain[HeaderLabels.REFERENCE])
         font = QFont()
         font.setUnderline(True)
         color = QColor(Qt.blue)
-        for i, row in enumerate(self.source):
+        for i, row in enumerate(self._data):
             link = row[HeaderLabels.URL].value
             if len(link):
                 self._roleData[gui.LinkRole][i][ref_col] = link
