@@ -290,7 +290,6 @@ class ClusterAnalysis:
             # calculate score and save the lowest one
             score = self._neighbor_distance(fit_data)
             if score < best_score:
-                print(i, score)
                 best_score = score
                 best_fit = fit_data
                 best_model = model
@@ -386,8 +385,8 @@ class ClusterAnalysis:
 
 if __name__ == '__main__':
     # Example usages
-    # data = Orange.data.Table('data/bone_marrow_louvain.pickle')
-    data = Orange.data.Table('data/filtered_clusters.pickle')
+    data = Orange.data.Table('data/bone_marrow_louvain.pickle')
+    # data = Orange.data.Table('data/filtered_clusters.pickle')
 
     start = time.time()
     print("START")
