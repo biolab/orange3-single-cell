@@ -31,6 +31,8 @@ class OWClusterAnalysis(widget.OWWidget):
     clustering_var = ContextSetting(None)
     selection = ContextSetting(set())
     gene_selection = ContextSetting(0)
+    differential_expression = ContextSetting(0)
+    _diff_exprs = ("high", "low", "either")
     n_genes_per_cluster = ContextSetting(3)
     n_most_enriched = ContextSetting(20)
     auto_apply = Setting(True)
@@ -44,7 +46,6 @@ class OWClusterAnalysis(widget.OWWidget):
         self.data = None
         self.feature_model = DomainModel(valid_types=DiscreteVariable)
         self.gene_list = None
-        self.table = None
 
         self._gene_selection_history = (self.gene_selection, self.gene_selection)
 
@@ -92,6 +93,18 @@ class OWClusterAnalysis(widget.OWWidget):
         gui.widgetLabel(sb, "User-provided list of genes")
         gui.rubber(sb)
         layout.addWidget(sb, 3, 2)
+
+        layout = QGridLayout()
+        self.differential_expression_radio_group = gui.radioButtonsInBox(
+            self.controlArea, self, "differential_expression", orientation=layout,
+            box="Differential Expression", callback=self._set_gene_selection)
+
+        layout.addWidget(gui.appendRadioButton(self.differential_expression_radio_group,
+                                               "Overexpressed in cluster", addToLayout=False), 1, 1)
+        layout.addWidget(gui.appendRadioButton(self.differential_expression_radio_group,
+                                               "Underexpressed in cluster", addToLayout=False), 2, 1)
+        layout.addWidget(gui.appendRadioButton(self.differential_expression_radio_group,
+                                               "Either", addToLayout=False), 3, 1)
 
         gui.rubber(self.controlArea)
 
@@ -156,8 +169,7 @@ class OWClusterAnalysis(widget.OWWidget):
 
     def _run_cluster_analysis(self):
         self.infobox.setText(self._get_info_string(self.clustering_var.name))
-        # TODO: Remove when ClusterAnalysis no longer alters inputed data.
-        self.ca = ClusterAnalysis(self.data.copy(), self.clustering_var.name)
+        self.ca = ClusterAnalysis(self.data, self.clustering_var.name)
         self._set_gene_selection()
 
     def _gene_selection_changed(self):
@@ -170,35 +182,32 @@ class OWClusterAnalysis(widget.OWWidget):
         self.Error.clear()
         if self.ca is not None:
             if self.gene_selection == 0:
-                self.ca.enriched_genes_per_cluster(self.n_genes_per_cluster)
+                result = self.ca.enriched_genes_per_cluster(self.n_genes_per_cluster,
+                                                            self._diff_exprs[self.differential_expression])
             elif self.gene_selection == 1:
-                self.ca.enriched_genes_data(self.n_most_enriched)
-            elif self.gene_selection == 2:
-                # TODO: Get the number of genes from the library.
+                result = self.ca.enriched_genes_data(self.n_most_enriched,
+                                                     self._diff_exprs[self.differential_expression])
+            else:
                 if len(self.gene_list) > 50:
                     self.warning("Only first 50 reference genes shown.")
-                self.ca.enriched_genes(self.gene_list[:50])
-            if len(self.ca.genes) < 2:
-                self.error("At least two genes must be selected.")
-                self.table = None
-                self.tableview.clear()
-            else:
-                self.table = self.ca.o_model
-                # Referencing the variable in the table directly doesn't preserve the order of clusters.
-                self.clusters = [self.clustering_var.values[ix]
-                                 for ix in self.table.get_column_view(self.clustering_var.name)[0]]
-                genes = [var.name for var in self.table.domain.variables]
-                self.rows = self.clustering_var
-                self.columns = DiscreteVariable("Gene", genes, ordered=True)
-                self.tableview.set_headers(self.clusters, self.columns.values, circles=True, bold_headers=False)
+                result = self.ca.enriched_genes(self.gene_list[:50],
+                                                self._diff_exprs[self.differential_expression])
+            self.clusters, genes, self.model, self.pvalues = result
+            genes = [str(gene) for gene in genes]
+            self.rows = self.clustering_var
+            self.columns = DiscreteVariable("Gene", genes, ordered=True)
+            self.tableview.set_headers(self.clusters, self.columns.values, circles=True, bold_headers=False)
 
-                def tooltip(i, j):
-                    return ("<b>cluster</b>: {}<br /><b>gene</b>: {}<br /><b>fraction expressing</b>: {:.2f}".format(
-                        self.clusters[i],
-                        self.columns.values[j],
-                        self.table.get_column_view(self.columns.values[j])[0][i]))
-                self.tableview.update_table(self.table.X, tooltip=tooltip)
-            self._invalidate()
+            def tooltip(i, j):
+                return ("<b>cluster</b>: {}<br /><b>gene</b>: {}<br /><b>fraction expressing</b>: {:.2f}<br />\
+                        <b>p-value</b>: {:.2e}".format(
+                    self.clusters[i],
+                    self.columns.values[j],
+                    self.model[i,j],
+                    self.pvalues[i,j])
+                )
+            self.tableview.update_table(self.model, tooltip=tooltip)
+        self._invalidate()
 
     def handleNewSignals(self):
         self._invalidate()
@@ -213,7 +222,7 @@ class OWClusterAnalysis(widget.OWWidget):
             new_domain = Domain([self.data.domain[self.columns.values[col]] for col in column_ids],
                                 self.data.domain.class_vars,
                                 self.data.domain.metas)
-            selected_data = Values([FilterDiscrete(self.clustering_var, [self.clustering_var.values[ir]])
+            selected_data = Values([FilterDiscrete(self.clustering_var, [self.clusters[ir]])
                                     for ir in cluster_ids],
                                    conjunction=False)(self.data)
             selected_data = selected_data.transform(new_domain)
@@ -224,7 +233,7 @@ class OWClusterAnalysis(widget.OWWidget):
             annotated_data = create_annotated_table(self.data, [])
         self.send("Selected Data", selected_data)
         self.send(ANNOTATED_DATA_SIGNAL_NAME, annotated_data)
-        self.send("Contingency Table", self.table)
+        self.send("Contingency Table", self.ca.create_contingency_table())
 
     def _invalidate(self):
         self.selection = self.tableview.get_selection()
