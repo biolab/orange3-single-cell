@@ -1,11 +1,16 @@
 import sys
 import os
+from enum import EnumMeta
+from collections import defaultdict
+from functools import partial
+
 import Orange.data
 
 from AnyQt.QtCore import (
     Qt, QSize, QSortFilterProxyModel, QModelIndex,
     QItemSelection, QItemSelectionModel, QItemSelectionRange
 )
+from AnyQt.QtGui import QFont, QColor
 from AnyQt.QtWidgets import QTreeView, QLineEdit
 
 from Orange.data.io import UrlReader
@@ -22,7 +27,7 @@ class FilterProxyModel(QSortFilterProxyModel):
     def filterAcceptsRow(self, source_row, source_parent):
         # type: (int, QModelIndex) -> bool
         model = self.sourceModel()
-        if isinstance(model, TableModel):
+        if isinstance(model, LinkedTableModel):
             table = model.source
             domain = table.domain
             index = model.mapToSourceRows(source_row)
@@ -34,6 +39,41 @@ class FilterProxyModel(QSortFilterProxyModel):
                         if var.is_string or var.is_discrete))
         else:
             return True
+
+
+class HeaderLabels(EnumMeta):
+    REFERENCE = "Reference"
+    URL = "URL"
+
+
+class LinkedTableModel(TableModel):
+    def __init__(self, data, parent):
+        TableModel.__init__(self, data, parent)
+        self._roleData = {Qt.DisplayRole: self.source}
+        self._roleData = partial(
+            defaultdict,
+            partial(defaultdict,
+                    partial(defaultdict, lambda: None)))(self._roleData)
+        self.set_column_links()
+
+    def set_column_links(self):
+        domain = self.source.domain
+        ref_col = domain.metas.index(domain[HeaderLabels.REFERENCE])
+        font = QFont()
+        font.setUnderline(True)
+        color = QColor(Qt.blue)
+        for i, row in enumerate(self.source):
+            link = row[HeaderLabels.URL].value
+            if len(link):
+                self._roleData[gui.LinkRole][i][ref_col] = link
+                self._roleData[Qt.FontRole][i][ref_col] = font
+                self._roleData[Qt.ForegroundRole][i][ref_col] = color
+
+    def data(self, index, role=Qt.DisplayRole):
+        if role in (gui.LinkRole, Qt.FontRole, Qt.ForegroundRole):
+            row, col = index.row(), index.column()
+            return self._roleData[role][row][col]
+        return super().data(index, role)
 
 
 class MarkerGroupContextHandler(settings.ContextHandler):
@@ -116,6 +156,7 @@ class OWMarkerGenes(widget.OWWidget):
         view.selectionModel().selectionChanged.connect(
             self._on_selection_changed
         )
+        view.viewport().setMouseTracking(True)
         self.controlArea.layout().addWidget(view)
 
         self.read_data()
@@ -228,7 +269,10 @@ class OWMarkerGenes(widget.OWWidget):
 
         data = data[mask]
         rest = data[:, data.domain.metas[1:]]
-        model = TableModel(rest, parent=self)
+        model = LinkedTableModel(rest, parent=self)
+        ref_col = rest.domain.metas.index(rest.domain[HeaderLabels.REFERENCE])
+        self.view.setItemDelegateForColumn(
+            ref_col, gui.LinkStyledItemDelegate(self.view))
 
         # set column colors to white
         for col in model.columns:
@@ -250,7 +294,7 @@ class OWMarkerGenes(widget.OWWidget):
         model = self.view.model()
         assert isinstance(model, QSortFilterProxyModel)
         table = model.sourceModel()
-        assert isinstance(table, TableModel)
+        assert isinstance(table, LinkedTableModel)
         rows = [model.mapToSource(mi).row()
                 for mi in self.view.selectionModel().selectedRows(0)]
 
