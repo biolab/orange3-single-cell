@@ -50,7 +50,7 @@ source_suffix = ['.rst']
 master_doc = 'index'
 
 # General information about the project.
-project = 'scOrangen'
+project = 'scOrange'
 copyright = '2018, Biolab'
 author = 'Biolab'
 
