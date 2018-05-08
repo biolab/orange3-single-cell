@@ -1,10 +1,9 @@
-import Orange
-import numpy as np
-import matplotlib.pyplot as plt
 import time
+
+import numpy as np
 from scipy.stats import hypergeom
-from Orange.data import Domain, DiscreteVariable, ContinuousVariable, Table
 from sklearn.cluster.bicluster import SpectralBiclustering
+from Orange.data import Domain, DiscreteVariable, ContinuousVariable, Table
 
 
 class ClusterAnalysis:
@@ -351,6 +350,8 @@ class ClusterAnalysis:
         Draw with pyplot clusters_names on y and enriched genes on x, with size of circle representing
         percentage of expressed.
         """
+        import matplotlib.pyplot as plt
+
         circle_mult = .4
         x_len = range(len(self.column_order_))
         y_len = range(len(self.row_order_))
@@ -385,8 +386,8 @@ class ClusterAnalysis:
 
 if __name__ == '__main__':
     # Example usages
-    data = Orange.data.Table('data/bone_marrow_louvain.pickle')
-    # data = Orange.data.Table('data/filtered_clusters.pickle')
+    data = Table('data/bone_marrow_louvain.pickle')
+    # data = Table('data/filtered_clusters.pickle')
 
     start = time.time()
     print("START")
