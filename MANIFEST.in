@@ -1,5 +1,5 @@
 include orangecontrib/single_cell/launcher/icons/*
-include orangecontrib/single_cell/tutorials/*.ows
+include orangecontrib/single_cell/tutorials/*
 include orangecontrib/single_cell/widgets/icons/*
 include orangecontrib/single_cell/widgets/data/*
 include orangecontrib/single_cell/datasets/*
