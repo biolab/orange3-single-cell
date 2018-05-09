@@ -34,7 +34,7 @@ class ClusterAnalysis:
     enrichment : set of available enrichment parameters
     """
 
-    def __init__(self, data, cluster_var='Cluster'):
+    def __init__(self, data, cluster_var='Cluster', callback=None):
         self.data = data
 
         self.X = self.data.X > 0
@@ -61,9 +61,9 @@ class ClusterAnalysis:
         self.column_order_ = None
         self.genes = None
 
-        self._create_enriched_matrix()
+        self._create_enriched_matrix(callback=callback)
 
-    def _create_enriched_matrix(self):
+    def _create_enriched_matrix(self, callback=None):
         """
         Create matrix of how much each gene enriches each cluster.
         shape: (clusters_names, genes)
@@ -82,6 +82,8 @@ class ClusterAnalysis:
 
         # for each cluster we calculate the n_enriched most enriched
         for c in range(len(self.clusters_names)):
+            if callback is not None:
+                callback(c/len(self.clusters_names))
             # get all cells that belong to cluster c
             cells = Z[self.clusters_rows == self.clusters_ind[c]]
 
@@ -97,7 +99,7 @@ class ClusterAnalysis:
         self.enriched_matrix_low = low
         self.enriched_matrix_high = high
 
-    def enriched_genes(self, gene_list, enrichment=None):
+    def enriched_genes(self, gene_list, enrichment=None, callback=None):
         """
         Cluster-based enrichment scores for a list of genes
 
@@ -111,7 +113,6 @@ class ClusterAnalysis:
         self.enriched_matrix = np.hstack((self.enriched_matrix_low, self.enriched_matrix_high))
         enumerated_attributes = enumerate([gene.name for gene in self.columns])
         res = [attribute[0] for attribute in enumerated_attributes if attribute[1] in gene_list]
-
         """
         res = list()
         for gene in gene_list:
@@ -121,9 +122,9 @@ class ClusterAnalysis:
         """
 
         self.genes = res
-        return self._create_model(enrichment)
+        return self._create_model(enrichment, callback=callback)
 
-    def enriched_genes_per_cluster(self, n=3, enrichment='high'):
+    def enriched_genes_per_cluster(self, n=3, enrichment='high', callback=None):
         """
         n genes that are most enriched for each cluster.
 
@@ -170,9 +171,9 @@ class ClusterAnalysis:
             res.extend(enriched_genes)
 
         self.genes = res
-        return self._create_model(enrichment)
+        return self._create_model(enrichment, callback=callback)
 
-    def enriched_genes_data(self, n=20, enrichment='high'):
+    def enriched_genes_data(self, n=20, enrichment='high', callback=None):
         """
         n top enriched genes, where "top" means for any cluster
 
@@ -216,7 +217,7 @@ class ClusterAnalysis:
 
         # take only n genes
         self.genes = res[1][:n]
-        return self._create_model(enrichment)
+        return self._create_model(enrichment, callback=callback)
 
     def create_contingency_table(self):
         """
@@ -233,7 +234,7 @@ class ClusterAnalysis:
                                         self.model, metas=np.array([self.row_order_]).T)
         return self.o_model
 
-    def _fraction_expressing(self, enrichment):
+    def _fraction_expressing(self, enrichment, callback=None):
         """
         Expression percentage and p-values for each enriched gene for each cluster.
 
@@ -246,6 +247,8 @@ class ClusterAnalysis:
         pvalues = list()
 
         for c in range(len(self.clusters_names)):
+            if callback is not None:
+                callback(c/len(self.clusters_names) * 0.5)
             cells = Z[self.clusters_rows == self.clusters_ind[c]]
             # calculate fraction expressing
             res.append([sum(cells[:, gene] > 0) / cells.shape[0] if cells.shape[0] > 0 else 0 for gene in self.genes])
@@ -262,7 +265,7 @@ class ClusterAnalysis:
         self.model = np.array(res)
         self.pvalues = np.array(pvalues)
 
-    def _sort_percentage_expressing(self):
+    def _sort_percentage_expressing(self, callback=None):
         """
         Sort rows and columns based on expressed percentages.
         """
@@ -280,6 +283,8 @@ class ClusterAnalysis:
         limit = int(min(len(self.genes), len(self.clusters_names)) / 2) - 1
         limit = 3 if limit < 3 else limit
         for i in range(2, limit):
+            if callback is not None:
+                callback(0.5 + (i-2)/(limit-2) * 0.5)
             # perform biclustering
             model = SpectralBiclustering(
                 n_clusters=i, method='log', random_state=0)
@@ -302,7 +307,7 @@ class ClusterAnalysis:
         self.pvalues = self.pvalues[np.argsort(model.row_labels_)]
         self.pvalues = self.pvalues[:, np.argsort(model.column_labels_)]
 
-    def _create_model(self, enrichment):
+    def _create_model(self, enrichment, callback=None):
         """
         Create cluster analysis model.
 
@@ -317,8 +322,8 @@ class ClusterAnalysis:
         fraction_expressing : numpy matrix, fraction of expressing for enriched genes per cluster
         p-value : numpy matrix, p-values for enriched genes for each cluster
         """
-        self._fraction_expressing(enrichment)
-        self._sort_percentage_expressing()
+        self._fraction_expressing(enrichment, callback=callback)
+        self._sort_percentage_expressing(callback=callback)
 
         # if not order
         # self.row_order_ = list(range(len(self.clusters_names)))
