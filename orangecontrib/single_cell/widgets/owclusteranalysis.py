@@ -1,15 +1,15 @@
+import concurrent.futures
 from functools import partial
 
 import numpy as np
 from AnyQt.QtCore import Qt, Slot, QThread
 from AnyQt.QtWidgets import QGridLayout
-import concurrent.futures
 from Orange.data import (DiscreteVariable, Table, Domain)
 from Orange.data.filter import Values, FilterDiscrete
 from Orange.widgets import widget, gui
 from Orange.widgets.settings import Setting, ContextSetting, DomainContextHandler
 from Orange.widgets.utils.annotated_data import ANNOTATED_DATA_SIGNAL_NAME, create_annotated_table
-from Orange.widgets.utils.concurrent import ThreadExecutor, FutureWatcher, methodinvoke
+from Orange.widgets.utils.concurrent import ThreadExecutor, FutureWatcher
 from Orange.widgets.utils.itemmodels import DomainModel
 from Orange.widgets.utils.sql import check_sql_input
 
@@ -20,7 +20,7 @@ from orangecontrib.single_cell.widgets.contingency_table import ContingencyTable
 class Task:
     future = None
     watcher = None
-    cancelled = False  # type: bool
+    cancelled = False
 
     def __init__(self, type):
         self.type = type
@@ -194,9 +194,9 @@ class OWClusterAnalysis(widget.OWWidget):
 
     def _run_cluster_analysis(self):
         self.infobox.setText(self._get_info_string(self.clustering_var.name))
-        self._start_tast_init(partial(ClusterAnalysis, self.data, self.clustering_var.name))
+        self._start_task_init(partial(ClusterAnalysis, self.data, self.clustering_var.name))
 
-    def _start_tast_init(self, f):
+    def _start_task_init(self, f):
         if self._task is not None:
             self.cancel()
         assert self._task is None
