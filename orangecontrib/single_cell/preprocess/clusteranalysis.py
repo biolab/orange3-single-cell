@@ -248,7 +248,7 @@ class ClusterAnalysis:
 
         for c in range(len(self.clusters_names)):
             if callback is not None:
-                callback(c/len(self.clusters_names) * 0.5)
+                callback(c/len(self.clusters_names) * 0.2)
             cells = Z[self.clusters_rows == self.clusters_ind[c]]
             # calculate fraction expressing
             res.append([sum(cells[:, gene] > 0) / cells.shape[0] if cells.shape[0] > 0 else 0 for gene in self.genes])
@@ -284,7 +284,7 @@ class ClusterAnalysis:
         limit = 3 if limit < 3 else limit
         for i in range(2, limit):
             if callback is not None:
-                callback(0.5 + (i-2)/(limit-2) * 0.5)
+                callback(0.2 + (i-2)/(limit-2) * 0.8)
             # perform biclustering
             model = SpectralBiclustering(
                 n_clusters=i, method='log', random_state=0)
