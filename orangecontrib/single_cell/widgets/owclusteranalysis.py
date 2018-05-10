@@ -72,7 +72,7 @@ class OWClusterAnalysis(widget.OWWidget):
         self._task = None
 
         box = gui.vBox(self.controlArea, "Info")
-        self.infobox = gui.widgetLabel(box, self._get_info_string(None))
+        self.infobox = gui.widgetLabel(box, self._get_info_string())
 
         box = gui.vBox(self.controlArea, "Cluster Variable")
         gui.comboBox(box, self, "cluster_var", sendSelectedValue=True,
@@ -92,7 +92,7 @@ class OWClusterAnalysis(widget.OWWidget):
         layout.addWidget(gui.appendRadioButton(self.gene_selection_radio_group, "", addToLayout=False), 1, 1)
         cb = gui.hBox(None, margin=0)
         gui.widgetLabel(cb, "Top")
-        gui.spin(
+        self.n_genes_per_cluster_spin = gui.spin(
             cb, self, "n_genes_per_cluster", minv=1, maxv=10,
             controlWidth=60, alignment=Qt.AlignRight, callback=conditional_set_gene_selection(0))
         gui.widgetLabel(cb, "genes per cluster")
@@ -102,7 +102,7 @@ class OWClusterAnalysis(widget.OWWidget):
         layout.addWidget(gui.appendRadioButton(self.gene_selection_radio_group, "", addToLayout=False), 2, 1)
         mb = gui.hBox(None, margin=0)
         gui.widgetLabel(mb, "Top")
-        gui.spin(
+        self.n_most_enriched_spin = gui.spin(
             mb, self, "n_most_enriched", minv=1, maxv=50,
             controlWidth=60, alignment=Qt.AlignRight, callback=conditional_set_gene_selection(1))
         gui.widgetLabel(mb, "highest enrichments")
@@ -145,12 +145,12 @@ class OWClusterAnalysis(widget.OWWidget):
     def _progress_gene_selection_history(self, new_gene_selection):
         self._gene_selection_history = (new_gene_selection, self._gene_selection_history[0])
 
-    def _get_info_string(self, cluster_variable):
+    def _get_info_string(self):
         formatstr = "Cells: {0}\nGenes: {1}\nClusters: {2}"
         if self.data:
             return formatstr.format(len(self.data),
                                     len(self.data.domain.attributes),
-                                    len(self.data.domain[cluster_variable].values))
+                                    len(self.cluster_var.values))
         else:
             return formatstr.format(*["No input data"]*3)
 
@@ -193,7 +193,11 @@ class OWClusterAnalysis(widget.OWWidget):
                 self.gene_selection_radio_group.group.buttons()[self._get_previous_gene_selection()].click()
 
     def _run_cluster_analysis(self):
-        self.infobox.setText(self._get_info_string(self.cluster_var.name))
+        self.infobox.setText(self._get_info_string())
+        gene_count = len(self.data.domain.attributes)
+        cluster_count = len(self.cluster_var.values)
+        self.n_genes_per_cluster_spin.setMaximum(min(10, gene_count // cluster_count))
+        self.n_most_enriched_spin.setMaximum(min(50, gene_count))
         self._start_task_init(partial(ClusterAnalysis, self.data, self.cluster_var.name))
 
     def _start_task_init(self, f):
