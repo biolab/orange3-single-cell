@@ -45,7 +45,7 @@ class OWClusterAnalysis(widget.OWWidget):
 
     settingsHandler = DomainContextHandler(metas_in_res=True)
     columns = ContextSetting(None)
-    clustering_var = ContextSetting(None)
+    cluster_var = ContextSetting(None)
     selection = ContextSetting(set())
     gene_selection = ContextSetting(0)
     differential_expression = ContextSetting(0)
@@ -75,7 +75,7 @@ class OWClusterAnalysis(widget.OWWidget):
         self.infobox = gui.widgetLabel(box, self._get_info_string(None))
 
         box = gui.vBox(self.controlArea, "Cluster Variable")
-        gui.comboBox(box, self, "clustering_var", sendSelectedValue=True,
+        gui.comboBox(box, self, "cluster_var", sendSelectedValue=True,
                      model=self.feature_model, callback=self._run_cluster_analysis)
 
         layout = QGridLayout()
@@ -161,7 +161,7 @@ class OWClusterAnalysis(widget.OWWidget):
         self.data = data
         self.feature_model.set_domain(None)
         self.ca = None
-        self.clustering_var = None
+        self.cluster_var = None
         self.columns = None
         self.clusters = None
         self.gene_list = None
@@ -170,7 +170,7 @@ class OWClusterAnalysis(widget.OWWidget):
         if self.data:
             self.feature_model.set_domain(self.data.domain)
             if self.feature_model:
-                self.clustering_var = self.feature_model[0]
+                self.cluster_var = self.feature_model[0]
                 self._run_cluster_analysis()
             else:
                 self.tableview.clear()
@@ -193,8 +193,8 @@ class OWClusterAnalysis(widget.OWWidget):
                 self.gene_selection_radio_group.group.buttons()[self._get_previous_gene_selection()].click()
 
     def _run_cluster_analysis(self):
-        self.infobox.setText(self._get_info_string(self.clustering_var.name))
-        self._start_task_init(partial(ClusterAnalysis, self.data, self.clustering_var.name))
+        self.infobox.setText(self._get_info_string(self.cluster_var.name))
+        self._start_task_init(partial(ClusterAnalysis, self.data, self.cluster_var.name))
 
     def _start_task_init(self, f):
         if self._task is not None:
@@ -327,7 +327,7 @@ class OWClusterAnalysis(widget.OWWidget):
             new_domain = Domain([self.data.domain[self.columns.values[col]] for col in column_ids],
                                 self.data.domain.class_vars,
                                 self.data.domain.metas)
-            selected_data = Values([FilterDiscrete(self.clustering_var, [self.clusters[ir]])
+            selected_data = Values([FilterDiscrete(self.cluster_var, [self.clusters[ir]])
                                     for ir in cluster_ids],
                                    conjunction=False)(self.data)
             selected_data = selected_data.transform(new_domain)
@@ -350,7 +350,7 @@ class OWClusterAnalysis(widget.OWWidget):
         rows = None
         columns = None
         if self.data is not None:
-            rows = self.clustering_var
+            rows = self.cluster_var
             if rows in self.data.domain:
                 rows = self.data.domain[rows]
             columns = self.columns
