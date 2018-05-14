@@ -1,6 +1,7 @@
-import time
-
+import Orange
 import numpy as np
+import time
+from functools import lru_cache
 from scipy.stats import hypergeom
 from sklearn.cluster.bicluster import SpectralBiclustering
 from Orange.data import Domain, DiscreteVariable, ContinuousVariable, Table
@@ -46,6 +47,7 @@ class ClusterAnalysis:
         self.clusters_rows = self.data.get_column_view(self.class_var)[0]
         self.clusters_names = self.class_var.values
         self.clusters_ind = np.unique(self.clusters_rows)
+
         # take only those that appear in data
         self.clusters_names = [self.clusters_names[int(i)] for i in self.clusters_ind]
         self.columns = self.data.domain.attributes
@@ -82,7 +84,7 @@ class ClusterAnalysis:
         # for each cluster we calculate the n_enriched most enriched
         for c in range(len(self.clusters_names)):
             if callback is not None:
-                callback(c/len(self.clusters_names))
+                callback(c / len(self.clusters_names))
             # get all cells that belong to cluster c
             cells = Z[self.clusters_rows == self.clusters_ind[c]]
 
@@ -91,21 +93,26 @@ class ClusterAnalysis:
             count_cluster = cells.shape[0]  # N - all in cluster c (number of draws)
 
             # calculate cdf for every gene
-            low[c] = np.array([hypergeom.cdf(count_cluster_pos[i], count_all, count_all_pos[i], count_cluster) for i in
-                               genes])
-            high[c] = 1 - low[c] + hypergeom.pmf(count_cluster_pos, count_all, count_all_pos, count_cluster)
+            low[c] = np.array(
+                [hypergeom.cdf(count_cluster_pos[i], count_all, count_all_pos[i], count_cluster) for i in
+                 genes])
+            high[c] = hypergeom.sf(count_cluster_pos, count_all, count_all_pos, count_cluster) + \
+                      hypergeom.pmf(count_cluster_pos, count_all, count_all_pos, count_cluster)
 
         self.enriched_matrix_low = low
         self.enriched_matrix_high = high
 
-    def enriched_genes(self, gene_list, enrichment=None, callback=None):
+
+    @lru_cache(maxsize=3)
+    def enriched_genes(self, gene_list, enrichment=None, biclustering=True, callback=None):
         """
-        Cluster-based enrichment scores for a list of genes
+        Cluster-based enrichment scores for a tuple of genes
 
         Parameters
         ----------
-        gene_list : list of strings, names of genes
-        enrichment : ignored
+        gene_list : tuple of strings, names of genes
+        enrichment : ignored, used for consistency in function call
+        biclustering : boolean, return biclustering model
         """
         # fix enrichment at 'either', to calculate the shortest tail p-value
         enrichment = 'either'
@@ -121,9 +128,11 @@ class ClusterAnalysis:
         """
 
         self.genes = res
-        return self._create_model(enrichment, callback=callback)
 
-    def enriched_genes_per_cluster(self, n=3, enrichment='high', callback=None):
+        return self._create_model(enrichment, biclustering, callback=callback)
+
+    @lru_cache(maxsize=3)
+    def enriched_genes_per_cluster(self, n=3, enrichment='high', biclustering=True, callback=None):
         """
         n genes that are most enriched for each cluster.
 
@@ -131,6 +140,7 @@ class ClusterAnalysis:
         ----------
         n : int, number of enriched genes per cluster
         enrichment : string, type of enrichment (high, low, either)
+        biclustering : boolean, return biclustering model
         """
         res = list()
 
@@ -163,16 +173,16 @@ class ClusterAnalysis:
 
             # remove found enriched genes from list of all genes (ensure every cluster has n unique enriched genes)
             to_remove_enum = enriched_genes + [g + len(self.columns) for g in enriched_genes]
-
             genes = [g for g in genes if g not in enriched_genes]
             genes_enum = [g for g in genes_enum if g not in to_remove_enum]
 
             res.extend(enriched_genes)
 
         self.genes = res
-        return self._create_model(enrichment, callback=callback)
+        return self._create_model(enrichment, biclustering, callback=callback)
 
-    def enriched_genes_data(self, n=20, enrichment='high', callback=None):
+    @lru_cache(maxsize=3)
+    def enriched_genes_data(self, n=20, enrichment='high', biclustering=True, callback=None):
         """
         n top enriched genes, where "top" means for any cluster
 
@@ -180,6 +190,7 @@ class ClusterAnalysis:
         ----------
         n : int, number of enriched genes overall
         enrichment : string, type of enrichment (high, low, either)
+        biclustering : boolean, return biclustering model
         """
         res = list()
 
@@ -216,22 +227,8 @@ class ClusterAnalysis:
 
         # take only n genes
         self.genes = res[1][:n]
-        return self._create_model(enrichment, callback=callback)
 
-    def create_contingency_table(self):
-        """
-        Create Orange.table from results
-
-        Return
-        --------
-        o_model : Orange.Table
-        """
-        # create Orange.Table for calculated model
-        dmn = np.ravel(list([self.columns[self.genes[i]].name for i in self.column_order_]))
-        mts = DiscreteVariable.make(self.class_var.name, values=self.clusters_names)
-        self.o_model = Table.from_numpy(Domain([ContinuousVariable.make(column) for column in dmn], metas=[mts]),
-                                        self.model, metas=np.array([self.row_order_]).T)
-        return self.o_model
+        return self._create_model(enrichment, biclustering, callback=callback)
 
     def _fraction_expressing(self, enrichment, callback=None):
         """
@@ -264,12 +261,14 @@ class ClusterAnalysis:
         self.model = np.array(res)
         self.pvalues = np.array(pvalues)
 
-    def _sort_percentage_expressing(self, callback=None):
+
+    def _sort_fraction_expressing(self, callback=None):
         """
         Sort rows and columns based on expressed percentages.
         """
-        # if there are less than 2 genes, there is no need to sort
-        if (len(self.genes) < 2):
+
+        # if there are less than 3 genes, there is no need to sort
+        if len(self.genes) <= 2:
             self.column_order_ = range(len(self.genes))
             self.row_order_ = range(len(self.clusters_names))
             return
@@ -283,7 +282,7 @@ class ClusterAnalysis:
         limit = 3 if limit < 3 else limit
         for i in range(2, limit):
             if callback is not None:
-                callback(0.2 + (i-2)/(limit-2) * 0.8)
+                callback(0.2 + (i - 2) / (limit - 2) * 0.8)
             # perform biclustering
             model = SpectralBiclustering(
                 n_clusters=i, method='log', random_state=0)
@@ -306,7 +305,8 @@ class ClusterAnalysis:
         self.pvalues = self.pvalues[np.argsort(model.row_labels_)]
         self.pvalues = self.pvalues[:, np.argsort(model.column_labels_)]
 
-    def _create_model(self, enrichment, callback=None):
+
+    def _create_model(self, enrichment, biclustering, callback):
         """
         Create cluster analysis model.
 
@@ -321,12 +321,14 @@ class ClusterAnalysis:
         fraction_expressing : numpy matrix, fraction of expressing for enriched genes per cluster
         p-value : numpy matrix, p-values for enriched genes for each cluster
         """
-        self._fraction_expressing(enrichment, callback=callback)
-        self._sort_percentage_expressing(callback=callback)
 
-        # if not order
-        # self.row_order_ = list(range(len(self.clusters_names)))
-        # self.column_order_ = list(range(len(self.genes)))
+        self._fraction_expressing(enrichment)
+
+        if not biclustering:
+            self.row_order_ = list(range(len(self.clusters_names)))
+            self.column_order_ = list(range(len(self.genes)))
+        else:
+            self._sort_fraction_expressing(callback=callback)
 
         res_genes = list(np.ravel([self.columns[self.genes[i]].name for i in self.column_order_]))
         res_rows = [self.clusters_names[i] for i in self.row_order_]
@@ -387,20 +389,42 @@ class ClusterAnalysis:
         plt.subplots_adjust(bottom=0.2)
         # plt.savefig('fig1.png')
         plt.show()
+        return plt
+
+    def create_contingency_table(self):
+        """
+        Create Orange.table from results
+
+        Return
+        --------
+        o_model : Orange.Table
+        """
+        # create Orange.Table for calculated model
+        dmn = np.ravel(list([self.columns[self.genes[i]].name for i in self.column_order_]))
+        mts = DiscreteVariable.make(self.class_var.name, values=self.clusters_names)
+        self.o_model = Table.from_numpy(Domain([ContinuousVariable.make(column) for column in dmn], metas=[mts]),
+                                        self.model, metas=np.array([self.row_order_]).T)
+        return self.o_model
 
 
 if __name__ == '__main__':
     # Example usages
-    data = Table('data/bone_marrow_louvain.pickle')
-    # data = Table('data/filtered_clusters.pickle')
+
+    # data = Orange.data.Table('data/bone_marrow_louvain.pickle')
+    data = Orange.data.Table('data/bone_marrow_louvain.pickle')
 
     start = time.time()
     print("START")
     CA = ClusterAnalysis(data, cluster_var='Cluster')
-    # res = CA.enriched_genes(['HBG1', 'S100A9', 'HBG2'])
-    res = CA.enriched_genes_per_cluster(n=2, enrichment='low')
-    # res = CA.enriched_genes_data(enrichment='either')
+    print(time.time() - start)
+    res = CA.enriched_genes(gene_list=('HBG1', 'S100A9', 'HBG2'))
+    print(time.time() - start)
     CA.draw_pyplot()
 
-    end = time.time()
-    print(end - start)
+    res = CA.enriched_genes_per_cluster(n=2, enrichment='either', biclustering=False)
+    print(time.time() - start)
+    CA.draw_pyplot()
+
+    res = CA.enriched_genes_data(enrichment='low')
+    print(time.time() - start)
+    CA.draw_pyplot()
