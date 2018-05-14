@@ -298,6 +298,7 @@ class OWClusterAnalysis(widget.OWWidget):
     def _gene_selection_changed(self):
         if self.gene_selection != self._get_current_gene_selection():
             self._progress_gene_selection_history(self.gene_selection)
+            self.differential_expression_radio_group.setDisabled(self.gene_selection == 2)
             self._set_gene_selection()
 
     def _set_gene_selection(self):
@@ -312,7 +313,7 @@ class OWClusterAnalysis(widget.OWWidget):
             else:
                 if len(self.gene_list) > 50:
                     self.warning("Only first 50 reference genes shown.")
-                f = partial(self.ca.enriched_genes, self.gene_list[:50],
+                f = partial(self.ca.enriched_genes, tuple(self.gene_list[:50]),
                                                 self._diff_exprs[self.differential_expression])
             self._start_task_gene_selection(f)
         else:
