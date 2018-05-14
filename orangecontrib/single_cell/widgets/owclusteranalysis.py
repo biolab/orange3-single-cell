@@ -52,6 +52,7 @@ class OWClusterAnalysis(widget.OWWidget):
     _diff_exprs = ("high", "low", "either")
     n_genes_per_cluster = ContextSetting(3)
     n_most_enriched = ContextSetting(20)
+    biclustering = ContextSetting(True)
     auto_apply = Setting(True)
 
     want_main_area = True
@@ -127,6 +128,9 @@ class OWClusterAnalysis(widget.OWWidget):
                                                "Underexpressed in cluster", addToLayout=False), 2, 1)
         layout.addWidget(gui.appendRadioButton(self.differential_expression_radio_group,
                                                "Either", addToLayout=False), 3, 1)
+
+        box = gui.vBox(self.controlArea, "Sorting")
+        gui.checkBox(box, self, "biclustering", "Biclustering of analysis results", callback=self._set_gene_selection)
 
         gui.rubber(self.controlArea)
 
@@ -305,16 +309,14 @@ class OWClusterAnalysis(widget.OWWidget):
         self.Warning.clear()
         if self.ca is not None and (self._task is None or self._task.type != "init"):
             if self.gene_selection == 0:
-                f = partial(self.ca.enriched_genes_per_cluster, self.n_genes_per_cluster,
-                                                            self._diff_exprs[self.differential_expression])
+                f = partial(self.ca.enriched_genes_per_cluster, self.n_genes_per_cluster)
             elif self.gene_selection == 1:
-                f = partial(self.ca.enriched_genes_data, self.n_most_enriched,
-                                                     self._diff_exprs[self.differential_expression])
+                f = partial(self.ca.enriched_genes_data, self.n_most_enriched)
             else:
                 if len(self.gene_list) > 50:
                     self.warning("Only first 50 reference genes shown.")
-                f = partial(self.ca.enriched_genes, tuple(self.gene_list[:50]),
-                                                self._diff_exprs[self.differential_expression])
+                f = partial(self.ca.enriched_genes, tuple(self.gene_list[:50]))
+            f = partial(f, enrichment=self._diff_exprs[self.differential_expression], biclustering=self.biclustering)
             self._start_task_gene_selection(f)
         else:
             self._invalidate()
