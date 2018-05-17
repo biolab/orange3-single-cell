@@ -1,17 +1,11 @@
 import os
 import sys
-import csv
-from itertools import chain
+
 from typing import List
-from types import SimpleNamespace
 
 from serverfiles import sizeformat
 
-import scipy.io
-import scipy.sparse
 import numpy as np
-
-import pandas as pd
 
 from AnyQt.QtCore import Qt, QFileInfo
 from AnyQt.QtGui import QStandardItemModel, QStandardItem
@@ -23,51 +17,12 @@ from AnyQt.QtWidgets import (
 )
 from AnyQt.QtCore import pyqtSlot as Slot
 
-import Orange.data
-
-from Orange.data import ContinuousVariable, StringVariable
-
+from Orange.data import Table
 from Orange.widgets import widget, gui, settings
 from Orange.widgets.utils.filedialogs import RecentPath
 from Orange.widgets.utils.buttons import VariableTextPushButton
 
-
-class Options(SimpleNamespace):
-    format = None
-
-    header_rows_count = None
-    header_cols_count = None
-
-    transposed = None
-
-    sample_rows_p = None
-    sample_cols_p = None
-
-    # supplementary column/rows annotation files
-    row_annotation_file = None
-    column_annotation_file = None
-
-
-def infer_options(path):
-    dirname, basename = os.path.split(path)
-    basename_no_ext, ext = os.path.splitext(basename)
-
-    options = Options()
-    if ext == ".mtx":
-        genes_path = os.path.join(dirname, "genes.tsv")
-        if os.path.isfile(genes_path):
-            options.column_annotation_file = genes_path
-        barcodes_path = os.path.join(dirname, "barcodes.tsv")
-        if os.path.isfile(barcodes_path):
-            options.row_annotation_file = barcodes_path
-        options.transposed = True
-    elif ext == ".count":
-        meta_path = os.path.join(dirname, basename_no_ext + ".meta")
-        if os.path.isfile(meta_path):
-            options.row_annotation_file = meta_path
-        options.transposed = True
-
-    return options
+from orangecontrib.single_cell.widgets.load_data import get_data_loader, Loader
 
 
 Formats = [
@@ -84,18 +39,6 @@ AnnotationFormats = [
     "Comma separated file (*.csv)",
     "Any tab separated file (*.*)",
 ]
-
-
-def separator_from_filename(path):
-    path, ext = os.path.splitext(path)
-    if ext == ".csv":
-        return ","
-    elif ext == ".tsv":
-        return "\t"
-    elif ext == ".count" or ext == ".meta":
-        return "\t"
-    else:  # assume tab separated
-        return "\t"
 
 
 def RecentPath_asqstandarditem(pathitem):
@@ -158,7 +101,7 @@ class OWLoadData(widget.OWWidget):
     icon = "icons/LoadData.svg"
 
     class Outputs:
-        data = widget.Output("Data", Orange.data.Table)
+        data = widget.Output("Data", Table)
 
     class Information(widget.OWWidget.Information):
         modified = widget.Msg(
@@ -176,6 +119,10 @@ class OWLoadData(widget.OWWidget):
         col_annotation_mismatch = widget.Msg(
             "Column annotation length mismatch\n"
             "Expected {} rows got {}"
+        )
+        inadequate_headers = widget.Msg(
+            "Not enough headers or row labels\n"
+            "Got {} header row(s) and {} row label(s)"
         )
 
     _recent = settings.Setting([])  # type: List[str]
@@ -201,6 +148,7 @@ class OWLoadData(widget.OWWidget):
     def __init__(self):
         super().__init__()
         self._current_path = ""
+        self._data_loader = Loader()
         icon_open_dir = self.style().standardIcon(QStyle.SP_DirOpenIcon)
 
         # Top grid with file selection combo box
@@ -477,101 +425,52 @@ class OWLoadData(widget.OWWidget):
         else:
             item = RecentPath_asqstandarditem(pathitem)
 
-        opts = infer_options(path)
+        self._data_loader = loader = get_data_loader(path)
 
-        if path.endswith(".count"):
-            self.set_header_rows_count(1)
-            self.set_header_cols_count(1)
-            fixed_format = False
-        elif path.endswith(".mtx"):
-            self.set_header_rows_count(0)
-            self.set_header_cols_count(0)
-            fixed_format = False
-            self._cells_in_rows = False
-        else:
-            fixed_format = True
+        if loader.header_rows_count is not None:
+            self.set_header_rows_count(loader.header_rows_count)
+        if loader.header_cols_count is not None:
+            self.set_header_cols_count(loader.header_cols_count)
+        if loader.transposed is not None:
+            self._cells_in_rows = not loader.transposed
 
-        if opts.transposed is not None:
-            self._cells_in_rows = not opts.transposed
-
-        self.data_struct_box.setEnabled(fixed_format)
-        self.header_rows_spin.setEnabled(fixed_format)
-        self.header_cols_spin.setEnabled(fixed_format)
+        self.data_struct_box.setEnabled(loader.fixed_format)
+        self.header_rows_spin.setEnabled(loader.fixed_format)
+        self.header_cols_spin.setEnabled(loader.fixed_format)
 
         model.insertRow(0, item)
         self._current_path = path
         self.recent_combo.setCurrentIndex(0)
         self._update_summary()
 
-        if opts.row_annotation_file is not None:
+        if loader.row_annotation_file is not None:
             index = insert_recent_path(
                 self.row_annotations_combo.model(),
-                RecentPath.create(opts.row_annotation_file, [])
+                RecentPath.create(loader.row_annotation_file, [])
             )
             self.row_annotations_combo.setCurrentIndex(index)
             self.set_row_annotations_enabled(True)
         else:
             self.row_annotations_combo.setCurrentIndex(-1)
 
-        if opts.column_annotation_file is not None:
+        if loader.col_annotation_file is not None:
             index = insert_recent_path(
                 self.col_annotations_combo.model(),
-                RecentPath.create(opts.column_annotation_file, [])
+                RecentPath.create(loader.col_annotation_file, [])
             )
             self.col_annotations_combo.setCurrentIndex(index)
             self.set_col_annotations_enabled(True)
         else:
             self.col_annotations_combo.setCurrentIndex(-1)
 
-        if path.endswith(".mtx") \
-                and opts.row_annotation_file is not None \
-                and opts.column_annotation_file is not None \
-                and os.path.basename(opts.row_annotation_file) == "barcodes.tsv" \
-                and os.path.basename(opts.column_annotation_file) == "genes.tsv":
-            # 10x gene-barcode matrix
-            # TODO: The genes/barcodes files should be unconditionally loaded
-            # alongside the mtx. The row/col annotations might be used to
-            # specify additional sources. For the time being they are put in
-            # the corresponding comboboxes and made uneditable.
-            self.annotation_files_box.setEnabled(False)
-        else:
-            self.annotation_files_box.setEnabled(True)
+        self.annotation_files_box.setEnabled(loader.enable_annotations)
 
         self._invalidate()
 
     def _update_summary(self):
-        path = self._current_path
-
-        size = None
-        ncols = None
-        nrows = None
-
-        try:
-            st = os.stat(path)
-        except OSError:
-            pass
-        else:
-            size = st.st_size
-
-        if os.path.splitext(path)[1] == ".mtx":
-            try:
-                with open(path, "rb") as f:
-                    nrows, ncols = scipy.io.mminfo(f)[:2]
-            except OSError:
-                pass
-            except ValueError:
-                pass
-        else:
-            try:
-                with open(path, "rt", encoding="latin-1") as f:
-                    sep = separator_from_filename(path)
-                    ncols = len(next(csv.reader(f, delimiter=sep)))
-                    nrows = sum(1 for _ in f)
-            except OSError:
-                pass
-            except StopIteration:
-                pass
-
+        size = self._data_loader.file_size
+        ncols = self._data_loader.n_cols
+        nrows = self._data_loader.n_rows
         text = []
         if size is not None:
             text += [sizeformat(size)]
@@ -605,7 +504,6 @@ class OWLoadData(widget.OWWidget):
         if filters:
             dlg.selectNameFilter(filters[0])
         if dlg.exec_() == QFileDialog.Accepted:
-            f = dlg.selectedNameFilter()
             filename = dlg.selectedFiles()[0]
             self.set_current_path(filename)
 
@@ -621,7 +519,6 @@ class OWLoadData(widget.OWWidget):
         if filters:
             dlg.selectNameFilter(filters[0])
         if dlg.exec_() == QFileDialog.Accepted:
-            f = dlg.selectedNameFilter()
             filename = dlg.selectedFiles()[0]
             m = self.row_annotations_combo.model()  # type: QStandardItemModel
             pathitem = RecentPath.create(filename, [])
@@ -641,7 +538,6 @@ class OWLoadData(widget.OWWidget):
         if filters:
             dlg.selectNameFilter(filters[0])
         if dlg.exec_() == QFileDialog.Accepted:
-            f = dlg.selectedNameFilter()
             filename = dlg.selectedFiles()[0]
             m = self.col_annotations_combo.model()  # type: QStandardItemModel
             pathitem = RecentPath.create(filename, [])
@@ -665,48 +561,43 @@ class OWLoadData(widget.OWWidget):
         self.load_data_button.setDefault(modified)
         self.Information.modified(shown=modified)
 
-    def commit(self):
-        path = self._current_path
-        if not path:
-            return
-
-        transpose = not self._cells_in_rows
+    def __row_annot(self):
         row_annot = self.row_annotations_combo.currentData(Qt.UserRole)
-        col_annot = self.col_annotations_combo.currentData(Qt.UserRole)
-
         if self._row_annotations_enabled and \
                 isinstance(row_annot, RecentPath) and \
                 os.path.exists(row_annot.abspath):
-            row_annot = row_annot.abspath  # type: str
+            return row_annot.abspath  # type: str
         else:
-            row_annot = None
+            return None
 
+    def __col_annot(self):
+        col_annot = self.col_annotations_combo.currentData(Qt.UserRole)
         if self._col_annotations_enabled and \
                 isinstance(col_annot, RecentPath) and \
                 os.path.exists(col_annot.abspath):
-            col_annot = col_annot.abspath  # type: str
+            return col_annot.abspath  # type: str
         else:
-            col_annot = None
+            return None
 
-        meta_parts = []  # type: List[pd.DataFrame]
-        attrs = []  # type: List[ContinuousVariable]
-        metas = []  # type: List[StringVariable]
-
-        rstate = np.random.RandomState(0x667)
-
-        skip_row = skip_col = None
-        if self._sample_cols_enabled:
-            p = self._sample_cols_p
-            if p < 100:
-                def skip_col(i, p=p):
-                    return i > 3 and rstate.uniform(0, 100) > p
-
+    def __skip_row(self, rstate):
+        skip_row = None
         if self._sample_rows_enabled:
             p = self._sample_rows_p
             if p < 100:
                 def skip_row(i, p=p):
                     return i > 3 and rstate.uniform(0, 100) > p
+        return skip_row
 
+    def __skip_col(self, rstate):
+        skip_col = None
+        if self._sample_cols_enabled:
+            p = self._sample_cols_p
+            if p < 100:
+                def skip_col(i, p=p):
+                    return i > 3 and rstate.uniform(0, 100) > p
+        return skip_col
+
+    def __header_rows(self):
         header_rows = self._header_rows_count
         header_rows_indices = []
         if header_rows == 0:
@@ -717,7 +608,9 @@ class OWLoadData(widget.OWWidget):
         else:
             header_rows = list(range(header_rows))
             header_rows_indices = header_rows
+        return header_rows, header_rows_indices
 
+    def __header_cols(self):
         header_cols = self._header_cols_count
         header_cols_indices = []
         if header_cols == 0:
@@ -728,190 +621,46 @@ class OWLoadData(widget.OWWidget):
         else:
             header_cols = list(range(header_cols))
             header_cols_indices = header_cols
+        return header_cols, header_cols_indices
 
-        if transpose:
-            _skip_row, _skip_col = skip_col, skip_row
+    def commit(self):
+        path = self._current_path
+        if not path:
+            return
+
+        row_annot = self.__row_annot()
+        col_annot = self.__col_annot()
+
+        header_rows, header_rows_indices = self.__header_rows()
+        header_cols, header_cols_indices = self.__header_cols()
+
+        rst = np.random.RandomState(0x667)
+        if not self._cells_in_rows:
+            skip_row, skip_col = self.__skip_col(rst), self.__skip_row(rst)
         else:
-            _skip_col, _skip_row = skip_col, skip_row
+            skip_col, skip_row = self.__skip_col(rst), self.__skip_row(rst)
 
-        _userows = _usecols = None
-        userows_mask = usecols_mask = None
+        self._data_loader.leading_rows = len(header_rows_indices)
+        self._data_loader.leading_cols = len(header_cols_indices)
+        self._data_loader.transposed = not self._cells_in_rows
 
-        if _skip_col is not None:
-            ncols = pd.read_csv(
-                path, sep=separator_from_filename(path), index_col=None,
-                nrows=1).shape[1]
-            usecols_mask = np.array([
-                not _skip_col(i) or i in header_cols_indices
-                for i in range(ncols)
-                ], dtype=bool)
-            _usecols = np.flatnonzero(usecols_mask)
-
-        if _skip_row is not None:
-            userows_mask = []  # record the used rows
-            def _skip_row(i, test=_skip_row):
-                r = test(i)
-                userows_mask.append(r)
-                return r
-
-        meta_df_index = None
-        row_annot_header = 0
-        row_annot_columns = None
-        col_annot_header = 0
-        col_annot_columns = None
-
-        if os.path.splitext(path)[1] == ".mtx":
-            # 10x cellranger output
-            X = scipy.io.mmread(path)
-            assert isinstance(X, scipy.sparse.coo_matrix)
-            if transpose:
-                X = X.T
-            if _skip_row is not None:
-                userows_mask = np.array(
-                    [not _skip_row(i) for i in range(X.shape[0])]
-                )
-                X = X.tocsr()[np.flatnonzero(userows_mask)]
-            if _skip_col is not None:
-                usecols_mask = np.array(
-                    [not _skip_col(i) for i in range(X.shape[1])]
-                )
-                X = X.tocsc()[:, np.flatnonzero(usecols_mask)]
-            X = X.todense(order="F")
-            if userows_mask is not None:
-                meta_df = pd.DataFrame({}, index=np.flatnonzero(userows_mask))
-            else:
-                meta_df = pd.DataFrame({}, index=pd.RangeIndex(X.shape[0]))
-
-            meta_df_index = meta_df.index
-
-            row_annot_header = None
-            row_annot_columns = ["Barcodes"]
-            col_annot_header = None
-            col_annot_columns = ["Id", "Gene"]
-            leading_cols = leading_rows = 0
-        else:
-            df = pd.read_csv(
-                path, sep=separator_from_filename(path),
-                index_col=header_cols, header=header_rows,
-                skiprows=_skip_row, usecols=_usecols
-            )
-
-            if _skip_row is not None:
-                userows_mask = np.array(userows_mask, dtype=bool)
-
-            if transpose:
-                df = df.transpose()
-                userows_mask, usecols_mask = usecols_mask, userows_mask
-                leading_rows = len(header_cols_indices)
-                leading_cols = len(header_rows_indices)
-            else:
-                leading_rows = len(header_rows_indices)
-                leading_cols = len(header_cols_indices)
-
-            X = df.values
-            attrs = [ContinuousVariable.make(str(g)) for g in df.columns]
-
-            meta_df = df.iloc[:, :0]  # Take the index # type: pd.DataFrame
-            meta_df_index = df.index
-            meta_parts = (meta_df, )
+        data = self._data_loader(
+            skip_row, skip_col, row_annot, col_annot,
+            header_rows, header_cols, header_cols_indices
+        )
 
         self.Error.row_annotation_mismatch.clear()
         self.Error.col_annotation_mismatch.clear()
+        self.Error.inadequate_headers.clear()
+        errors = self._data_loader.errors
+        if len(errors["row_annot_mismatch"]):
+            self.Error.row_annotation_mismatch(*errors["row_annot_mismatch"])
+        if len(errors["col_annot_mismatch"]):
+            self.Error.col_annotation_mismatch(*errors["col_annot_mismatch"])
+        if len(errors["inadequate_headers"]):
+            self.Error.inadequate_headers(*errors["inadequate_headers"])
 
-        if row_annot is not None:
-            row_annot_df = pd.read_csv(
-                row_annot, sep=separator_from_filename(row_annot),
-                header=row_annot_header, names=row_annot_columns,
-                index_col=None
-            )
-            if userows_mask is not None:
-                # NOTE: we account for column header/ row index
-                expected = len(userows_mask) - leading_rows
-            else:
-                expected = X.shape[0]
-            if len(row_annot_df) != expected:
-                self.Error.row_annotation_mismatch(expected, len(row_annot_df))
-                row_annot_df = None
-
-            if row_annot_df is not None and userows_mask is not None:
-                # use the same sample indices
-                indices = np.flatnonzero(userows_mask[leading_rows:])
-                row_annot_df = row_annot_df.iloc[indices]
-                # if path.endswith(".count") and row_annot.endswith('.meta'):
-                #     assert np.all(row_annot_df.iloc[:, 0] == df.index)
-
-            if row_annot_df is not None and meta_df_index is not None:
-                # Try to match the leading columns with the meta_df_index.
-                # If found then drop the columns (or index if the level does
-                # not have a name but the annotation col does)
-                drop_cols = []
-                drop_index_level = []
-                for i in range(meta_df_index.nlevels):
-                    meta_df_level = meta_df_index.get_level_values(i)
-                    if np.all(row_annot_df.iloc[:, i] == meta_df_level):
-                        if meta_df_level.name is None:
-                            drop_index_level.append(i)
-                        elif meta_df_level.name == row_annot_df.columns[i].name:
-                            drop_cols.append(i)
-
-                if drop_cols:
-                    row_annot_df = row_annot_df.drop(columns=drop_cols)
-
-                if drop_index_level:
-                    for i in reversed(drop_index_level):
-                        if isinstance(meta_df.index, pd.MultiIndex):
-                            meta_df_index = meta_df_index.droplevel(i)
-                        else:
-                            assert i == 0
-                            meta_df_index = pd.RangeIndex(meta_df_index.size)
-                    meta_df = pd.DataFrame({}, index=meta_df_index)
-
-            if row_annot_df is not None:
-                meta_parts = (meta_df, row_annot_df)
-
-        if col_annot is not None:
-            col_annot_df = pd.read_csv(
-                col_annot, sep=separator_from_filename(col_annot),
-                header=col_annot_header, names=col_annot_columns,
-                index_col=None
-            )
-            if usecols_mask is not None:
-                expected = len(usecols_mask) - leading_cols
-            else:
-                expected = X.shape[1]
-            if len(col_annot_df) != expected:
-                self.Error.col_annotation_mismatch(expected, len(col_annot_df))
-                col_annot_df = None
-            if col_annot_df is not None and usecols_mask is not None:
-                indices = np.flatnonzero(usecols_mask[leading_cols:])
-                col_annot_df = col_annot_df.iloc[indices]
-
-            if col_annot_df is not None:
-                assert len(col_annot_df) == X.shape[1]
-                if not attrs and X.shape[1]:  # No column names yet
-                    attrs = [ContinuousVariable.make(str(v))
-                             for v in col_annot_df.iloc[:, 0]]
-                names = [str(c) for c in col_annot_df.columns]
-                for var, values in zip(attrs, col_annot_df.values):
-                    var.attributes.update({n: v for n, v in zip(names, values)})
-
-        if meta_parts:
-            meta_parts = [df_.reset_index() if not df_.index.is_integer()
-                          else df_ for df_ in meta_parts]
-            metas = [StringVariable.make(name)
-                     for name in chain(*(_.columns for _ in meta_parts))]
-            M = np.hstack(tuple(df_.values for df_ in meta_parts))
-        else:
-            metas = None
-            M = None
-
-        if not attrs and X.shape[1]:
-            attrs = Orange.data.Domain.from_numpy(X).attributes
-
-        domain = Orange.data.Domain(attrs, metas=metas)
-        d = Orange.data.Table.from_numpy(domain, X, None, M)
-        self.Outputs.data.send(d)
-
+        self.Outputs.data.send(data)
         self.set_modified(False)
 
     def onDeleteWidget(self):
@@ -929,8 +678,10 @@ class OWLoadData(widget.OWWidget):
                     if isinstance(el, RecentPath)][:maxitems]
 
         self._recent = recent_paths(self.recent_model)
-        self._recent_row_annotations = recent_paths(self.row_annotations_combo.model())
-        self._recent_col_annotations = recent_paths(self.col_annotations_combo.model())
+        self._recent_row_annotations = recent_paths(
+            self.row_annotations_combo.model())
+        self._recent_col_annotations = recent_paths(
+            self.col_annotations_combo.model())
         self._last_path = self._current_path
 
     def saveSettings(self):

@@ -1,0 +1,384 @@
+import os
+import csv
+from itertools import chain
+from typing import Dict, Tuple
+
+import numpy as np
+import pandas as pd
+import scipy.io
+
+from Orange.data import ContinuousVariable, Domain, Table, StringVariable
+
+
+def separator_from_filename(file_name):
+    """Get separator from file extension
+
+    :param file_name: str
+    :return: str
+    """
+    return "," if os.path.splitext(file_name)[1] == ".csv" else "\t"
+
+
+def get_data_loader(file_name):
+    """Get instance of data loader according to file extension
+
+    :param file_name: str
+    :return: Loader
+    """
+    _, ext = os.path.splitext(file_name)
+    if ext == ".mtx":
+        return MtxLoader(file_name)
+    elif ext == ".count":
+        return CountLoader(file_name)
+    elif ext == ".csv":
+        return CsvLoader(file_name)
+    else:
+        return Loader(file_name)
+
+
+class Loader:
+    """Class loads sample file (and it's supplementary annotation
+    files, if present) and creates Orange.data.Table out of its data
+    """
+    separator = "\t"
+
+    def __init__(self, file_name=""):
+        # file parameters
+        self._file_name = file_name
+        self.file_size = None
+        self.n_rows = None
+        self.n_cols = None
+        self._set_file_size()
+        self._set_n_rows_n_cols()
+
+        # reading parameters
+        self._leading_cols = 0
+        self._leading_rows = 0
+        self._use_rows_mask = None
+        self._use_cols_mask = None
+        self._row_annot_header = 0
+        self._row_annot_columns = None
+        self._col_annot_header = 0
+        self._col_annot_columns = None
+
+        # GUI parameters
+        self.header_rows_count = None
+        self.header_cols_count = None
+        self.fixed_format = True
+        self.transposed = None
+        self.enable_annotations = True
+
+        # supplementary column/rows annotation files
+        self.row_annotation_file = None
+        self.col_annotation_file = None
+
+        # errors
+        self.errors = {}  # type: Dict[str, Tuple]
+        self.__reset_error_messages()
+
+    @property
+    def leading_rows(self):
+        return self._leading_rows
+
+    @leading_rows.setter
+    def leading_rows(self, value):
+        self._leading_rows = value
+
+    @property
+    def leading_cols(self):
+        return self._leading_cols
+
+    @leading_cols.setter
+    def leading_cols(self, value):
+        self._leading_cols = value
+
+    def _set_file_size(self):
+        try:
+            st = os.stat(self._file_name)
+        except OSError:
+            pass
+        else:
+            self.file_size = st.st_size
+
+    def _set_n_rows_n_cols(self):
+        try:
+            with open(self._file_name, "rt", encoding="latin-1") as f:
+                line = next(csv.reader(f, delimiter=self.separator))
+                self.n_cols = len(line)
+                self.n_rows = sum(1 for _ in f)
+        except (OSError, StopIteration):
+            pass
+
+    def _load_data(self, skip_row=None, header_rows=None, header_cols=None,
+                   use_cols=None, **kwargs):
+        df = pd.read_csv(
+            self._file_name, sep=self.separator, index_col=header_cols,
+            header=header_rows, skiprows=skip_row, usecols=use_cols
+        )
+        if skip_row is not None:
+            self._use_rows_mask = np.array(self._use_rows_mask, dtype=bool)
+        if self.transposed:
+            df = df.transpose()
+            self._use_rows_mask, self._use_cols_mask = \
+                self._use_cols_mask, self._use_rows_mask
+            self.leading_rows, self.leading_cols = \
+                self.leading_cols, self.leading_rows
+
+        attrs = [ContinuousVariable.make(str(g)) for g in df.columns]
+
+        return attrs, df.values, df.iloc[:, :0], df.index
+
+    def __call__(self, skip_row, skip_col, row_annot, col_annot,
+                 header_rows, header_cols, header_cols_indices):
+
+        self.__reset_error_messages()
+
+        usecols, skip_col, skip_row = self.__init_reading_parameters(
+            skip_col, skip_row, header_cols_indices)
+
+        attrs, X, meta_df, meta_df_index = self._load_data(
+            skip_row=skip_row, skip_col=skip_col,
+            header_rows=header_rows, header_cols=header_cols,
+            use_cols=usecols, transpose=self.transposed
+        )
+
+        meta_parts = (meta_df,)
+        if row_annot is not None:
+            meta_df, row_annot_df = self.__update_metas(
+                row_annot, meta_df, meta_df_index, X)
+            if row_annot_df is not None:
+                meta_parts = (meta_df, row_annot_df)
+
+        if col_annot is not None:
+            attrs = self.__update_attributes(col_annot, attrs, X)
+
+        return self.__into_orange_table(attrs, X, meta_parts)
+
+    def __init_reading_parameters(self, skip_col, skip_row, header_cols):
+        usecols = None
+
+        if skip_col is not None:
+            ncols = pd.read_csv(
+                self._file_name, sep=self.separator, index_col=None,
+                nrows=1).shape[1]
+            self._use_cols_mask = np.array([
+                not skip_col(i) or i in header_cols
+                for i in range(ncols)
+            ], dtype=bool)
+            usecols = np.flatnonzero(self._use_cols_mask)
+
+        if skip_row is not None:
+            self._use_rows_mask = []  # record the used rows
+
+            def skip_row(i, test=skip_row):
+                r = test(i)
+                self._use_rows_mask.append(r)
+                return r
+        return usecols, skip_col, skip_row
+
+    def __update_metas(self, row_annot, meta_df, meta_df_index, X):
+        row_annot_df = pd.read_csv(
+            row_annot, sep=separator_from_filename(row_annot),
+            header=self._row_annot_header, names=self._row_annot_columns
+        )
+        if self._use_rows_mask is not None:
+            # NOTE: we account for column header/ row index
+            expected = len(self._use_rows_mask) - self.leading_rows
+        else:
+            expected = X.shape[0]
+        if len(row_annot_df) != expected:
+            self.errors["row_annot_mismatch"] = (expected, len(row_annot_df))
+            row_annot_df = None
+
+        if row_annot_df is not None and self._use_rows_mask is not None:
+            # use the same sample indices
+            indices = np.flatnonzero(self._use_rows_mask[self.leading_rows:])
+            row_annot_df = row_annot_df.iloc[indices]
+            # if path.endswith(".count") and row_annot.endswith('.meta'):
+            #     assert np.all(row_annot_df.iloc[:, 0] == df.index)
+
+        if row_annot_df is not None and meta_df_index is not None:
+            # Try to match the leading columns with the meta_df_index.
+            # If found then drop the columns (or index if the level does
+            # not have a name but the annotation col does)
+            drop_cols = []
+            drop_index_level = []
+            for i in range(meta_df_index.nlevels):
+                meta_df_level = meta_df_index.get_level_values(i)
+                if np.all(row_annot_df.iloc[:, i] == meta_df_level):
+                    if meta_df_level.name is None:
+                        drop_index_level.append(i)
+                    elif meta_df_level.name == row_annot_df.columns[i].name:
+                        drop_cols.append(i)
+
+            if drop_cols:
+                row_annot_df = row_annot_df.drop(columns=drop_cols)
+
+            if drop_index_level:
+                for i in reversed(drop_index_level):
+                    if isinstance(meta_df.index, pd.MultiIndex):
+                        meta_df_index = meta_df_index.droplevel(i)
+                    else:
+                        assert i == 0
+                        meta_df_index = pd.RangeIndex(meta_df_index.size)
+                meta_df = pd.DataFrame({}, index=meta_df_index)
+        return meta_df, row_annot_df
+
+    def __update_attributes(self, col_annot, attrs, X):
+        col_annot_df = pd.read_csv(
+            col_annot, sep=separator_from_filename(col_annot),
+            header=self._col_annot_header, names=self._col_annot_columns
+        )
+        if self._use_cols_mask is not None:
+            expected = len(self._use_cols_mask) - self.leading_cols
+        else:
+            expected = X.shape[1]
+        if len(col_annot_df) != expected:
+            self.errors["col_annot_mismatch"] = (expected, len(col_annot_df))
+            col_annot_df = None
+        if col_annot_df is not None and self._use_cols_mask is not None:
+            indices = np.flatnonzero(self._use_cols_mask[self.leading_cols:])
+            col_annot_df = col_annot_df.iloc[indices]
+
+        if col_annot_df is not None:
+            assert len(col_annot_df) == X.shape[1]
+            if not attrs and X.shape[1]:  # No column names yet
+                attrs = [ContinuousVariable.make(str(v))
+                         for v in col_annot_df.iloc[:, 0]]
+            names = [str(c) for c in col_annot_df.columns]
+            for var, values in zip(attrs, col_annot_df.values):
+                var.attributes.update(
+                    {n: v for n, v in zip(names, values)})
+        return attrs
+
+    def __into_orange_table(self, attrs, X, meta_parts):
+        if not attrs and X.shape[1]:
+            attrs = Domain.from_numpy(X).attributes
+
+        metas = None
+        M = None
+        if meta_parts:
+            meta_parts = [df_.reset_index() if not df_.index.is_integer()
+                          else df_ for df_ in meta_parts]
+            metas = [StringVariable.make(name)
+                     for name in chain(*(_.columns for _ in meta_parts))]
+            M = np.hstack(tuple(df_.values for df_ in meta_parts))
+
+        domain = Domain(attrs, metas=metas)
+        try:
+            table = Table.from_numpy(domain, X, None, M)
+        except ValueError:
+            table = None
+            rows = self.leading_cols if self.transposed else self.leading_rows
+            cols = self.leading_rows if self.transposed else self.leading_cols
+            self.errors["inadequate_headers"] = (rows, cols)
+        return table
+
+    def __reset_error_messages(self):
+        self.errors = {"row_annot_mismatch": (),
+                       "col_annot_mismatch": (),
+                       "inadequate_headers": ()}
+
+
+class MtxLoader(Loader):
+    def __init__(self, file_name):
+        super().__init__(file_name)
+        self.header_rows_count = 0
+        self.header_cols_count = 0
+        self.fixed_format = False
+        self.transposed = True
+        self._row_annot_header = None
+        self._row_annot_columns = ["Barcodes"]
+        self._col_annot_header = None
+        self._col_annot_columns = ["Id", "Gene"]
+        self._set_annotation_files()
+        self._set_enable_annotations()
+
+    @property
+    def leading_rows(self):
+        return self._leading_rows
+
+    @leading_rows.setter
+    def leading_rows(self, value):
+        self._leading_rows = 0
+
+    @property
+    def leading_cols(self):
+        return self._leading_cols
+
+    @leading_cols.setter
+    def leading_cols(self, value):
+        self._leading_cols = 0
+
+    def _set_annotation_files(self):
+        dir_name, _ = os.path.split(self._file_name)
+        genes_path = os.path.join(dir_name, "genes.tsv")
+        if os.path.isfile(genes_path):
+            self.col_annotation_file = genes_path
+        barcodes_path = os.path.join(dir_name, "barcodes.tsv")
+        if os.path.isfile(barcodes_path):
+            self.row_annotation_file = barcodes_path
+
+    def _set_enable_annotations(self):
+        # 10x gene-barcode matrix
+        # TODO: The genes/barcodes files should be unconditionally loaded
+        # alongside the mtx. The row/col annotations might be used to
+        # specify additional sources. For the time being they are put in
+        # the corresponding comboboxes and made uneditable.
+        if self.row_annotation_file is not None \
+                and self.col_annotation_file is not None \
+                and os.path.basename(self.col_annotation_file) == "genes.tsv" \
+                and os.path.basename(self.row_annotation_file) == "barcodes.tsv":
+            self.enable_annotations = False
+
+    def _set_n_rows_n_cols(self):
+        try:
+            with open(self._file_name, "rb") as f:
+                self.n_rows, self.n_cols = scipy.io.mminfo(f)[:2]
+        except OSError:
+            pass
+        except ValueError:
+            pass
+
+    def _load_data(self, skip_row=None, skip_col=None, **kwargs):
+        X = scipy.io.mmread(self._file_name)
+        if self.transposed:
+            X = X.T
+        if skip_row is not None:
+            self._use_rows_mask = np.array(
+                [not skip_row(i) for i in range(X.shape[0])]
+            )
+            X = X.tocsr()[np.flatnonzero(self._use_rows_mask)]
+        if skip_col is not None:
+            self._use_cols_mask = np.array(
+                [not skip_col(i) for i in range(X.shape[1])]
+            )
+            X = X.tocsc()[:, np.flatnonzero(self._use_cols_mask)]
+        X = X.todense(order="F")
+        if self._use_rows_mask is not None:
+            meta_df = pd.DataFrame(
+                {}, index=np.flatnonzero(self._use_rows_mask))
+        else:
+            meta_df = pd.DataFrame({}, index=pd.RangeIndex(X.shape[0]))
+        return [], X, meta_df, meta_df.index
+
+
+class CountLoader(Loader):
+    def __init__(self, file_name):
+        super().__init__(file_name)
+        self.header_rows_count = 1
+        self.header_cols_count = 1
+        self.fixed_format = False
+        self.transposed = True
+        self._set_annotation_files()
+
+    def _set_annotation_files(self):
+        dir_name, basename = os.path.split(self._file_name)
+        basename_no_ext, _ = os.path.splitext(basename)
+        meta_path = os.path.join(dir_name, basename_no_ext + ".meta")
+        if os.path.isfile(meta_path):
+            self.row_annotation_file = meta_path
+
+
+class CsvLoader(Loader):
+    separator = ","
