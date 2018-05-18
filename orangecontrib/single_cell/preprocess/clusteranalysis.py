@@ -2,6 +2,8 @@ import Orange
 import numpy as np
 import time
 from functools import lru_cache
+
+from orangecontrib.bioinformatics.ncbi.gene import NCBI_ID
 from scipy.stats import hypergeom
 from sklearn.cluster.bicluster import SpectralBiclustering
 from Orange.data import Domain, DiscreteVariable, ContinuousVariable, Table
@@ -102,6 +104,22 @@ class ClusterAnalysis:
         self.enriched_matrix_low = low
         self.enriched_matrix_high = high
 
+    def intersection(self, gene_list):
+        """
+        Get intersection of genes in the dataset and in the iterable.
+
+        Parameters
+        ----------
+        gene_list : iterable
+            Genes to find in the dataset.
+
+        Returns
+        -------
+        list
+            List of genes in the intersection.
+        """
+        gene_set = set(gene_list)
+        return [gene.attributes[NCBI_ID] for gene in self.columns if gene.attributes[NCBI_ID] in gene_set]
 
     @lru_cache(maxsize=3)
     def enriched_genes(self, gene_list, enrichment=None, biclustering=True, callback=None):
@@ -110,24 +128,15 @@ class ClusterAnalysis:
 
         Parameters
         ----------
-        gene_list : tuple of strings, names of genes
+        gene_list : tuple of ints, gene ids
         enrichment : ignored, used for consistency in function call
         biclustering : boolean, return biclustering model
         """
         # fix enrichment at 'either', to calculate the shortest tail p-value
         enrichment = 'either'
         self.enriched_matrix = np.hstack((self.enriched_matrix_low, self.enriched_matrix_high))
-        enumerated_attributes = enumerate([gene.name for gene in self.columns])
-        res = [attribute[0] for attribute in enumerated_attributes if attribute[1] in gene_list]
-        """
-        res = list()
-        for gene in gene_list:
-            for index, att_gene in enumerate(self.data.domain.attributes):
-                if gene == att_gene.name:
-                    res.append(index)
-        """
-
-        self.genes = res
+        enumerated_attributes = enumerate(gene.attributes[NCBI_ID] for gene in self.columns if NCBI_ID in gene.attributes)
+        self.genes = [attribute[0] for attribute in enumerated_attributes if attribute[1] in gene_list]
 
         return self._create_model(enrichment, biclustering, callback=callback)
 
