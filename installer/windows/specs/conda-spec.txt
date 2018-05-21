@@ -23,10 +23,8 @@ https://conda.anaconda.org/conda-forge/win-64/keyring-9.0-py36_0.tar.bz2#439855a
 https://conda.anaconda.org/conda-forge/win-64/keyrings.alt-3.0-py36_0.tar.bz2#7534de12a781a3ff72d7b6a22b982934
 https://conda.anaconda.org/conda-forge/win-64/libpng-1.6.34-vc14_0.tar.bz2#8c6bf0fd5e8953dc74efbfeaebef2bdd
 https://repo.continuum.io/pkgs/free/win-64/mkl-2017.0.3-0.tar.bz2#1e58b727d7823e41f43ff3a391b63d82
-https://repo.continuum.io/pkgs/free/win-64/numpy-1.12.1-py36_0.tar.bz2#e2da940d60fdb6346b5cc3a251c0078a
 https://conda.anaconda.org/conda-forge/win-64/openssl-1.0.2n-vc14_0.tar.bz2#7efd5d31ce4209d1d2874ff11f5a1482
 https://conda.anaconda.org/conda-forge/win-64/orange3-3.11.0-py36_0.tar.bz2#2421911dd1f76d180ca1af978c78535e
-https://conda.anaconda.org/conda-forge/win-64/orange3-bioinformatics-3.0.3-0.tar.bz2#fe2ca8b0453c0637a4a859fd567012cf
 https://conda.anaconda.org/conda-forge/win-64/pip-9.0.3-py36_0.tar.bz2#a51c02ac9b72989415658e1927f37836
 https://conda.anaconda.org/conda-forge/win-64/pycparser-2.18-py36_0.tar.bz2#0d0423de1fc55fc724c6c7846adfcb0c
 https://conda.anaconda.org/conda-forge/win-64/pyopenssl-17.5.0-py36_1.tar.bz2#5f6fb3e442caeb3e5c11a6dc2962333a
@@ -54,4 +52,12 @@ https://conda.anaconda.org/conda-forge/win-64/win_inet_pton-1.0.1-py36_1.tar.bz2
 https://conda.anaconda.org/conda-forge/win-64/wincertstore-0.2-py36_0.tar.bz2#6213bf1c1313aa0739db88f105a9ee32
 https://conda.anaconda.org/conda-forge/noarch/xlrd-1.1.0-py_2.tar.bz2#f278eedf55ae4d74fe9f84c3befe679b
 https://conda.anaconda.org/conda-forge/win-64/zlib-1.2.11-vc14_0.tar.bz2#6633fda3af7ef750def72e3ec5f5014d
+https://conda.anaconda.org/conda-forge/win-64/networkx-2.1-py36_0.tar.bz2#83086507dfe72426c7ebad32bcdfcf5d
+https://conda.anaconda.org/conda-forge/win-64/pandas-0.22.0-py36_1.tar.bz2#c42610d3d8fc5148d4105ac00a091cfa
+https://conda.anaconda.org/conda-forge/win-64/orange3-bioinformatics-3.0.9-0.tar.bz2#feebb525e735c8b1405f693eb0fc196e
+https://repo.continuum.io/pkgs/free/win-64/numpy-1.12.1-py36_0.tar.bz2#e2da940d60fdb6346b5cc3a251c0078a
+https://conda.anaconda.org/conda-forge/noarch/decorator-4.3.0-py_0.tar.bz2#f5b88145f8b9b15b515c68263d7d0ddf
+https://conda.anaconda.org/conda-forge/noarch/pytz-2018.4-py_0.tar.bz2#774bf544d1735f3cb0b2625e98328cde
+https://conda.anaconda.org/conda-forge/noarch/python-dateutil-2.7.2-py_0.tar.bz2#47a6855d6c2175976b9758942d66aaa3
 file:///Users/anze/miniconda3/conda-bld/noarch/orange3-single-cell-0.2.2-py_0.tar.bz2
+
