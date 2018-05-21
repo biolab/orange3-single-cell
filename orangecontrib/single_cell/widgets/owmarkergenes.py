@@ -18,9 +18,11 @@ from Orange.data.io import UrlReader
 from Orange.misc.environ import data_dir
 from Orange.widgets import widget, gui, settings
 from Orange.widgets.utils.itemmodels import TableModel
-from orangecontrib.bioinformatics.ncbi.gene import NCBI_ID
 
-from orangecontrib.bioinformatics.widgets.utils.data import GENE_AS_ATTRIBUTE_NAME, TAX_ID, GENE_ID_COLUMN
+
+from orangecontrib.bioinformatics.widgets.utils.data import (
+    GENE_AS_ATTRIBUTE_NAME, TAX_ID, GENE_ID_COLUMN
+)
 
 
 def local_cache_path(path):
@@ -46,6 +48,7 @@ class FilterProxyModel(QSortFilterProxyModel):
 
 
 class HeaderLabels(EnumMeta):
+    GENE = "Entrez ID"
     REFERENCE = "Reference"
     URL = "URL"
 
@@ -320,7 +323,8 @@ class OWMarkerGenes(widget.OWWidget):
         output.attributes[GENE_AS_ATTRIBUTE_NAME] = False
         # set taxonomy id in data.attributes
         output.attributes[TAX_ID] = self.map_group_to_taxid.get(self.selected_group, '')
-        output.attributes[GENE_ID_COLUMN] = NCBI_ID
+        # set columnd id flag
+        output.attributes[GENE_ID_COLUMN] = HeaderLabels.GENE
 
         self.Outputs.genes.send(output)
 

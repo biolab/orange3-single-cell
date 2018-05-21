@@ -11,7 +11,9 @@ from Orange.widgets.utils.signals import Output, Input
 from Orange.widgets.utils.sql import check_sql_input
 from Orange.widgets.widget import OWWidget, Msg
 
-from orangecontrib.bioinformatics.ncbi.gene import NCBI_ID
+from orangecontrib.bioinformatics.widgets.utils.data import (
+    GENE_ID_ATTRIBUTE, GENE_ID_COLUMN, GENE_AS_ATTRIBUTE_NAME, TAX_ID
+)
 
 
 class OWScoreCells(widget.OWWidget):
@@ -29,7 +31,8 @@ class OWScoreCells(widget.OWWidget):
     class Warning(OWWidget.Warning):
         no_genes = Msg("No matching genes in data")
         some_genes = Msg("{} (of {}) genes not found in data")
-        imperfect_match = Msg("Some input genes can't be matched")
+        no_gene_id_attribute = Msg('Unable to locate gene id attribute')
+        no_gene_id_column = Msg('Unable to locate gene id column')
 
     class Inputs:
         data = Input("Data", Table)
@@ -68,35 +71,56 @@ class OWScoreCells(widget.OWWidget):
         return QSize(320, 240)
 
     def handleNewSignals(self):
+        self.Outputs.data.send(None)
         self._invalidate()
 
     @Inputs.data
     @check_sql_input
     def set_data(self, data):
+        self.Warning.no_gene_id_attribute.clear()
         self.data = data
+
         if self.data:
+            id_attribute = self.data.attributes.get(GENE_ID_ATTRIBUTE, None)
+
+            if id_attribute is None:
+                self._invalidate()
+                self.Warning.no_gene_id_attribute()
+                return
 
             for variable in self.data.domain.attributes:
-                self.map_var_to_attribute[str(variable.name)] = str(variable.attributes.get(NCBI_ID, None))
+                self.map_var_to_attribute[str(variable.name)] = str(variable.attributes.get(id_attribute, None))
 
     @Inputs.genes
     @check_sql_input
     def set_genes(self, genes):
+        self.Warning.no_gene_id_column.clear()
         self.closeContext()
         self.genes = genes
         self.feature_model.set_domain(None)
         self.gene = None
+
         if self.genes:
+            id_column = self.genes.attributes.get(GENE_ID_COLUMN, None)
+
+            if id_column is None:
+                self._invalidate()
+                self.Warning.no_gene_id_column()
+                return
+
             self.feature_model.set_domain(self.genes.domain)
-            if self.feature_model:
-                self.gene = self.feature_model[0]
-                self.openContext(genes)
+            self.gene = self.genes.domain[id_column]
+
+            self.openContext(genes)
 
     def __score_cells(self):
         score = np.zeros(len(self.data))
         matched = dict([(key, value) for key, value in self.map_var_to_attribute.items()
-                        if key in self.marker_genes or value in self.marker_genes])
-        print(self.marker_genes)
+                        if value in self.marker_genes])
+
+        self.Warning.no_genes.clear()
+        self.Warning.some_genes.clear()
+
         if not matched:
             self.Warning.no_genes()
         else:
@@ -110,7 +134,6 @@ class OWScoreCells(widget.OWWidget):
         return score
 
     def commit(self):
-        self.clear_messages()
 
         if self.data is None:
             self.Outputs.data.send(None)
@@ -131,7 +154,6 @@ class OWScoreCells(widget.OWWidget):
             col[:] = score
 
             self.Outputs.data.send(table)
-
 
     def _invalidate(self):
         self.commit()
