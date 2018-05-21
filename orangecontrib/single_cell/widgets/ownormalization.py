@@ -43,8 +43,10 @@ class OWNormalization(widget.OWWidget):
     # Settings (basic preprocessor)
     normalize_cells = settings.Setting(True, schema_only=True)
     selected_attr_index = settings.Setting(0, schema_only=True)
-    log_check = settings.Setting(True, schema_only=True)
+    log_check = settings.Setting(False, schema_only=True)
     log_base = settings.Setting(2, schema_only=True)
+    bin_check = settings.Setting(False, schema_only=True)
+    bin_thresh = settings.Setting(0, schema_only=True)
 
     # Settings (batch preprocessor)
     batch_link_index = settings.Setting(0, schema_only=True)
@@ -86,6 +88,11 @@ class OWNormalization(widget.OWWidget):
         box1 = gui.widgetBox(self.controlArea, 'Further steps and parameters')
         gui.spin(box1, self, "log_base", 2.0, 10.0, label="Log(1 + x) transform, base: ",
                  checked="log_check", alignment=Qt.AlignRight,
+                 callback=self.on_changed,
+                 checkCallback=self.on_changed, controlWidth=60)
+
+        gui.spin(box1, self, "bin_thresh", 0, 1000.0, label="Binarization threshold (>): ",
+                 checked="bin_check", alignment=Qt.AlignRight,
                  callback=self.on_changed,
                  checkCallback=self.on_changed, controlWidth=60)
 
@@ -202,6 +209,7 @@ class OWNormalization(widget.OWWidget):
     def update_preprocessors(self):
         """ Update parameters of processors. """
         log_base = self.log_base if self.log_check else None
+        bin_thresh = self.bin_thresh if self.bin_check else None
         library_var = None
         selected_attr = self.attrs_model[self.selected_attr_index]
         batch_link = self.LINK_FUNCTIONS[self.batch_link_index]
@@ -213,7 +221,8 @@ class OWNormalization(widget.OWWidget):
 
         self.pp = SCNormalizer(equalize_var=library_var,
                                normalize_cells=self.normalize_cells,
-                               log_base=log_base)
+                               log_base=log_base,
+                               bin_thresh=bin_thresh)
 
         self.pp_batch = SCBatchNormalizer(link=batch_link,
                                           nonzero_only=batch_link == LINK_LOG,
