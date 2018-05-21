@@ -20,15 +20,18 @@ class SCNormalizer(Preprocess):
     def __init__(self,
                  equalize_var=None,
                  normalize_cells=True,
-                 log_base=2):
+                 log_base=2,
+                 bin_thresh=None):
         self.equalize_var = equalize_var
         self.normalize_cells = normalize_cells
         self.log_base = log_base
+        self.bin_thresh = bin_thresh
 
     def __call__(self, data):
         proj = ScNormalizeModel(self.equalize_var,
                                 self.normalize_cells,
-                                self.log_base)
+                                self.log_base,
+                                self.bin_thresh)
         Y = data.get_column_view(self.equalize_var)[0] if self.equalize_var is not None else None
         proj.fit(data.X, Y)
         attributes = [var.copy(compute_value=ScShared(proj, variable=var))
@@ -49,7 +52,7 @@ class ScNormalizeModel:
      A simple ad-hoc normalization to provide basic raw count pre-processing.
     """
 
-    def __init__(self, equalize_var=None, normalize_cells=True, log_base=2):
+    def __init__(self, equalize_var=None, normalize_cells=True, log_base=2, bin_thresh=None):
         """
         :param equalize_var: Equalization variable.
         :param normalize_cells: Normalize cell profiles.
@@ -58,6 +61,7 @@ class ScNormalizeModel:
         self.equalize_var = equalize_var
         self.normalize_cells = normalize_cells
         self.log_base = log_base
+        self.bin_thresh = bin_thresh
         self.target_row_mean = 1
         self.size_factors = {}
 
@@ -127,6 +131,15 @@ class ScNormalizeModel:
                 Xeq = Xeq.log1p() / np.log(self.log_base)
             else:
                 Xeq = np.log(1 + Xeq) / np.log(self.log_base)
+
+        # Binary transform;
+        # potential change to sparsity structure;
+        if self.bin_thresh is not None:
+            if sp.isspmatrix(Xeq):
+                Xeq.data = (Xeq.data > self.bin_thresh).astype(int)
+                Xeq.eliminate_zeros()
+            else:
+                Xeq = (Xeq > self.bin_thresh)
 
         # Preserve sparsity
         X_new = Xeq.tocsr() if sp.isspmatrix(Xeq) else Xeq

@@ -42,6 +42,13 @@ class ScNormalizeTest(unittest.TestCase):
         expected_X = np.log(1 + self.iris.X) / np.log(LOG_BASE)
         np.testing.assert_almost_equal(data.X, expected_X)
 
+    def test_normalize_bin(self):
+        BIN_THRESH = 3.0
+        pp = SCNormalizer(normalize_cells=False, log_base=None, bin_thresh=BIN_THRESH)
+        data = pp(self.iris)
+        expected_X = (self.iris.X > BIN_THRESH).astype(int)
+        np.testing.assert_almost_equal(data.X, expected_X)
+
     def test_normalize_works_as_preprocessor(self):
         pp = SCNormalizer(normalize_cells=False, log_base=2)
         data = pp(self.iris)
