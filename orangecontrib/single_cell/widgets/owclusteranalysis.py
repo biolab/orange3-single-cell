@@ -12,8 +12,7 @@ from Orange.widgets.utils.annotated_data import ANNOTATED_DATA_SIGNAL_NAME, crea
 from Orange.widgets.utils.concurrent import ThreadExecutor, FutureWatcher
 from Orange.widgets.utils.itemmodels import DomainModel
 from Orange.widgets.utils.sql import check_sql_input
-from orangecontrib.bioinformatics.ncbi.gene import NCBI_ID
-from orangecontrib.bioinformatics.widgets.utils.data import GENE_AS_ATTRIBUTE_NAME, GENE_ID_COLUMN
+from orangecontrib.bioinformatics.widgets.utils.data import GENE_AS_ATTRIBUTE_NAME, GENE_ID_COLUMN, GENE_ID_ATTRIBUTE
 
 from orangecontrib.single_cell.preprocess.clusteranalysis import ClusterAnalysis
 from orangecontrib.single_cell.widgets.contingency_table import ContingencyTable
@@ -90,6 +89,7 @@ class OWClusterAnalysis(widget.OWWidget):
             def f():
                 if self.gene_selection == id:
                     return self._set_gene_selection()
+
             return f
 
         layout.addWidget(gui.appendRadioButton(self.gene_selection_radio_group, "", addToLayout=False), 1, 1)
@@ -158,7 +158,7 @@ class OWClusterAnalysis(widget.OWWidget):
                                     len(self.data.domain.attributes),
                                     len(self.cluster_var.values))
         else:
-            return formatstr.format(*["No input data"]*3)
+            return formatstr.format(*["No input data"] * 3)
 
     @check_sql_input
     def set_data(self, data):
@@ -186,9 +186,11 @@ class OWClusterAnalysis(widget.OWWidget):
     def set_genes(self, data):
         self.Error.clear()
         gene_list_radio = self.gene_selection_radio_group.group.buttons()[2]
+
         if (data is None
                 or GENE_AS_ATTRIBUTE_NAME not in data.attributes
-                or not data.attributes[GENE_AS_ATTRIBUTE_NAME] and GENE_ID_COLUMN not in data.attributes):
+                or not data.attributes[GENE_AS_ATTRIBUTE_NAME] and GENE_ID_COLUMN not in data.attributes
+                or data.attributes[GENE_AS_ATTRIBUTE_NAME] and GENE_ID_ATTRIBUTE not in data.attributes):
             if data is not None:
                 self.error("Gene annotations missing in the input data. Use Gene Name Matching widget.")
             self.gene_list = None
@@ -197,10 +199,14 @@ class OWClusterAnalysis(widget.OWWidget):
                 self.gene_selection_radio_group.group.buttons()[self._get_previous_gene_selection()].click()
         else:
             if data.attributes[GENE_AS_ATTRIBUTE_NAME]:
-                self.gene_list = tuple(int(var.attributes[NCBI_ID]) for var in data.domain.attributes
-                                       if NCBI_ID in var.attributes and var.attributes[NCBI_ID] != "?")
+                gene_id_attribute = data.attributes.get(GENE_ID_ATTRIBUTE, None)
+
+                self.gene_list = tuple(str(var.attributes[gene_id_attribute]) for var in data.domain.attributes
+                                       if gene_id_attribute in var.attributes
+                                       and var.attributes[gene_id_attribute] != "?")
             else:
-                self.gene_list = tuple(int(v) for v in data.get_column_view(data.attributes[GENE_ID_COLUMN])[0]
+                gene_id_column = data.attributes.get(GENE_ID_COLUMN, None)
+                self.gene_list = tuple(str(v) for v in data.get_column_view(gene_id_column)[0]
                                        if v not in ("", "?"))
             gene_list_radio.setDisabled(False)
             if self.gene_selection == 2:
@@ -214,6 +220,7 @@ class OWClusterAnalysis(widget.OWWidget):
         cluster_count = len(self.cluster_var.values)
         self.n_genes_per_cluster_spin.setMaximum(min(10, gene_count // cluster_count))
         self.n_most_enriched_spin.setMaximum(min(50, gene_count))
+        # TODO: what happens if error occurs? If CA fails, widget should properly handle it.
         self._start_task_init(partial(ClusterAnalysis, self.data, self.cluster_var.name))
 
     def _start_task_init(self, f):
@@ -227,6 +234,7 @@ class OWClusterAnalysis(widget.OWWidget):
             if self._task.cancelled:
                 raise KeyboardInterrupt()
             self.progressBarSet(finished * 50)
+
         f = partial(f, callback=callback)
 
         self.progressBarInit()
@@ -245,6 +253,7 @@ class OWClusterAnalysis(widget.OWWidget):
             if self._task.cancelled:
                 raise KeyboardInterrupt()
             self.progressBarSet(50 + finished * 50)
+
         f = partial(f, callback=callback)
 
         self.progressBarInit()
@@ -325,6 +334,11 @@ class OWClusterAnalysis(widget.OWWidget):
             elif self.gene_selection == 1:
                 f = partial(self.ca.enriched_genes_data, self.n_most_enriched)
             else:
+                if self.data is not None and GENE_ID_ATTRIBUTE not in self.data.attributes:
+                    self.error("Gene annotations missing in the input data. Use Gene Name Matching widget.")
+                    if self.gene_selection == 2:
+                        self.gene_selection_radio_group.group.buttons()[self._get_previous_gene_selection()].click()
+                    return
                 relevant_genes = tuple(self.ca.intersection(self.gene_list))
                 if len(relevant_genes) > 50:
                     self.warning("Only first 50 reference genes shown.")

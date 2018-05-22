@@ -3,7 +3,7 @@ import numpy as np
 import time
 from functools import lru_cache
 
-from orangecontrib.bioinformatics.ncbi.gene import NCBI_ID
+from orangecontrib.bioinformatics.widgets.utils.data import GENE_ID_ATTRIBUTE
 from scipy.stats import hypergeom
 from sklearn.cluster.bicluster import SpectralBiclustering
 from Orange.data import Domain, DiscreteVariable, ContinuousVariable, Table
@@ -38,6 +38,7 @@ class ClusterAnalysis:
 
     def __init__(self, data, cluster_var='Cluster', callback=None):
         self.data = data
+        self.gene_id_attribute = self.data.attributes.get(GENE_ID_ATTRIBUTE, None)
 
         self.X = self.data.X > 0
 
@@ -118,8 +119,13 @@ class ClusterAnalysis:
         list
             List of genes in the intersection.
         """
-        gene_set = set(gene_list)
-        return [gene.attributes[NCBI_ID] for gene in self.columns if gene.attributes[NCBI_ID] in gene_set]
+        gene_set = set()
+
+        if gene_list:
+            gene_set = set([str(gene) for gene in gene_list])
+
+        return [gene.attributes[self.gene_id_attribute] for gene in self.columns
+                if gene.attributes[self.gene_id_attribute] in gene_set]
 
     @lru_cache(maxsize=3)
     def enriched_genes(self, gene_list, enrichment=None, biclustering=True, callback=None):
@@ -135,7 +141,8 @@ class ClusterAnalysis:
         # fix enrichment at 'either', to calculate the shortest tail p-value
         enrichment = 'either'
         self.enriched_matrix = np.hstack((self.enriched_matrix_low, self.enriched_matrix_high))
-        enumerated_attributes = enumerate(gene.attributes[NCBI_ID] for gene in self.columns if NCBI_ID in gene.attributes)
+        enumerated_attributes = enumerate(gene.attributes[self.gene_id_attribute] for gene in self.columns
+                                          if self.gene_id_attribute in gene.attributes)
         self.genes = [attribute[0] for attribute in enumerated_attributes if attribute[1] in gene_list]
 
         return self._create_model(enrichment, biclustering, callback=callback)
