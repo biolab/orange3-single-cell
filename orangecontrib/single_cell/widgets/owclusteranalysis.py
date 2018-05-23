@@ -11,6 +11,7 @@ from Orange.widgets.settings import Setting, ContextSetting, DomainContextHandle
 from Orange.widgets.utils.annotated_data import ANNOTATED_DATA_SIGNAL_NAME, create_annotated_table
 from Orange.widgets.utils.concurrent import ThreadExecutor, FutureWatcher
 from Orange.widgets.utils.itemmodels import DomainModel
+from Orange.widgets.utils.signals import Input, Output
 from Orange.widgets.utils.sql import check_sql_input
 from orangecontrib.bioinformatics.widgets.utils.data import GENE_AS_ATTRIBUTE_NAME, GENE_ID_COLUMN, GENE_ID_ATTRIBUTE
 
@@ -36,13 +37,16 @@ class OWClusterAnalysis(widget.OWWidget):
     name = "Cluster Analysis"
     description = "Perform cluster analysis."
     icon = "icons/ClusterAnalysis.svg"
-    priority = 2011
+    priority = 2010
 
-    inputs = [("Data", Table, "set_data", widget.Default),
-              ("Genes", Table, "set_genes")]
-    outputs = [("Selected Data", Table),
-               (ANNOTATED_DATA_SIGNAL_NAME, Table),
-               ("Contingency Table", Table)]
+    class Inputs:
+        data = Input("Data", Table, default=True)
+        genes = Input("Genes", Table)
+
+    class Outputs:
+        selected_data = Output("Selected Data", Table, default=True)
+        annotated_data = Output(ANNOTATED_DATA_SIGNAL_NAME, Table)
+        contingency = Output("Contingency Table", Table)
 
     N_GENES_PER_CLUSTER_MAX = 10
     N_MOST_ENRICHED_MAX = 50
@@ -162,6 +166,7 @@ class OWClusterAnalysis(widget.OWWidget):
         else:
             return formatstr.format(*["No input data"] * 3)
 
+    @Inputs.data
     @check_sql_input
     def set_data(self, data):
         if self.feature_model:
@@ -189,6 +194,7 @@ class OWClusterAnalysis(widget.OWWidget):
         else:
             self.tableview.clear()
 
+    @Inputs.genes
     def set_genes(self, data):
         self.Error.clear()
         gene_list_radio = self.gene_selection_radio_group.group.buttons()[2]
@@ -378,9 +384,9 @@ class OWClusterAnalysis(widget.OWWidget):
             selected_data = None
             annotated_data = create_annotated_table(self.data, [])
             table = None
-        self.send("Selected Data", selected_data)
-        self.send(ANNOTATED_DATA_SIGNAL_NAME, annotated_data)
-        self.send("Contingency Table", table)
+        self.Outputs.selected_data.send(selected_data)
+        self.Outputs.annotated_data.send(annotated_data)
+        self.Outputs.contingency.send(table)
 
     def _invalidate(self):
         self.selection = self.tableview.get_selection()
