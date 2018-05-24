@@ -152,7 +152,7 @@ class OWLoadData(widget.OWWidget):
         icon_open_dir = self.style().standardIcon(QStyle.SP_DirOpenIcon)
 
         # Top grid with file selection combo box
-        grid = QGridLayout()
+        self.file_layout = grid = QGridLayout()
         lb = QLabel("File:")
         lb.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.recent_combo = cb = QComboBox(
@@ -222,7 +222,7 @@ class OWLoadData(widget.OWWidget):
             box, self, "_cells_in_rows",
             ["Genes in rows, cells in columns",
              "Cells in rows, genes in columns"],
-            callback=self._invalidate
+            callback=self._cells_in_rows_changed
         )
 
         box = gui.widgetBox(
@@ -233,8 +233,7 @@ class OWLoadData(widget.OWWidget):
         box.layout().addLayout(grid)
 
         self.sample_rows_cb = cb = QCheckBox(checked=self._sample_rows_enabled)
-
-        spin = QSpinBox(
+        self.sample_rows_p_spin = spin = QSpinBox(
             minimum=0, maximum=100, value=self._sample_rows_p,
             enabled=self._sample_rows_enabled
         )
@@ -249,7 +248,7 @@ class OWLoadData(widget.OWWidget):
         grid.addWidget(suffix, 0, 2)
 
         self.sample_cols_cb = cb = QCheckBox(checked=self._sample_cols_enabled)
-        spin = QSpinBox(
+        self.sample_cols_p_spin = spin = QSpinBox(
             minimum=0, maximum=100, value=self._sample_cols_p,
             enabled=self._sample_cols_enabled
         )
@@ -286,7 +285,9 @@ class OWLoadData(widget.OWWidget):
             sizeAdjustPolicy=QComboBox.AdjustToMinimumContentsLengthWithIcon,
             minimumContentsLength=18
         )
-        self.row_annotations_combo.activated.connect(self._invalidate)
+        self.row_annotations_combo.activated.connect(
+            self._row_annotations_combo_changed
+        )
         hl.addWidget(self.row_annotations_combo)
         hl.addWidget(QPushButton("...", box, autoDefault=False,
                                  icon=icon_open_dir,
@@ -308,7 +309,9 @@ class OWLoadData(widget.OWWidget):
             sizeAdjustPolicy=QComboBox.AdjustToMinimumContentsLengthWithIcon,
             minimumContentsLength=18
         )
-        self.col_annotations_combo.activated.connect(self._invalidate)
+        self.col_annotations_combo.activated.connect(
+            self._col_annotations_combo_changed
+        )
         hl.addWidget(self.col_annotations_combo)
         hl.addWidget(QPushButton("...", box, autoDefault=False,
                                  icon=icon_open_dir,
@@ -345,6 +348,26 @@ class OWLoadData(widget.OWWidget):
         else:
             self.recent_combo.setCurrentIndex(-1)
 
+    def _cells_in_rows_changed(self):
+        self._invalidate()
+        self._data_loader.transposed = not self._cells_in_rows
+
+    def _row_annotations_combo_changed(self):
+        self._invalidate()
+        path = self.row_annotations_combo.currentData(Qt.UserRole)
+        if isinstance(path, RecentPath) and os.path.exists(path.abspath):
+            self._data_loader.row_annotation_file = path.abspath  # type: str
+        else:
+            self._data_loader.row_annotation_file = None
+
+    def _col_annotations_combo_changed(self):
+        self._invalidate()
+        path = self.col_annotations_combo.currentData(Qt.UserRole)
+        if isinstance(path, RecentPath) and os.path.exists(path.abspath):
+            self._data_loader.col_annotation_file = path.abspath  # type: str
+        else:
+            self._data_loader.col_annotation_file = None
+
     def _update_warning(self):
         if (self._sample_rows_enabled and self._sample_rows_p < 100) or \
                 (self._sample_cols_enabled and self._sample_cols_p < 100):
@@ -355,50 +378,62 @@ class OWLoadData(widget.OWWidget):
     def set_sample_rows_enabled(self, enabled):
         if self._sample_rows_enabled != enabled:
             self._sample_rows_enabled = enabled
+            self.sample_rows_cb.setChecked(enabled)
             self._update_warning()
             self._invalidate()
+            self._data_loader.sample_rows_enabled = enabled
 
     def set_sample_cols_enabled(self, enabled):
         if self._sample_cols_enabled != enabled:
             self._sample_cols_enabled = enabled
+            self.sample_cols_cb.setChecked(enabled)
             self._update_warning()
             self._invalidate()
+            self._data_loader.sample_cols_enabled = enabled
 
     def set_sample_rows_p(self, p):
         if self._sample_rows_p != p:
             self._sample_rows_p = p
             self._update_warning()
+            self.sample_rows_p_spin.setValue(p)
             self._invalidate()
+            self._data_loader.sample_rows_p = p
 
     def set_sample_cols_p(self, p):
         if self._sample_cols_p != p:
             self._sample_cols_p = p
             self._update_warning()
+            self.sample_cols_p_spin.setValue(p)
             self._invalidate()
+            self._data_loader.sample_cols_p = p
 
     def set_header_rows_count(self, n):
         if self._header_rows_count != n:
             self._header_rows_count = n
             self.header_rows_spin.setValue(n)
             self._invalidate()
+            self._data_loader.header_rows_count = n
 
     def set_header_cols_count(self, n):
         if self._header_cols_count != n:
             self._header_cols_count = n
             self.header_cols_spin.setValue(n)
             self._invalidate()
+            self._data_loader.header_cols_count = n
 
     def set_row_annotations_enabled(self, enabled):
         if self._row_annotations_enabled != enabled:
             self._row_annotations_enabled = enabled
             self.row_annotations_cb.setChecked(enabled)
             self._invalidate()
+            self._data_loader.row_annotations_enabled = enabled
 
     def set_col_annotations_enabled(self, enabled):
         if self._col_annotations_enabled != enabled:
             self._col_annotations_enabled = enabled
             self.col_annotations_cb.setChecked(enabled)
             self._invalidate()
+            self._data_loader.col_annotations_enabled = enabled
 
     def set_current_path(self, path):
         if samepath(self._current_path, path):
@@ -425,23 +460,54 @@ class OWLoadData(widget.OWWidget):
         else:
             item = RecentPath_asqstandarditem(pathitem)
 
-        self._data_loader = loader = get_data_loader(path)
-
-        if loader.header_rows_count is not None:
-            self.set_header_rows_count(loader.header_rows_count)
-        if loader.header_cols_count is not None:
-            self.set_header_cols_count(loader.header_cols_count)
-        if loader.transposed is not None:
-            self._cells_in_rows = not loader.transposed
-
-        self.data_struct_box.setEnabled(loader.fixed_format)
-        self.header_rows_spin.setEnabled(loader.fixed_format)
-        self.header_cols_spin.setEnabled(loader.fixed_format)
-
         model.insertRow(0, item)
         self._current_path = path
         self.recent_combo.setCurrentIndex(0)
+
+        self._data_loader = get_data_loader(path)
         self._update_summary()
+        self.setup_gui()
+        self._invalidate()
+
+    def setup_gui(self):
+        """ Use loader predefined values. If the value is None, set
+        loader's parameter to widget's setting value.
+        """
+        loader = self._data_loader
+        if loader.header_rows_count is not None:
+            self.set_header_rows_count(loader.header_rows_count)
+        else:
+            loader.header_rows_count = self._header_rows_count
+
+        if loader.header_cols_count is not None:
+            self.set_header_cols_count(loader.header_cols_count)
+        else:
+            loader.header_cols_count = self._header_cols_count
+
+        if loader.transposed is not None:
+            self._cells_in_rows = not loader.transposed
+        else:
+            loader.transposed = not self._cells_in_rows
+
+        if loader.sample_rows_enabled is not None:
+            self.set_sample_rows_enabled(loader.sample_rows_enabled)
+        else:
+            loader.sample_rows_enabled = self._sample_rows_enabled
+
+        if loader.sample_cols_enabled is not None:
+            self.set_sample_cols_enabled(loader.sample_cols_enabled)
+        else:
+            loader.sample_cols_enabled = self._sample_cols_enabled
+
+        if loader.sample_rows_p is not None:
+            self.set_sample_rows_p(loader.sample_rows_p)
+        else:
+            loader.sample_rows_p = self._sample_rows_p
+
+        if loader.sample_cols_p is not None:
+            self.set_sample_cols_p(loader.sample_cols_p)
+        else:
+            loader.sample_cols_p = self._sample_cols_p
 
         if loader.row_annotation_file is not None:
             index = insert_recent_path(
@@ -449,9 +515,10 @@ class OWLoadData(widget.OWWidget):
                 RecentPath.create(loader.row_annotation_file, [])
             )
             self.row_annotations_combo.setCurrentIndex(index)
-            self.set_row_annotations_enabled(True)
+            self.set_row_annotations_enabled(loader.row_annotations_enabled)
         else:
             self.row_annotations_combo.setCurrentIndex(-1)
+            self.set_row_annotations_enabled(False)
 
         if loader.col_annotation_file is not None:
             index = insert_recent_path(
@@ -459,13 +526,16 @@ class OWLoadData(widget.OWWidget):
                 RecentPath.create(loader.col_annotation_file, [])
             )
             self.col_annotations_combo.setCurrentIndex(index)
-            self.set_col_annotations_enabled(True)
+            self.set_col_annotations_enabled(loader.col_annotations_enabled)
         else:
             self.col_annotations_combo.setCurrentIndex(-1)
+            self.set_col_annotations_enabled(False)
 
-        self.annotation_files_box.setEnabled(loader.enable_annotations)
+        self.header_rows_spin.setEnabled(loader.FIXED_FORMAT)
+        self.header_cols_spin.setEnabled(loader.FIXED_FORMAT)
+        self.data_struct_box.setEnabled(loader.FIXED_FORMAT)
 
-        self._invalidate()
+        self.annotation_files_box.setEnabled(loader.ENABLE_ANNOTATIONS)
 
     def _update_summary(self):
         size = self._data_loader.file_size
@@ -561,93 +631,12 @@ class OWLoadData(widget.OWWidget):
         self.load_data_button.setDefault(modified)
         self.Information.modified(shown=modified)
 
-    def __row_annot(self):
-        row_annot = self.row_annotations_combo.currentData(Qt.UserRole)
-        if self._row_annotations_enabled and \
-                isinstance(row_annot, RecentPath) and \
-                os.path.exists(row_annot.abspath):
-            return row_annot.abspath  # type: str
-        else:
-            return None
-
-    def __col_annot(self):
-        col_annot = self.col_annotations_combo.currentData(Qt.UserRole)
-        if self._col_annotations_enabled and \
-                isinstance(col_annot, RecentPath) and \
-                os.path.exists(col_annot.abspath):
-            return col_annot.abspath  # type: str
-        else:
-            return None
-
-    def __skip_row(self, rstate):
-        skip_row = None
-        if self._sample_rows_enabled:
-            p = self._sample_rows_p
-            if p < 100:
-                def skip_row(i, p=p):
-                    return i > 3 and rstate.uniform(0, 100) > p
-        return skip_row
-
-    def __skip_col(self, rstate):
-        skip_col = None
-        if self._sample_cols_enabled:
-            p = self._sample_cols_p
-            if p < 100:
-                def skip_col(i, p=p):
-                    return i > 3 and rstate.uniform(0, 100) > p
-        return skip_col
-
-    def __header_rows(self):
-        header_rows = self._header_rows_count
-        header_rows_indices = []
-        if header_rows == 0:
-            header_rows = None
-        elif header_rows == 1:
-            header_rows = 0
-            header_rows_indices = [0]
-        else:
-            header_rows = list(range(header_rows))
-            header_rows_indices = header_rows
-        return header_rows, header_rows_indices
-
-    def __header_cols(self):
-        header_cols = self._header_cols_count
-        header_cols_indices = []
-        if header_cols == 0:
-            header_cols = None
-        elif header_cols == 1:
-            header_cols = 0
-            header_cols_indices = [0]
-        else:
-            header_cols = list(range(header_cols))
-            header_cols_indices = header_cols
-        return header_cols, header_cols_indices
-
     def commit(self):
         path = self._current_path
         if not path:
             return
 
-        row_annot = self.__row_annot()
-        col_annot = self.__col_annot()
-
-        header_rows, header_rows_indices = self.__header_rows()
-        header_cols, header_cols_indices = self.__header_cols()
-
-        rst = np.random.RandomState(0x667)
-        if not self._cells_in_rows:
-            skip_row, skip_col = self.__skip_col(rst), self.__skip_row(rst)
-        else:
-            skip_col, skip_row = self.__skip_col(rst), self.__skip_row(rst)
-
-        self._data_loader.leading_rows = len(header_rows_indices)
-        self._data_loader.leading_cols = len(header_cols_indices)
-        self._data_loader.transposed = not self._cells_in_rows
-
-        data = self._data_loader(
-            skip_row, skip_col, row_annot, col_annot,
-            header_rows, header_cols, header_cols_indices
-        )
+        data = self._data_loader()
 
         self.Error.row_annotation_mismatch.clear()
         self.Error.col_annotation_mismatch.clear()

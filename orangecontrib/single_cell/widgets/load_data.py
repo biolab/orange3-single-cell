@@ -159,12 +159,19 @@ class Loader:
 
         return attrs, df.values, df.iloc[:, :0], df.index
 
-    def __call__(self, skip_row, skip_col, row_annot, col_annot,
-                 header_rows, header_cols, header_cols_indices):
-
+    def __call__(self):
         self.__reset_error_messages()
 
-        usecols, skip_col, skip_row = self.__init_reading_parameters(
+        rst = np.random.RandomState(0x667)
+        if self.transposed:
+            skip_row, skip_col = self.__skip_col(rst), self.__skip_row(rst)
+        else:
+            skip_col, skip_row = self.__skip_col(rst), self.__skip_row(rst)
+
+        header_rows = self.__header_rows()
+        header_cols, header_cols_indices = self.__header_cols()
+
+        usecols, skip_col, skip_row = self.__update_reading_parameters(
             skip_col, skip_row, header_cols_indices)
 
         attrs, X, meta_df, meta_df_index = self._load_data(
@@ -174,18 +181,64 @@ class Loader:
         )
 
         meta_parts = (meta_df,)
-        if row_annot is not None:
+        if self.row_annotations_enabled and self.row_annotation_file:
             meta_df, row_annot_df = self.__update_metas(
-                row_annot, meta_df, meta_df_index, X)
+                meta_df, meta_df_index, X)
             if row_annot_df is not None:
                 meta_parts = (meta_df, row_annot_df)
 
-        if col_annot is not None:
-            attrs = self.__update_attributes(col_annot, attrs, X)
+        if self.col_annotations_enabled and self.col_annotation_file:
+            attrs = self.__update_attributes(attrs, X)
 
         return self.__into_orange_table(attrs, X, meta_parts)
 
-    def __init_reading_parameters(self, skip_col, skip_row, header_cols):
+    def __header_rows(self):
+        header_rows = self.header_rows_count
+        header_rows_indices = []
+        if header_rows == 0:
+            header_rows = None
+        elif header_rows == 1:
+            header_rows = 0
+            header_rows_indices = [0]
+        else:
+            header_rows = list(range(header_rows))
+            header_rows_indices = header_rows
+        self.leading_rows = len(header_rows_indices)
+        return header_rows
+
+    def __header_cols(self):
+        header_cols = self.header_cols_count
+        header_cols_indices = []
+        if header_cols == 0:
+            header_cols = None
+        elif header_cols == 1:
+            header_cols = 0
+            header_cols_indices = [0]
+        else:
+            header_cols = list(range(header_cols))
+            header_cols_indices = header_cols
+        self.leading_cols = len(header_cols_indices)
+        return header_cols, header_cols_indices
+
+    def __skip_row(self, rstate):
+        skip_row = None
+        if self.sample_rows_enabled:
+            p = self.sample_rows_p
+            if p < 100:
+                def skip_row(i, p=p):
+                    return i > 3 and rstate.uniform(0, 100) > p
+        return skip_row
+
+    def __skip_col(self, rstate):
+        skip_col = None
+        if self.sample_cols_enabled:
+            p = self.sample_cols_p
+            if p < 100:
+                def skip_col(i, p=p):
+                    return i > 3 and rstate.uniform(0, 100) > p
+        return skip_col
+
+    def __update_reading_parameters(self, skip_col, skip_row, header_cols):
         usecols = None
 
         if skip_col is not None:
@@ -207,9 +260,10 @@ class Loader:
                 return r
         return usecols, skip_col, skip_row
 
-    def __update_metas(self, row_annot, meta_df, meta_df_index, X):
+    def __update_metas(self, meta_df, meta_df_index, X):
         row_annot_df = pd.read_csv(
-            row_annot, sep=separator_from_filename(row_annot),
+            self.row_annotation_file,
+            sep=separator_from_filename(self.row_annotation_file),
             header=self._row_annot_header, names=self._row_annot_columns
         )
         if self._use_rows_mask is not None:
@@ -255,9 +309,10 @@ class Loader:
                 meta_df = pd.DataFrame({}, index=meta_df_index)
         return meta_df, row_annot_df
 
-    def __update_attributes(self, col_annot, attrs, X):
+    def __update_attributes(self, attrs, X):
         col_annot_df = pd.read_csv(
-            col_annot, sep=separator_from_filename(col_annot),
+            self.col_annotation_file,
+            sep=separator_from_filename(self.col_annotation_file),
             header=self._col_annot_header, names=self._col_annot_columns
         )
         if self._use_cols_mask is not None:

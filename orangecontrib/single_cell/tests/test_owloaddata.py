@@ -73,8 +73,8 @@ class TestOWLoadData(WidgetTest):
         self.widget.set_current_path(file_name_mtx)
         self.widget.sample_rows_cb.setChecked(True)
         self.widget.sample_cols_cb.setChecked(True)
-        self.widget._sample_rows_p = 10
-        self.widget._sample_cols_p = 10
+        self.widget.set_sample_rows_p(10)
+        self.widget.set_sample_cols_p(10)
         self.widget.commit()
         data = self.get_output("Data")
         file_name = os.path.join(self._path, "10x/mm10/genes.tsv")
@@ -105,8 +105,8 @@ class TestOWLoadData(WidgetTest):
         self.widget.set_current_path(file_name)
         self.widget.sample_rows_cb.setChecked(True)
         self.widget.sample_cols_cb.setChecked(True)
-        self.widget._sample_rows_p = 40
-        self.widget._sample_cols_p = 60
+        self.widget.set_sample_rows_p(40)
+        self.widget.set_sample_cols_p(60)
         self.widget.commit()
         data = self.get_output("Data")
         df = pd.read_csv(
@@ -133,8 +133,8 @@ class TestOWLoadData(WidgetTest):
         self.widget.set_current_path(file_name)
         self.widget.sample_rows_cb.setChecked(True)
         self.widget.sample_cols_cb.setChecked(True)
-        self.widget._sample_rows_p = 40
-        self.widget._sample_cols_p = 60
+        self.widget.set_sample_rows_p(40)
+        self.widget.set_sample_cols_p(60)
         self.widget.commit()
         data = self.get_output("Data")
         df = pd.read_csv(
