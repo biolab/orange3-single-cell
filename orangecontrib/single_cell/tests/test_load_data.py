@@ -14,20 +14,21 @@ from orangecontrib.single_cell.widgets.load_data import (
 class TestLoadData(unittest.TestCase):
     def test_get_data_loader(self):
         dir_name = os.path.dirname(__file__)
-        file_name = os.path.join(dir_name, "data/matrix.mtx")
+        file_name = os.path.join(dir_name, "data/10x/mm10/matrix.mtx")
         self.assertIsInstance(get_data_loader(file_name), MtxLoader)
-        file_name = os.path.join(dir_name, "DATA_MATRIX_LOG_TPM.txt")
+        file_name = os.path.join(dir_name, "data/DATA_MATRIX_LOG_TPM.txt")
         self.assertIsInstance(get_data_loader(file_name), Loader)
-        file_name = os.path.join(dir_name, "lib.cell.count")
+        file_name = os.path.join(dir_name, "data/lib.cell.count")
         self.assertIsInstance(get_data_loader(file_name), CountLoader)
 
     def test_file_summary_mtx(self):
         file_name = os.path.join(os.path.dirname(__file__),
-                                 "data/10x/mm10/matrix.mtx")
+                                 "data/10x/hg19/matrix.mtx")
         loader = MtxLoader(file_name)
-        self.assertEqual(loader.file_size, 105)
-        self.assertEqual(loader.n_rows, 5)
-        self.assertEqual(loader.n_cols, 5)
+        self.assertEqual(loader.file_size, 112)
+        self.assertEqual(loader.n_rows, 4)
+        self.assertEqual(loader.n_cols, 6)
+        self.assertEqual(loader.sparsity, 0.625)
 
     def test_file_summary_broad(self):
         file_name = os.path.join(os.path.dirname(__file__),
@@ -36,6 +37,7 @@ class TestLoadData(unittest.TestCase):
         self.assertEqual(loader.file_size, 1084)
         self.assertEqual(loader.n_rows, 10)
         self.assertEqual(loader.n_cols, 15)
+        self.assertEqual(round(loader.sparsity, 2), 0.86)
 
     def test_file_summary_hhmi(self):
         file_name = os.path.join(os.path.dirname(__file__),
@@ -44,6 +46,7 @@ class TestLoadData(unittest.TestCase):
         self.assertEqual(loader.file_size, 428)
         self.assertEqual(loader.n_rows, 10)
         self.assertEqual(loader.n_cols, 11)
+        self.assertEqual(round(loader.sparsity, 2), 0.99)
 
     def test_load_data_mtx(self):
         file_name = os.path.join(os.path.dirname(__file__),
@@ -57,3 +60,10 @@ class TestLoadData(unittest.TestCase):
                 continue
             array[series.iloc[1] - 1, series.iloc[0] - 1] = series.iloc[2]
         npt.assert_array_equal(X, array)
+
+    def test_n_genes_n_cells(self):
+        file_name = os.path.join(os.path.dirname(__file__),
+                                 "data/10x/hg19/matrix.mtx")
+        loader = get_data_loader(file_name)
+        self.assertEqual(loader.n_genes, loader.n_cols)
+        self.assertEqual(loader.n_cells, loader.n_rows)

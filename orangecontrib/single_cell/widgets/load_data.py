@@ -48,8 +48,9 @@ class Loader:
         self.file_size = None
         self.n_rows = None
         self.n_cols = None
+        self.sparsity = None
         self._set_file_size()
-        self._set_n_rows_n_cols()
+        self._set_file_parameters()
 
         # reading parameters
         self._leading_cols = 0
@@ -62,19 +63,31 @@ class Loader:
         self._col_annot_columns = None
 
         # GUI parameters
+        self.FIXED_FORMAT = True
+        self.ENABLE_ANNOTATIONS = True
         self.header_rows_count = None
         self.header_cols_count = None
-        self.fixed_format = True
         self.transposed = None
-        self.enable_annotations = True
-
-        # supplementary column/rows annotation files
+        self.sample_rows_enabled = None
+        self.sample_cols_enabled = None
+        self.sample_rows_p = None
+        self.sample_cols_p = None
+        self.row_annotations_enabled = True
         self.row_annotation_file = None
+        self.col_annotations_enabled = True
         self.col_annotation_file = None
 
         # errors
         self.errors = {}  # type: Dict[str, Tuple]
         self.__reset_error_messages()
+
+    @property
+    def n_genes(self):
+        return self.n_cols if self.transposed else self.n_rows
+
+    @property
+    def n_cells(self):
+        return self.n_rows if self.transposed else self.n_cols
 
     @property
     def leading_rows(self):
@@ -100,7 +113,7 @@ class Loader:
         else:
             self.file_size = st.st_size
 
-    def _set_n_rows_n_cols(self):
+    def _set_file_parameters(self):
         try:
             with open(self._file_name, "rt", encoding="latin-1") as f:
                 line = next(csv.reader(f, delimiter=self.separator))
@@ -108,6 +121,24 @@ class Loader:
                 self.n_rows = sum(1 for _ in f)
         except (OSError, StopIteration):
             pass
+
+        self.__set_sparsity()
+
+    def __set_sparsity(self):
+        """Get approximate sparsity if number of columns is bigger than 100."""
+        if self.n_cols is not None and self.n_rows is not None:
+            max_c = 100
+            np.random.seed(42)
+            use_cols = np.arange(1, self.n_cols - 1) if self.n_cols < max_c \
+                else np.random.randint(1, self.n_cols - 1, max_c)
+
+            data = np.genfromtxt(
+                self._file_name, delimiter=self.separator,
+                skip_header=1, usecols=use_cols, max_rows=max_c)
+
+            non_zero_el = np.count_nonzero(data)
+            all_el = data.shape[0] * data.shape[1]
+            self.sparsity = (all_el - non_zero_el) / all_el
 
     def _load_data(self, skip_row=None, header_rows=None, header_cols=None,
                    use_cols=None, **kwargs):
@@ -285,7 +316,7 @@ class MtxLoader(Loader):
         super().__init__(file_name)
         self.header_rows_count = 0
         self.header_cols_count = 0
-        self.fixed_format = False
+        self.FIXED_FORMAT = False
         self.transposed = True
         self._row_annot_header = None
         self._row_annot_columns = ["Barcodes"]
@@ -329,12 +360,14 @@ class MtxLoader(Loader):
                 and self.col_annotation_file is not None \
                 and os.path.basename(self.col_annotation_file) == "genes.tsv" \
                 and os.path.basename(self.row_annotation_file) == "barcodes.tsv":
-            self.enable_annotations = False
+            self.ENABLE_ANNOTATIONS = False
 
-    def _set_n_rows_n_cols(self):
+    def _set_file_parameters(self):
         try:
             with open(self._file_name, "rb") as f:
-                self.n_rows, self.n_cols = scipy.io.mminfo(f)[:2]
+                self.n_rows, self.n_cols, non_zero_el = scipy.io.mminfo(f)[:3]
+                all_el = self.n_rows * self.n_cols
+                self.sparsity = (all_el - non_zero_el) / all_el
         except OSError:
             pass
         except ValueError:
@@ -368,7 +401,7 @@ class CountLoader(Loader):
         super().__init__(file_name)
         self.header_rows_count = 1
         self.header_cols_count = 1
-        self.fixed_format = False
+        self.FIXED_FORMAT = False
         self.transposed = True
         self._set_annotation_files()
 
