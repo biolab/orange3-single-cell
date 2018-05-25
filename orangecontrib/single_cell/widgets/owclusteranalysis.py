@@ -11,6 +11,7 @@ from Orange.widgets.settings import Setting, ContextSetting, DomainContextHandle
 from Orange.widgets.utils.annotated_data import ANNOTATED_DATA_SIGNAL_NAME, create_annotated_table
 from Orange.widgets.utils.concurrent import ThreadExecutor, FutureWatcher
 from Orange.widgets.utils.itemmodels import DomainModel
+from Orange.widgets.utils.signals import Input, Output
 from Orange.widgets.utils.sql import check_sql_input
 from orangecontrib.bioinformatics.widgets.utils.data import GENE_AS_ATTRIBUTE_NAME, GENE_ID_COLUMN, GENE_ID_ATTRIBUTE
 
@@ -36,16 +37,21 @@ class OWClusterAnalysis(widget.OWWidget):
     name = "Cluster Analysis"
     description = "Perform cluster analysis."
     icon = "icons/ClusterAnalysis.svg"
-    priority = 2011
+    priority = 2010
 
-    inputs = [("Data", Table, "set_data", widget.Default),
-              ("Genes", Table, "set_genes")]
-    outputs = [("Selected Data", Table),
-               (ANNOTATED_DATA_SIGNAL_NAME, Table),
-               ("Contingency Table", Table)]
+    class Inputs:
+        data = Input("Data", Table, default=True)
+        genes = Input("Genes", Table)
+
+    class Outputs:
+        selected_data = Output("Selected Data", Table, default=True)
+        annotated_data = Output(ANNOTATED_DATA_SIGNAL_NAME, Table)
+        contingency = Output("Contingency Table", Table)
+
+    N_GENES_PER_CLUSTER_MAX = 10
+    N_MOST_ENRICHED_MAX = 50
 
     settingsHandler = DomainContextHandler(metas_in_res=True)
-    columns = ContextSetting(None)
     cluster_var = ContextSetting(None)
     selection = ContextSetting(set())
     gene_selection = ContextSetting(0)
@@ -96,7 +102,7 @@ class OWClusterAnalysis(widget.OWWidget):
         cb = gui.hBox(None, margin=0)
         gui.widgetLabel(cb, "Top")
         self.n_genes_per_cluster_spin = gui.spin(
-            cb, self, "n_genes_per_cluster", minv=1, maxv=10,
+            cb, self, "n_genes_per_cluster", minv=1, maxv=self.N_GENES_PER_CLUSTER_MAX,
             controlWidth=60, alignment=Qt.AlignRight, callback=conditional_set_gene_selection(0))
         gui.widgetLabel(cb, "genes per cluster")
         gui.rubber(cb)
@@ -106,7 +112,7 @@ class OWClusterAnalysis(widget.OWWidget):
         mb = gui.hBox(None, margin=0)
         gui.widgetLabel(mb, "Top")
         self.n_most_enriched_spin = gui.spin(
-            mb, self, "n_most_enriched", minv=1, maxv=50,
+            mb, self, "n_most_enriched", minv=1, maxv=self.N_MOST_ENRICHED_MAX,
             controlWidth=60, alignment=Qt.AlignRight, callback=conditional_set_gene_selection(1))
         gui.widgetLabel(mb, "highest enrichments")
         gui.rubber(mb)
@@ -160,6 +166,7 @@ class OWClusterAnalysis(widget.OWWidget):
         else:
             return formatstr.format(*["No input data"] * 3)
 
+    @Inputs.data
     @check_sql_input
     def set_data(self, data):
         if self.feature_model:
@@ -173,16 +180,21 @@ class OWClusterAnalysis(widget.OWWidget):
         self.gene_list = None
         self.model = None
         self.pvalues = None
+        self.n_genes_per_cluster_spin.setMaximum(self.N_GENES_PER_CLUSTER_MAX)
+        self.n_most_enriched_spin.setMaximum(self.N_MOST_ENRICHED_MAX)
         if self.data:
             self.feature_model.set_domain(self.data.domain)
             if self.feature_model:
-                self.cluster_var = self.feature_model[0]
+                self.openContext(self.data)
+                if self.cluster_var is None:
+                    self.cluster_var = self.feature_model[0]
                 self._run_cluster_analysis()
             else:
                 self.tableview.clear()
         else:
             self.tableview.clear()
 
+    @Inputs.genes
     def set_genes(self, data):
         self.Error.clear()
         gene_list_radio = self.gene_selection_radio_group.group.buttons()[2]
@@ -218,8 +230,8 @@ class OWClusterAnalysis(widget.OWWidget):
         self.infobox.setText(self._get_info_string())
         gene_count = len(self.data.domain.attributes)
         cluster_count = len(self.cluster_var.values)
-        self.n_genes_per_cluster_spin.setMaximum(min(10, gene_count // cluster_count))
-        self.n_most_enriched_spin.setMaximum(min(50, gene_count))
+        self.n_genes_per_cluster_spin.setMaximum(min(self.N_GENES_PER_CLUSTER_MAX, gene_count // cluster_count))
+        self.n_most_enriched_spin.setMaximum(min(self.N_MOST_ENRICHED_MAX, gene_count))
         # TODO: what happens if error occurs? If CA fails, widget should properly handle it.
         self._start_task_init(partial(ClusterAnalysis, self.data, self.cluster_var.name))
 
@@ -340,9 +352,9 @@ class OWClusterAnalysis(widget.OWWidget):
                         self.gene_selection_radio_group.group.buttons()[self._get_previous_gene_selection()].click()
                     return
                 relevant_genes = tuple(self.ca.intersection(self.gene_list))
-                if len(relevant_genes) > 50:
-                    self.warning("Only first 50 reference genes shown.")
-                f = partial(self.ca.enriched_genes, relevant_genes[:50])
+                if len(relevant_genes) > self.N_MOST_ENRICHED_MAX:
+                    self.warning("Only first {} reference genes shown.".format(self.N_MOST_ENRICHED_MAX))
+                f = partial(self.ca.enriched_genes, relevant_genes[:self.N_MOST_ENRICHED_MAX])
             f = partial(f, enrichment=self._diff_exprs[self.differential_expression], biclustering=self.biclustering)
             self._start_task_gene_selection(f)
         else:
@@ -372,9 +384,9 @@ class OWClusterAnalysis(widget.OWWidget):
             selected_data = None
             annotated_data = create_annotated_table(self.data, [])
             table = None
-        self.send("Selected Data", selected_data)
-        self.send(ANNOTATED_DATA_SIGNAL_NAME, annotated_data)
-        self.send("Contingency Table", table)
+        self.Outputs.selected_data.send(selected_data)
+        self.Outputs.annotated_data.send(annotated_data)
+        self.Outputs.contingency.send(table)
 
     def _invalidate(self):
         self.selection = self.tableview.get_selection()
