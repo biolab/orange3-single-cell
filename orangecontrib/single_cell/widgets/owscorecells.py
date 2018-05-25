@@ -4,7 +4,7 @@ from AnyQt.QtCore import QSize
 
 from Orange.data import ContinuousVariable, StringVariable, Domain, Table
 from Orange.widgets import widget, gui
-from Orange.widgets.settings import Setting, ContextSetting, DomainContextHandler
+from Orange.widgets.settings import Setting
 
 from Orange.widgets.utils.signals import Output, Input
 from Orange.widgets.utils.sql import check_sql_input
@@ -22,7 +22,7 @@ class OWScoreCells(widget.OWWidget):
     priority = 180
 
     auto_apply = Setting(True)
-
+    score_variable_name = Setting('Score', schema_only=True)
     want_main_area = False
 
     class Warning(OWWidget.Warning):
@@ -71,7 +71,6 @@ class OWScoreCells(widget.OWWidget):
         info_box = gui.vBox(self.controlArea, 'Input info')
         self.info_text = gui.widgetLabel(info_box)
 
-        self.score_variable_name = 'Score'
         box = gui.vBox(self.controlArea, "Score Column Name in Output Data: ")
         self.line_edit = gui.lineEdit(box, self, 'score_variable_name', callback=self.commit)
         self.line_edit.setPlaceholderText('Column Name ...')
