@@ -1,0 +1,11 @@
+cell id	machine id	run number	file name	barcode	well id	sample name
+c0	NB551104	41	Plate_75_Q5	AAAAGCCA	contamination	contamination
+c1	NB551104	41	Plate_75_Q5	AAACAGAC	F08	knockout_cells_2
+c2	NB551104	41	Plate_75_Q5	AAACAGAC	contamination	contamination
+c3	NB551104	41	Plate_75_Q5	AAAGGCAC	C03	knockout_cells_2
+c4	NB551104	41	Plate_75_Q5	AAAGGCAC	contamination	contamination
+c5	NB551104	41	Plate_75_Q5	AAATTCGC	C08	knockout_cells_2
+c6	NB551104	41	Plate_75_Q5	AAATTCGC	contamination	contamination
+c7	NB551104	41	Plate_75_Q5	AACCATTC	E09	control_cells_1
+c8	NB551104	41	Plate_75_Q5	AACCATTC	contamination	contamination
+c9	NB551104	41	Plate_75_Q5	AACCGCCT	G08	control_cells_1
