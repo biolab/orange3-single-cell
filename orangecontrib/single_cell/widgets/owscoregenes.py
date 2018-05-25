@@ -35,6 +35,10 @@ from Orange.widgets.utils.itemmodels import PyTableModel
 from Orange.widgets.utils.sql import check_sql_input
 from Orange.widgets.widget import OWWidget, Msg, Input, Output
 
+from orangecontrib.bioinformatics.widgets.utils.data import (
+    TAX_ID, GENE_AS_ATTRIBUTE_NAME, GENE_ID_COLUMN, GENE_ID_ATTRIBUTE
+)
+
 
 log = logging.getLogger(__name__)
 
@@ -149,6 +153,7 @@ class VariationCoefficientScorer(UnsupervisedScorer):
         if feature:
             return weights[0]
         return weights
+
 
 ScoreMeta = namedtuple("score_meta", ["name", "shortname", "scorer", 'problem_type', 'is_default'])
 
@@ -304,6 +309,12 @@ class OWRank(OWWidget):
         self.data = None
         self.problem_type_mode = ProblemType.CLASSIFICATION
 
+        # input data attributes
+        self.tax_id = None
+        self.use_attr_names = None
+        self.gene_id_attribute = None
+        self.gene_id_column = None
+
         if not self.selected_methods:
             self.selected_methods = {method.name for method in SCORES
                                      if method.is_default}
@@ -411,6 +422,10 @@ class OWRank(OWWidget):
         self.data = data
         self.switchProblemType(ProblemType.CLASSIFICATION)
         if self.data is not None:
+            self.tax_id = str(self.data.attributes.get(TAX_ID, None))
+            self.use_attr_names = self.data.attributes.get(GENE_AS_ATTRIBUTE_NAME, None)
+            self.gene_id_attribute = self.data.attributes.get(GENE_ID_ATTRIBUTE, None)
+            self.gene_id_column = self.data.attributes.get(GENE_ID_COLUMN, None)
             domain = self.data.domain
 
             if domain.has_discrete_class:
@@ -631,22 +646,26 @@ class OWRank(OWWidget):
             self.out_domain_desc = report.describe_domain(data.domain)
 
     def create_scores_table(self, labels):
+
         model_list = self.ranksModel.tolist()
         if not model_list or len(model_list[0]) == 1:  # Empty or just n_values column
             return None
 
-        domain = Domain([ContinuousVariable(label) for label in labels],
-                        metas=[StringVariable("Feature")])
+        feature_var = StringVariable("Feature")
+        feature_id_var = StringVariable(self.gene_id_attribute if self.gene_id_attribute else 'Feature ID')
+
+        domain = Domain([ContinuousVariable(label) for label in labels], metas=[feature_var, feature_id_var])
+        features = np.array([[col.name, col.attributes.get(self.gene_id_attribute, '?')]
+                             for col in self.data.domain.attributes])
 
         # Prevent np.inf scores
         finfo = np.finfo(np.float64)
         scores = np.clip(np.array(model_list)[:, 1:], finfo.min, finfo.max)
 
-        feature_names = np.array([a.name for a in self.data.domain.attributes])
-        # Reshape to 2d array as Table does not like 1d arrays
-        feature_names = feature_names[:, None]
-
-        new_table = Table(domain, scores, metas=feature_names)
+        new_table = Table(domain, scores, metas=features)
+        new_table.attributes[TAX_ID] = self.tax_id
+        new_table.attributes[GENE_AS_ATTRIBUTE_NAME] = False
+        new_table.attributes[GENE_ID_COLUMN] = feature_id_var.name
         new_table.name = "Feature Scores"
         return new_table
 
