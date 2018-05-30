@@ -6,7 +6,7 @@ import numpy.testing as npt
 import pandas as pd
 
 from orangecontrib.single_cell.widgets.load_data import (
-    MtxLoader, CountLoader, Loader, PickleLoader, get_data_loader
+    MtxLoader, CountLoader, Loader, PickleLoader, get_data_loader, Concatenate
 )
 
 
@@ -87,5 +87,51 @@ class TestLoadData(unittest.TestCase):
         file_name = os.path.join(os.path.dirname(__file__),
                                  "data/10x/hg19/matrix.mtx")
         loader = get_data_loader(file_name)
-        self.assertEqual(loader.n_genes, loader.n_cols)
-        self.assertEqual(loader.n_cells, loader.n_rows)
+        self.assertEqual(loader.n_genes, loader.n_rows)
+        self.assertEqual(loader.n_cells, loader.n_cols)
+
+        file_name = os.path.join(os.path.dirname(__file__),
+                                 "DATA_MATRIX_LOG_TPM.txt")
+        loader = get_data_loader(file_name)
+        self.assertEqual(loader.n_genes, loader.n_rows)
+        self.assertEqual(loader.n_cells, loader.n_cols)
+
+    def test_copy_loader(self):
+        loader = MtxLoader(os.path.join(
+            os.path.dirname(__file__), "data/10x/hg19/matrix.mtx")
+        )
+        loader.sample_rows_enabled = True
+        copied = loader.copy()
+        self.assertIsInstance(copied, Loader)
+        self.assertTrue(copied.sample_rows_enabled)
+
+
+class TestConcatenate(unittest.TestCase):
+    def test_concatenate_intersection(self):
+        data1 = MtxLoader(os.path.join(os.path.dirname(__file__),
+                                       "data/10x/hg19/matrix.mtx"))()
+        data2 = MtxLoader(os.path.join(os.path.dirname(__file__),
+                                       "data/10x/mm10/matrix.mtx"))()
+        data3 = MtxLoader(os.path.join(os.path.dirname(__file__),
+                                       "data/10x/hg19/matrix.mtx"))()
+        concat_data = Concatenate.concatenate(
+            Concatenate.INTERSECTION,
+            ((data1, "1"), (data2, "2"), (data3, "3"))
+        )
+        self.assertEqual(2 * len(data1) + len(data2), len(concat_data))
+        self.assertEqual(len(concat_data.domain.attributes), 1)
+        self.assertEqual(len(concat_data.domain.metas), 2)
+
+    def test_concatenate_union(self):
+        data1 = MtxLoader(os.path.join(os.path.dirname(__file__),
+                                       "data/10x/hg19/matrix.mtx"))()
+        data2 = MtxLoader(os.path.join(os.path.dirname(__file__),
+                                       "data/10x/mm10/matrix.mtx"))()
+        data3 = MtxLoader(os.path.join(os.path.dirname(__file__),
+                                       "data/10x/hg19/matrix.mtx"))()
+        concat_data = Concatenate.concatenate(
+            Concatenate.UNION, ((data1, "1"), (data2, "2"), (data3, "3"))
+        )
+        self.assertEqual(2 * len(data1) + len(data2), len(concat_data))
+        self.assertEqual(len(concat_data.domain.attributes), 8)
+        self.assertEqual(len(concat_data.domain.metas), 2)

@@ -89,11 +89,11 @@ class Loader:
 
     @property
     def n_genes(self):
-        return self.n_cols if self.transposed else self.n_rows
+        return self.n_rows if self.transposed else self.n_cols
 
     @property
     def n_cells(self):
-        return self.n_rows if self.transposed else self.n_cols
+        return self.n_cols if self.transposed else self.n_rows
 
     @property
     def leading_rows(self):
@@ -125,10 +125,13 @@ class Loader:
                 line = next(csv.reader(f, delimiter=self.separator))
                 self.n_cols = len(line)
                 self.n_rows = sum(1 for _ in f)
-        except (OSError, StopIteration):
+        except Exception:
             pass
 
-        self.__set_sparsity()
+        try:
+            self.__set_sparsity()
+        except Exception:
+            pass
 
     def __set_sparsity(self):
         """Get approximate sparsity if number of columns is bigger than 100."""
@@ -180,11 +183,15 @@ class Loader:
         usecols, skip_col, skip_row = self.__update_reading_parameters(
             skip_col, skip_row, header_cols_indices)
 
-        attrs, X, meta_df, meta_df_index = self._load_data(
-            skip_row=skip_row, skip_col=skip_col,
-            header_rows=header_rows, header_cols=header_cols,
-            use_cols=usecols, transpose=self.transposed
-        )
+        try:
+            attrs, X, meta_df, meta_df_index = self._load_data(
+                skip_row=skip_row, skip_col=skip_col,
+                header_rows=header_rows, header_cols=header_cols,
+                use_cols=usecols, transpose=self.transposed
+            )
+        except Exception as e:
+            self.errors["reading_error"] = (e, None)
+            return None
 
         meta_parts = (meta_df,)
         if self.row_annotations_enabled and self.row_annotation_file:
@@ -245,6 +252,8 @@ class Loader:
         return skip_col
 
     def __update_reading_parameters(self, skip_col, skip_row, header_cols):
+        self._use_rows_mask = None
+        self._use_cols_mask = None
         usecols = None
 
         if skip_col is not None:
@@ -369,7 +378,14 @@ class Loader:
     def __reset_error_messages(self):
         self.errors = {"row_annot_mismatch": (),
                        "col_annot_mismatch": (),
-                       "inadequate_headers": ()}
+                       "inadequate_headers": (),
+                       "reading_error": ()}
+
+    def copy(self):
+        loader = self.__class__(self._file_name)
+        for key in vars(loader):
+            setattr(loader, key, getattr(self, key))
+        return loader
 
 
 class MtxLoader(Loader):
@@ -521,3 +537,45 @@ class PickleLoader(Loader):
             if p < 100 and self.n_cols > 3:
                 return random.sample(attributes, int(self.n_cols * p / 100))
         return attributes
+
+
+class Concatenate:
+    INTERSECTION, UNION = range(2)
+
+    @classmethod
+    def concatenate(cls, concat_type, data_collection):
+        if not data_collection:
+            return None
+
+        concat_data, source_var = cls.append_source_name(*data_collection[0])
+        for data, source_name in data_collection[1:]:
+            attrs1 = concat_data.domain.attributes
+            attrs2 = data.domain.attributes
+            if concat_type == cls.INTERSECTION:
+                attrs = set(attrs1).intersection(attrs2)
+            elif concat_type == cls.UNION:
+                attrs = set(attrs1 + attrs2)
+            metas = set(concat_data.domain.metas + data.domain.metas)
+
+            def key(var):
+                return var.name if isinstance(var.name, str) else ""
+
+            domain = Domain(sorted(attrs, key=key),
+                            metas=sorted(metas, key=key))
+            concat_data_t = concat_data.transform(domain)
+            data_t = data.transform(domain)
+            data_t[:, source_var] = np.full(
+                (len(data), 1), source_name, dtype=object
+            )
+            concat_data = Table.concatenate((concat_data_t, data_t), axis=0)
+        return concat_data
+
+    @staticmethod
+    def append_source_name(data, name):
+        source_var = StringVariable("source")
+        metas = data.domain.metas + (source_var,)
+        domain = Domain(data.domain.attributes, metas=metas)
+        data = data.transform(domain)
+        data[:, source_var] = np.full((len(data), 1), name, dtype=object)
+        return data, source_var
+
