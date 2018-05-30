@@ -2,4 +2,4 @@ Orange3>=3.12.0
 joblib>=0.11
 networkx
 pandas>=0.20
-orange3-bioinformatics==3.0.9
+orange3-bioinformatics==3.1.0
