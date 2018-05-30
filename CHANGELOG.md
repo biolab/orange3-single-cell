@@ -1,6 +1,19 @@
 Change Log
 ==========
 
+Version 0.6 (2018-05-31)
+------------------------
+##### New Features and Widgets
+* Single Cell Datasets: now serves the data that includes NCBI gene IDs.
+* Gene Name Matcher: a new widget that outputs the data table and associates genes with their NCBI IDs, either by adding a new meta column or providing meta information to column headers. The widget provides information on the success of matching the provided gene labels (names) with NCBI database.
+* Simplified gene name matching across the platform: matching uses NCBI gene IDs. Used by widgets like Score Cells and Cluster Analysis, and all the widgets from Bioinformatics add-on including GO Browser and KEGG Pathways. Matching assumes that the data includes NCBI IDs. 
+* Simplified interface in widgets like GO Browser and KEGG Pathways: datasets now carry information on organism and location of gene IDs, so widgets no longer need the part of the dialog to provide this type of information. We have removed this part of the dialog and simplified the interface of several widgets.
+* Cluster Analysis: can now accept a list of marker genes to be displayed in the analysis.
+* Gene Markers: all markers now include NCBI IDs, we have also extended a list of markers.
+
+#### Bug Fixes
+* Cluster Analysis: we fixed a bug in computation of over-expression scores. The widget now outputs the same scores as Differential Expression widget when using a hypergeometric test for scoring.
+
 Version 0.5 (2018-05-08)
 ------------------------
 ##### New Features and Widgets
