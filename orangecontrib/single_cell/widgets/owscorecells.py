@@ -2,7 +2,8 @@ import numpy as np
 
 from AnyQt.QtCore import QSize
 
-from Orange.data import ContinuousVariable, StringVariable, Domain, Table
+from Orange.data import ContinuousVariable, Domain, Table
+from Orange.statistics.util import nanmax, nanmean, nanmedian
 from Orange.widgets import widget, gui
 from Orange.widgets.settings import Setting
 
@@ -22,6 +23,7 @@ class OWScoreCells(widget.OWWidget):
     priority = 180
 
     auto_apply = Setting(True)
+    aggregation = Setting('mean')
     score_variable_name = Setting('Score', schema_only=True)
     want_main_area = False
 
@@ -49,6 +51,12 @@ class OWScoreCells(widget.OWWidget):
     class Outputs:
         data = Output("Data", Table)
 
+    aggregation_functions = {
+        'max': nanmax,
+        'mean': nanmean,
+        'median': nanmedian,
+    }
+
     def __init__(self):
         super().__init__()
     
@@ -70,6 +78,11 @@ class OWScoreCells(widget.OWWidget):
 
         info_box = gui.vBox(self.controlArea, 'Input info')
         self.info_text = gui.widgetLabel(info_box)
+
+        box = gui.vBox(self.controlArea, "Aggregation")
+        gui.comboBox(box, self, 'aggregation', sendSelectedValue=True,
+                     items=sorted(self.aggregation_functions.keys()),
+                     callback=lambda: self.commit())
 
         box = gui.vBox(self.controlArea, "Score Column Name in Output Data: ")
         self.line_edit = gui.lineEdit(box, self, 'score_variable_name', callback=self.commit)
@@ -169,7 +182,7 @@ class OWScoreCells(widget.OWWidget):
             self.__get_marker_genes()
 
     def __score_cells(self):
-        score = np.zeros(len(self.input_data))
+        scores = np.zeros(len(self.input_data))
 
         matched_ids = [gene_id for gene_id in self.input_genes if gene_id in self.marker_genes]
         matched_columns = [column for column in self.input_data.domain.attributes
@@ -188,9 +201,10 @@ class OWScoreCells(widget.OWWidget):
                                         len(self.marker_genes))
 
             values = self.input_data[:, matched_columns].X
-            score = np.nanmax(values, axis=1)
+            aggregator = self.aggregation_functions[self.aggregation]
+            scores = aggregator(values, axis=1)
 
-        return score
+        return scores
 
     def __get_input_genes(self):
         self.input_genes = []
