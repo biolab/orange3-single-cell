@@ -1,5 +1,6 @@
 import unicodedata
 from math import isnan, isinf, sqrt, pi
+from itertools import product
 
 from AnyQt.QtCore import Qt, QItemSelection, QItemSelectionModel
 from AnyQt.QtGui import QStandardItem, QColor, QFont, QBrush, QPainter, QStandardItemModel
@@ -126,6 +127,10 @@ class ContingencyTable(QTableView):
 
     def mouseReleaseEvent(self, e):
         super().mouseReleaseEvent(e)
+        self.parent._invalidate()
+
+    def keyPressEvent(self, event):
+        super().keyPressEvent(event)
         self.parent._invalidate()
 
     def _cell_clicked(self, model_index):
