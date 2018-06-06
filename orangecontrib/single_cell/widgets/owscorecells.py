@@ -39,17 +39,24 @@ class OWScoreCells(widget.OWWidget):
         some_genes = Msg("{} (of {}) genes not found in data")
 
     class Error(OWWidget.Error):
-        organism_mismatch = Msg('Organism in input data and marker genes does not match')
+        organism_mismatch = Msg(
+            'Organism in input data and marker genes does not match')
 
         # for input data
-        missing_annotation_input = Msg('Missing annotation on gene IDs and organism in the input genes data.')
-        missing_gene_id_input = Msg('Gene identification info missing in input genes data.')
-        missin_organism_input = Msg('Missing organism information in the input genes data')
+        missing_annotation_input = Msg(
+            'Missing annotation on gene IDs and organism in the input genes data.')
+        missing_gene_id_input = Msg(
+            'Gene identification info missing in input genes data.')
+        missin_organism_input = Msg(
+            'Missing organism information in the input genes data')
 
         # for marker data
-        missing_annotation_marker = Msg('Missing annotation on gene IDs and organism in the marker genes data.')
-        missing_gene_id_marker = Msg('Gene identification info missing in marker genes data.')
-        missin_organism_marker = Msg('Missing organism information in the marker genes data')
+        missing_annotation_marker = Msg(
+            'Missing annotation on gene IDs and organism in the marker genes data.')
+        missing_gene_id_marker = Msg(
+            'Gene identification info missing in marker genes data.')
+        missin_organism_marker = Msg(
+            'Missing organism information in the marker genes data')
 
     class Inputs:
         data = Input("Data", Table)
@@ -94,7 +101,8 @@ class OWScoreCells(widget.OWWidget):
                      callback=lambda: self.commit())
 
         box = gui.vBox(self.controlArea, "Score Column Name in Output Data: ")
-        self.line_edit = gui.lineEdit(box, self, 'score_variable_name', callback=self.commit)
+        self.line_edit = gui.lineEdit(box, self, 'score_variable_name',
+                                      callback=lambda: self.commit())
         self.line_edit.setPlaceholderText('Column Name ...')
 
         self.apply_button = gui.auto_commit(
