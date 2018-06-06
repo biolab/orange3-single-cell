@@ -1,12 +1,11 @@
 import numpy as np
-
 from AnyQt.QtCore import QSize
+from sklearn.preprocessing import scale
 
 from Orange.data import ContinuousVariable, Domain, Table
 from Orange.statistics.util import nanmax, nanmean, nanmedian
 from Orange.widgets import widget, gui
 from Orange.widgets.settings import Setting
-
 from Orange.widgets.utils.signals import Output, Input
 from Orange.widgets.utils.sql import check_sql_input
 from Orange.widgets.widget import OWWidget, Msg
@@ -16,6 +15,14 @@ from orangecontrib.bioinformatics.widgets.utils.data import (
 )
 
 
+def percent_nonzero(x, axis=1):
+    return np.ravel(np.mean(x > 0, axis=axis))
+
+
+def mean_normalized(x, axis=1):
+    return np.mean(scale(x, with_mean=False), axis=axis)
+
+
 class OWScoreCells(widget.OWWidget):
     name = "Score Cells"
     description = "Add a cell score based on the given set of genes"
@@ -23,7 +30,7 @@ class OWScoreCells(widget.OWWidget):
     priority = 180
 
     auto_apply = Setting(True)
-    aggregation = Setting('mean')
+    aggregation = Setting('Mean expression')
     score_variable_name = Setting('Score', schema_only=True)
     want_main_area = False
 
@@ -52,14 +59,16 @@ class OWScoreCells(widget.OWWidget):
         data = Output("Data", Table)
 
     aggregation_functions = {
-        'max': nanmax,
-        'mean': nanmean,
-        'median': nanmedian,
+        'Mean expression': nanmean,
+        'Mean normalized expression': mean_normalized,
+        'Median expression': nanmedian,
+        'Maximum expression': nanmax,
+        'Fraction of expressed markers': percent_nonzero,
     }
 
     def __init__(self):
         super().__init__()
-    
+
         # Input data attributes
         self.input_data = None
         self.input_genes = None
@@ -81,7 +90,7 @@ class OWScoreCells(widget.OWWidget):
 
         box = gui.vBox(self.controlArea, "Aggregation")
         gui.comboBox(box, self, 'aggregation', sendSelectedValue=True,
-                     items=sorted(self.aggregation_functions.keys()),
+                     items=list(self.aggregation_functions.keys()),
                      callback=lambda: self.commit())
 
         box = gui.vBox(self.controlArea, "Score Column Name in Output Data: ")
