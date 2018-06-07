@@ -567,7 +567,7 @@ class OWtSNE(OWWidget):
 
         selection = self.graph.get_selection()
         if output is not None and len(selection) > 0:
-            selected = output[selection]
+            selected = create_groups_table(output, self.graph.selection, False, "Group")
         else:
             selected = None
         if self.graph.selection is not None and np.max(self.graph.selection) > 1:
