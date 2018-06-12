@@ -125,7 +125,8 @@ class ClusterAnalysis:
             gene_set = set([str(gene) for gene in gene_list])
 
         return [gene.attributes[self.gene_id_attribute] for gene in self.columns
-                if gene.attributes[self.gene_id_attribute] in gene_set]
+                if self.gene_id_attribute in gene.attributes
+                and str(gene.attributes[self.gene_id_attribute]) in gene_set]
 
     @lru_cache(maxsize=3)
     def enriched_genes(self, gene_list, enrichment=None, biclustering=True, callback=None):
