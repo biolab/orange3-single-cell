@@ -12,13 +12,10 @@ from orangecontrib.single_cell.widgets.load_data import (
 
 class TestLoadData(unittest.TestCase):
     def test_get_data_loader(self):
-        dir_name = os.path.dirname(__file__)
-        file_name = os.path.join(dir_name, "data/10x/mm10/matrix.mtx")
-        self.assertIsInstance(get_data_loader(file_name), MtxLoader)
-        file_name = os.path.join(dir_name, "data/DATA_MATRIX_LOG_TPM.txt")
-        self.assertIsInstance(get_data_loader(file_name), Loader)
-        file_name = os.path.join(dir_name, "data/lib.cell.count")
-        self.assertIsInstance(get_data_loader(file_name), CountLoader)
+        self.assertIsInstance(get_data_loader("matrix.mtx"), MtxLoader)
+        self.assertIsInstance(get_data_loader("lib.cell.count"), CountLoader)
+        loader = get_data_loader("DATA_MATRIX_LOG_TPM.txt")
+        self.assertIsInstance(loader, Loader)
 
     def test_get_data_loader_pickle(self):
         self.assertIsInstance(get_data_loader("data.pkl"), PickleLoader)
