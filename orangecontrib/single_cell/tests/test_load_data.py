@@ -6,20 +6,24 @@ import numpy.testing as npt
 import pandas as pd
 
 from orangecontrib.single_cell.widgets.load_data import (
-    MtxLoader, CountLoader, Loader,
-    get_data_loader
+    MtxLoader, CountLoader, Loader, PickleLoader, get_data_loader
 )
 
 
 class TestLoadData(unittest.TestCase):
     def test_get_data_loader(self):
-        dir_name = os.path.dirname(__file__)
-        file_name = os.path.join(dir_name, "data/10x/mm10/matrix.mtx")
-        self.assertIsInstance(get_data_loader(file_name), MtxLoader)
-        file_name = os.path.join(dir_name, "data/DATA_MATRIX_LOG_TPM.txt")
-        self.assertIsInstance(get_data_loader(file_name), Loader)
-        file_name = os.path.join(dir_name, "data/lib.cell.count")
-        self.assertIsInstance(get_data_loader(file_name), CountLoader)
+        self.assertIsInstance(get_data_loader("matrix.mtx"), MtxLoader)
+        self.assertIsInstance(get_data_loader("lib.cell.count"), CountLoader)
+        loader = get_data_loader("DATA_MATRIX_LOG_TPM.txt")
+        self.assertIsInstance(loader, Loader)
+
+    def test_get_data_loader_pickle(self):
+        self.assertIsInstance(get_data_loader("data.pkl"), PickleLoader)
+        self.assertIsInstance(get_data_loader("data.pickle"), PickleLoader)
+
+    def test_get_data_loader_compressed_file(self):
+        loader = get_data_loader("lib.cell.count.gz")
+        self.assertIsInstance(loader, CountLoader)
 
     def test_file_summary_mtx(self):
         file_name = os.path.join(os.path.dirname(__file__),
@@ -47,6 +51,24 @@ class TestLoadData(unittest.TestCase):
         self.assertEqual(loader.n_rows, 10)
         self.assertEqual(loader.n_cols, 11)
         self.assertEqual(round(loader.sparsity, 2), 0.99)
+
+    def test_file_summary_pickle(self):
+        file_name = os.path.join(os.path.dirname(__file__),
+                                 "data/data.pkl")
+        loader = PickleLoader(file_name)
+        self.assertEqual(loader.file_size, 5021)
+        self.assertEqual(loader.n_rows, None)
+        self.assertEqual(loader.n_cols, None)
+        self.assertEqual(loader.sparsity, None)
+
+    def test_file_summary_gz(self):
+        file_name = os.path.join(os.path.dirname(__file__),
+                                 "data/data.txt.gz")
+        loader = Loader(file_name)
+        self.assertEqual(loader.file_size, 361)
+        self.assertEqual(loader.n_rows, 10)
+        self.assertEqual(loader.n_cols, 15)
+        self.assertEqual(round(loader.sparsity, 2), 0.86)
 
     def test_load_data_mtx(self):
         file_name = os.path.join(os.path.dirname(__file__),
