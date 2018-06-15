@@ -21,6 +21,10 @@ class TestLoadData(unittest.TestCase):
         file_name = os.path.join(dir_name, "data/lib.cell.count")
         self.assertIsInstance(get_data_loader(file_name), CountLoader)
 
+    def test_get_data_loader_compressed_file(self):
+        loader = get_data_loader("lib.cell.count.gz")
+        self.assertIsInstance(loader, CountLoader)
+
     def test_file_summary_mtx(self):
         file_name = os.path.join(os.path.dirname(__file__),
                                  "data/10x/hg19/matrix.mtx")
@@ -47,6 +51,15 @@ class TestLoadData(unittest.TestCase):
         self.assertEqual(loader.n_rows, 10)
         self.assertEqual(loader.n_cols, 11)
         self.assertEqual(round(loader.sparsity, 2), 0.99)
+
+    def test_file_summary_gz(self):
+        file_name = os.path.join(os.path.dirname(__file__),
+                                 "data/data.txt.gz")
+        loader = Loader(file_name)
+        self.assertEqual(loader.file_size, 361)
+        self.assertEqual(loader.n_rows, 10)
+        self.assertEqual(loader.n_cols, 15)
+        self.assertEqual(round(loader.sparsity, 2), 0.86)
 
     def test_load_data_mtx(self):
         file_name = os.path.join(os.path.dirname(__file__),

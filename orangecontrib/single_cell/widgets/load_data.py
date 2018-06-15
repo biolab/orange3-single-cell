@@ -8,6 +8,7 @@ import pandas as pd
 import scipy.io
 
 from Orange.data import ContinuousVariable, Domain, Table, StringVariable
+from Orange.data.io import Compression, open_compressed
 
 
 def separator_from_filename(file_name):
@@ -25,7 +26,9 @@ def get_data_loader(file_name):
     :param file_name: str
     :return: Loader
     """
-    _, ext = os.path.splitext(file_name)
+    base, ext = os.path.splitext(file_name)
+    if ext in Compression.all:
+        _, ext = os.path.splitext(base)
     if ext == ".mtx":
         return MtxLoader(file_name)
     elif ext == ".count":
@@ -115,7 +118,7 @@ class Loader:
 
     def _set_file_parameters(self):
         try:
-            with open(self._file_name, "rt", encoding="latin-1") as f:
+            with open_compressed(self._file_name, "rt", encoding="latin-1") as f:
                 line = next(csv.reader(f, delimiter=self.separator))
                 self.n_cols = len(line)
                 self.n_rows = sum(1 for _ in f)
@@ -419,7 +422,7 @@ class MtxLoader(Loader):
 
     def _set_file_parameters(self):
         try:
-            with open(self._file_name, "rb") as f:
+            with open_compressed(self._file_name, "rb") as f:
                 self.n_rows, self.n_cols, non_zero_el = scipy.io.mminfo(f)[:3]
                 all_el = self.n_rows * self.n_cols
                 self.sparsity = (all_el - non_zero_el) / all_el
