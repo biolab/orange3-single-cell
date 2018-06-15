@@ -1,5 +1,6 @@
 import os
 import csv
+import random
 from itertools import chain
 from typing import Dict, Tuple
 
@@ -8,7 +9,7 @@ import pandas as pd
 import scipy.io
 
 from Orange.data import ContinuousVariable, Domain, Table, StringVariable
-from Orange.data.io import Compression, open_compressed
+from Orange.data.io import Compression, open_compressed, PickleReader
 
 
 def separator_from_filename(file_name):
@@ -35,6 +36,8 @@ def get_data_loader(file_name):
         return CountLoader(file_name)
     elif ext == ".csv":
         return CsvLoader(file_name)
+    elif ext in (".pkl", ".pickle"):
+        return PickleLoader(file_name)
     else:
         return Loader(file_name)
 
@@ -473,3 +476,48 @@ class CountLoader(Loader):
 
 class CsvLoader(Loader):
     separator = ","
+
+
+class PickleLoader(Loader):
+    separator = None
+
+    def __init__(self, file_name):
+        super().__init__(file_name)
+        self.header_rows_count = 0
+        self.header_cols_count = 0
+        self.FIXED_FORMAT = False
+        self.ENABLE_ANNOTATIONS = False
+        self.transposed = False
+        self.row_annotations_enabled = False
+        self.col_annotations_enabled = False
+
+    def _set_file_parameters(self):
+        pass
+
+    def _load_data(self):
+        random.seed(0)
+        reader = PickleReader(self._file_name)
+        table = reader.read()
+        self.n_rows, self.n_cols = table.X.shape
+        attrs = self.__attributes(table.domain.attributes)
+        metas = table.domain.metas + table.domain.class_vars
+        domain = Domain(attrs, metas=metas)
+        return table.transform(domain)[self.__row_indices()]
+
+    def __call__(self):
+        return self._load_data()
+
+    def __row_indices(self):
+        indices = range(self.n_rows)
+        if self.sample_rows_enabled:
+            p = self.sample_rows_p
+            if p < 100 and self.n_rows > 3:
+                return random.sample(indices, int(self.n_rows * p / 100))
+        return indices
+
+    def __attributes(self, attributes):
+        if self.sample_cols_enabled:
+            p = self.sample_cols_p
+            if p < 100 and self.n_cols > 3:
+                return random.sample(attributes, int(self.n_cols * p / 100))
+        return attributes

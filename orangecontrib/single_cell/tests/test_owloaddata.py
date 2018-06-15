@@ -110,6 +110,17 @@ class TestOWLoadData(WidgetTest):
         self._test_load_data_x(data.X, df)
         self._test_load_data_broad_metas(data.metas, df)
 
+    def test_load_data_pickle(self):
+        file_name = os.path.join(self._path, "data.pkl")
+        self.widget.set_current_path(file_name)
+        self.widget.commit()
+        data = self.get_output("Data")
+        file_name = os.path.join(self._path, "data.txt.gz")
+        df = pd.read_csv(file_name, header=0, sep="\t", index_col=0)
+        self._test_load_data_attributes(data.domain.attributes, df)
+        self._test_load_data_x(data.X, df)
+        self._test_load_data_broad_metas(data.metas, df)
+
     def test_load_data_broad_sample(self):
         file_name = os.path.join(self._path, "DATA_MATRIX_LOG_TPM.txt")
         self.widget.set_current_path(file_name)

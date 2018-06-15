@@ -30,6 +30,7 @@ Formats = [
     "Tab separated file (*.tsv, *.tab)",
     "Comma separated file (*.csv)",
     "10x gene-barcode matrix (matrix.mtx)",
+    "Pickled Python object file (*.pkl, *.pickle)",
     "Any tab separated file (*.*)"
 ]
 
