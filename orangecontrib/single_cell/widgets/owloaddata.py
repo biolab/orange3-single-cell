@@ -5,7 +5,7 @@ from typing import List
 
 from serverfiles import sizeformat
 
-from AnyQt.QtCore import Qt, QFileInfo, QTimer
+from AnyQt.QtCore import Qt, QFileInfo, QTimer, Signal
 from AnyQt.QtGui import QStandardItemModel, QStandardItem
 from AnyQt.QtWidgets import (
     QSizePolicy, QGridLayout, QHBoxLayout, QFormLayout,
@@ -146,6 +146,8 @@ class OWLoadData(widget.OWWidget):
 
     want_main_area = False
     resizing_enabled = False
+
+    cells_in_rows_changed = Signal()
 
     def __init__(self):
         super().__init__()
@@ -355,6 +357,7 @@ class OWLoadData(widget.OWWidget):
     def _cells_in_rows_changed(self):
         self._data_loader.transposed = not self._cells_in_rows
         self._invalidate()
+        self.cells_in_rows_changed.emit()
 
     def _row_annotations_combo_changed(self):
         path = self.row_annotations_combo.currentData(Qt.UserRole)

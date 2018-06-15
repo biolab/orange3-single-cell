@@ -219,6 +219,17 @@ class OWMultiSample(owloaddata.OWLoadData):
         self.read_settings()
         self.view.setFocus()
 
+        self.cells_in_rows_changed.connect(self._update_view_cells_genes)
+
+    def _update_view_cells_genes(self):
+        row = self.view.currentIndex().row()
+        if row > -1:
+            cell_item = self.view.model().item(row, self._Header.cells)
+            cell_item.setData(self._data_loader.n_cells, Qt.DisplayRole)
+            gene_item = self.view.model().item(row, self._Header.genes)
+            gene_item.setData(self._data_loader.n_genes, Qt.DisplayRole)
+            self.repaint()
+
     def _view_clicked(self, index):
         if index.column() == self._Header.remove:
             self.remove_item(index)
