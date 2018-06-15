@@ -7,7 +7,7 @@ from serverfiles import sizeformat
 
 import numpy as np
 
-from AnyQt.QtCore import Qt, QFileInfo
+from AnyQt.QtCore import Qt, QFileInfo, QTimer
 from AnyQt.QtGui import QStandardItemModel, QStandardItem
 from AnyQt.QtWidgets import (
     QSizePolicy, QGridLayout, QHBoxLayout, QFormLayout,
@@ -345,7 +345,9 @@ class OWLoadData(widget.OWWidget):
         self._update_warning()
 
         if self._last_path != "" and os.path.exists(self._last_path):
-            self.set_current_path(self._last_path)
+            QTimer.singleShot(
+                0, lambda: self.set_current_path(self._last_path)
+            )
         else:
             self.recent_combo.setCurrentIndex(-1)
 
