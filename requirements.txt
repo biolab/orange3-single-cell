@@ -3,3 +3,7 @@ joblib>=0.11
 networkx
 pandas>=0.20
 orange3-bioinformatics==3.1.0
+fastdtw
+sklearn
+numpy
+astropy
