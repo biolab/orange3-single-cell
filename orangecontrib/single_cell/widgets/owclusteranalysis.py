@@ -379,10 +379,12 @@ class OWClusterAnalysis(widget.OWWidget):
             selected_data = selected_data.transform(new_domain)
             annotated_data = create_annotated_table(self.data.transform(new_domain),
                                                     np.where(np.in1d(self.data.ids, selected_data.ids, True)))
-            table = self.ca.create_contingency_table()
         else:
             selected_data = None
             annotated_data = create_annotated_table(self.data, [])
+        if self.ca is not None and self._task is None:
+            table = self.ca.create_contingency_table()
+        else:
             table = None
         self.Outputs.selected_data.send(selected_data)
         self.Outputs.annotated_data.send(annotated_data)
