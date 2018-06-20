@@ -1,11 +1,11 @@
 import numpy as np
-
 from AnyQt.QtCore import QSize
+from sklearn.preprocessing import scale
 
-from Orange.data import ContinuousVariable, StringVariable, Domain, Table
+from Orange.data import ContinuousVariable, Domain, Table
+from Orange.statistics.util import nanmax, nanmean, nanmedian
 from Orange.widgets import widget, gui
 from Orange.widgets.settings import Setting
-
 from Orange.widgets.utils.signals import Output, Input
 from Orange.widgets.utils.sql import check_sql_input
 from Orange.widgets.widget import OWWidget, Msg
@@ -15,6 +15,14 @@ from orangecontrib.bioinformatics.widgets.utils.data import (
 )
 
 
+def percent_nonzero(x, axis=1):
+    return np.ravel(np.mean(x > 0, axis=axis))
+
+
+def mean_normalized(x, axis=1):
+    return np.mean(scale(x, with_mean=False), axis=axis)
+
+
 class OWScoreCells(widget.OWWidget):
     name = "Score Cells"
     description = "Add a cell score based on the given set of genes"
@@ -22,6 +30,7 @@ class OWScoreCells(widget.OWWidget):
     priority = 180
 
     auto_apply = Setting(True)
+    aggregation = Setting('Mean expression')
     score_variable_name = Setting('Score', schema_only=True)
     want_main_area = False
 
@@ -30,17 +39,24 @@ class OWScoreCells(widget.OWWidget):
         some_genes = Msg("{} (of {}) genes not found in data")
 
     class Error(OWWidget.Error):
-        organism_mismatch = Msg('Organism in input data and marker genes does not match')
+        organism_mismatch = Msg(
+            'Organism in input data and marker genes does not match')
 
         # for input data
-        missing_annotation_input = Msg('Missing annotation on gene IDs and organism in the input genes data.')
-        missing_gene_id_input = Msg('Gene identification info missing in input genes data.')
-        missin_organism_input = Msg('Missing organism information in the input genes data')
+        missing_annotation_input = Msg(
+            'Missing annotation on gene IDs and organism in the input genes data.')
+        missing_gene_id_input = Msg(
+            'Gene identification info missing in input genes data.')
+        missin_organism_input = Msg(
+            'Missing organism information in the input genes data')
 
         # for marker data
-        missing_annotation_marker = Msg('Missing annotation on gene IDs and organism in the marker genes data.')
-        missing_gene_id_marker = Msg('Gene identification info missing in marker genes data.')
-        missin_organism_marker = Msg('Missing organism information in the marker genes data')
+        missing_annotation_marker = Msg(
+            'Missing annotation on gene IDs and organism in the marker genes data.')
+        missing_gene_id_marker = Msg(
+            'Gene identification info missing in marker genes data.')
+        missin_organism_marker = Msg(
+            'Missing organism information in the marker genes data')
 
     class Inputs:
         data = Input("Data", Table)
@@ -49,9 +65,17 @@ class OWScoreCells(widget.OWWidget):
     class Outputs:
         data = Output("Data", Table)
 
+    aggregation_functions = {
+        'Mean expression': nanmean,
+        'Mean normalized expression': mean_normalized,
+        'Median expression': nanmedian,
+        'Maximum expression': nanmax,
+        'Fraction of expressed markers': percent_nonzero,
+    }
+
     def __init__(self):
         super().__init__()
-    
+
         # Input data attributes
         self.input_data = None
         self.input_genes = None
@@ -71,8 +95,14 @@ class OWScoreCells(widget.OWWidget):
         info_box = gui.vBox(self.controlArea, 'Input info')
         self.info_text = gui.widgetLabel(info_box)
 
+        box = gui.vBox(self.controlArea, "Aggregation")
+        gui.comboBox(box, self, 'aggregation', sendSelectedValue=True,
+                     items=list(self.aggregation_functions.keys()),
+                     callback=lambda: self.commit())
+
         box = gui.vBox(self.controlArea, "Score Column Name in Output Data: ")
-        self.line_edit = gui.lineEdit(box, self, 'score_variable_name', callback=self.commit)
+        self.line_edit = gui.lineEdit(box, self, 'score_variable_name',
+                                      callback=lambda: self.commit())
         self.line_edit.setPlaceholderText('Column Name ...')
 
         self.apply_button = gui.auto_commit(
@@ -169,7 +199,7 @@ class OWScoreCells(widget.OWWidget):
             self.__get_marker_genes()
 
     def __score_cells(self):
-        score = np.zeros(len(self.input_data))
+        scores = np.zeros(len(self.input_data))
 
         matched_ids = [gene_id for gene_id in self.input_genes if gene_id in self.marker_genes]
         matched_columns = [column for column in self.input_data.domain.attributes
@@ -188,9 +218,10 @@ class OWScoreCells(widget.OWWidget):
                                         len(self.marker_genes))
 
             values = self.input_data[:, matched_columns].X
-            score = np.nanmax(values, axis=1)
+            aggregator = self.aggregation_functions[self.aggregation]
+            scores = aggregator(values, axis=1)
 
-        return score
+        return scores
 
     def __get_input_genes(self):
         self.input_genes = []
