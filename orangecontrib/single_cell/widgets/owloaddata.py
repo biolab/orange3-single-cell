@@ -27,16 +27,16 @@ from orangecontrib.single_cell.widgets.load_data import get_data_loader, Loader
 
 Formats = [
     "Count file (*.count)",
-    "Tab separated file (*.tsv, *.tab)",
+    "Tab separated file (*.tsv *.tab)",
     "Comma separated file (*.csv)",
     "10x gene-barcode matrix (matrix.mtx)",
-    "Pickled Python object file (*.pkl, *.pickle)",
+    "Pickled Python object file (*.pkl *.pickle)",
     "Any tab separated file (*.*)"
 ]
 
 AnnotationFormats = [
     "Meta file (*.meta)",
-    "Tab separated file (*.tsv, *tab)",
+    "Tab separated file (*.tsv *.tab)",
     "Comma separated file (*.csv)",
     "Any tab separated file (*.*)",
 ]
