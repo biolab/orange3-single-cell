@@ -129,9 +129,9 @@ class MultiSampleTreeView(QTreeView):
 
 
 class OWMultiSample(owloaddata.OWLoadData):
-    name = "Multi Sample"
+    name = "Load Data"
     description = "Load samples for multi-sample analysis"
-    icon = "icons/MultiSample.svg"
+    icon = "icons/LoadData.svg"
     priority = 155
 
     class Information(owloaddata.OWLoadData.Information):
