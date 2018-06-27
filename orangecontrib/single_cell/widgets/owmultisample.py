@@ -5,8 +5,7 @@ from typing import Dict, Tuple, List, Optional
 from serverfiles import sizeformat
 
 from AnyQt.QtCore import (
-    Qt, QItemSelection, QItemSelectionModel, pyqtSlot as Slot,
-    QModelIndex, Signal
+    Qt, QItemSelectionModel, pyqtSlot as Slot, QModelIndex, Signal
 )
 from AnyQt.QtGui import (
     QStandardItemModel, QStandardItem, QIcon, QBrush, QColor
@@ -370,12 +369,9 @@ class OWMultiSample(owloaddata.OWLoadData):
     def select_item(self, index):
         if not isinstance(index, QModelIndex):
             index = self.view.model().index(index, 0)
-        selection = QItemSelection()
-        selection.select(index, index)
-        self.view.selectionModel().select(
-            selection,
-            QItemSelectionModel.ClearAndSelect | QItemSelectionModel.Rows
-        )
+        self.view.selectionModel().setCurrentIndex(
+            index,
+            QItemSelectionModel.ClearAndSelect | QItemSelectionModel.Rows)
         self.view.setFocus()
         self.repaint()
 
