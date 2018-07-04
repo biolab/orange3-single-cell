@@ -1,6 +1,5 @@
 import unicodedata
 from math import isnan, isinf, sqrt, pi
-from itertools import product
 
 from AnyQt.QtCore import Qt, QItemSelection, QItemSelectionModel
 from AnyQt.QtGui import QStandardItem, QColor, QFont, QBrush, QPainter, QStandardItemModel
@@ -10,7 +9,7 @@ from Orange.widgets import gui
 BorderRole = next(gui.OrangeUserRole)
 BorderColorRole = next(gui.OrangeUserRole)
 
-CircleArea = next(gui.OrangeUserRole)
+CircleAreaRole = next(gui.OrangeUserRole)
 
 
 class BorderedItemDelegate(QStyledItemDelegate):
@@ -48,24 +47,38 @@ class BorderedItemDelegate(QStyledItemDelegate):
 
 
 class CircleItemDelegate(BorderedItemDelegate, gui.VerticalItemDelegate):
+    """
+    Item delegate for display with circles. It switches between orienting
+    text vertically, painting borders, and drawing circles depending
+    on indices.
+
+    Role `CircleAreaRole` should be a float between 0 and 1 (inclusive) and
+    represents area of a circle.
+    """
     def sizeHint(self, option, index):
+        """
+        Overloads sizeHint and provides sizeHint for vertical text, cell with
+        borders, or circles depending on indices.
+        """
         if index.column() == 0 or index.row() == 1:
             return gui.VerticalItemDelegate.sizeHint(self, option, index)
-        elif index.column() == 1:
+        elif index.column() == 1 or index.row() == 0:
             return BorderedItemDelegate.sizeHint(self, option, index)
-        elif 2 <= index.row() and 2 <= index.column():
-            return QStyledItemDelegate.sizeHint(self, option, index)
         else:
-            return BorderedItemDelegate.sizeHint(self, option, index)
+            return QStyledItemDelegate.sizeHint(self, option, index)
 
     def paint(self, painter, option, index):
-        area = index.data(CircleArea)
+        """
+        Overloads paint and switches between orienting text vertically,
+        painting borders, and drawing circles depending on indices.
+        """
         if index.column() == 0 or index.row() == 1:
             gui.VerticalItemDelegate.paint(self, painter, option, index)
-        elif index.column() == 1:
+        elif index.column() == 1 or index.row() == 0:
             BorderedItemDelegate.paint(self, painter, option, index)
-        elif 2 <= index.row() and 2 <= index.column() and area is not None and 0 <= area <= 1:
+        else:
             QStyledItemDelegate.paint(self, painter, option, index)
+            area = index.data(CircleAreaRole)
             rect = option.rect
             max_radius = 20
             radius = max(1, max_radius*sqrt(area/pi))
@@ -73,8 +86,6 @@ class CircleItemDelegate(BorderedItemDelegate, gui.VerticalItemDelegate):
             painter.setBrush(Qt.blue)
             painter.setRenderHint(QPainter.Antialiasing)
             painter.drawEllipse(rect.center(), radius, radius)
-        else:
-            BorderedItemDelegate.paint(self, painter, option, index)
 
 
 class ContingencyTable(QTableView):
@@ -83,10 +94,8 @@ class ContingencyTable(QTableView):
 
     Parameters
     ----------
-    parent : Orange.widgets.widget.OWWidget as a
+    parent : Orange.widgets.widget.OWWidget
         The containing widget to which the table is connected.
-    tablemodel : AnyQt.QtGui.QtStandardItemModel
-        The model in which table data will be stored.
 
     Attributes
     ----------
@@ -106,6 +115,7 @@ class ContingencyTable(QTableView):
     def __init__(self, parent):
         super().__init__(editTriggers=QTableView.NoEditTriggers)
 
+        self.bold_headers = None
         self.circles = False
         self.classesv = None
         self.classesh = None
@@ -197,21 +207,10 @@ class ContingencyTable(QTableView):
         self.headerh = headerh
         self.initialize(**kwargs)
 
-    def initialize(self, circles=False, bold_headers=True):
+    def _style_cells(self):
         """
-        Initializes table structure. Class headers must be set beforehand.
-
-        Parameters
-        ----------
-        circles : :obj:`bool`, optional
-            Turns on circle display. All table values should be between 0 and 1 (inclusive). Defaults to False.
-        bold_headers : :obj:`bool`, optional
-            Whether the headers are bold or not. Defaults to True.
+        Style all cells.
         """
-        assert self.classesv is not None and self.classesh is not None
-
-        self.circles = circles
-
         if self.circles:
             self.setItemDelegate(CircleItemDelegate(Qt.white))
         else:
@@ -231,15 +230,19 @@ class ContingencyTable(QTableView):
         self.setSpan(0, 2, 1, len(self.classesh)+1)
         self.setSpan(2, 0, len(self.classesv)+1, 1)
 
-        font = self.tablemodel.invisibleRootItem().font()
-        bold_font = QFont(font)
-        bold_font.setBold(True)
-
         for i in (0, 1):
             for j in (0, 1):
                 item = self._item(i, j)
                 item.setFlags(Qt.NoItemFlags)
                 self._set_item(i, j, item)
+
+    def _initialize_headers(self):
+        """
+        Fill headers with content and style them.
+        """
+        font = self.tablemodel.invisibleRootItem().font()
+        bold_font = QFont(font)
+        bold_font.setBold(True)
 
         for headers, ix in ((self.classesv + [self.corner_string], lambda p: (p + 2, 1)),
                             (self.classesh + [self.corner_string], lambda p: (1, p + 2))):
@@ -247,7 +250,7 @@ class ContingencyTable(QTableView):
                 i, j = ix(p)
                 item = self._item(i, j)
                 item.setData(label, Qt.DisplayRole)
-                if bold_headers:
+                if self.bold_headers:
                     item.setFont(bold_font)
                 if not (i == 1 and self.circles):
                     item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -259,6 +262,10 @@ class ContingencyTable(QTableView):
                     item.setData("", BorderRole)
                 self._set_item(i, j, item)
 
+    def _resize(self):
+        """
+        Resize table to fit new contents and style.
+        """
         if self.circles:
             self.resizeRowToContents(1)
             self.horizontalHeader().setDefaultSectionSize(self.rowHeight(2))
@@ -272,6 +279,26 @@ class ContingencyTable(QTableView):
                 self.horizontalHeader().setDefaultSectionSize(60)
             self.tablemodel.setRowCount(len(self.classesv) + 3)
             self.tablemodel.setColumnCount(len(self.classesh) + 3)
+
+    def initialize(self, circles=False, bold_headers=True):
+        """
+        Initializes table structure. Class headers must be set beforehand.
+
+        Parameters
+        ----------
+        circles : :obj:`bool`, optional
+            Turns on circle display. All table values should be between 0 and 1 (inclusive). Defaults to False.
+        bold_headers : :obj:`bool`, optional
+            Whether the headers are bold or not. Defaults to True.
+        """
+        assert self.classesv is not None and self.classesh is not None
+
+        self.circles = circles
+        self.bold_headers = bold_headers
+
+        self._style_cells()
+        self._initialize_headers()
+        self._resize()
 
     def get_selection(self):
         """
@@ -301,6 +328,77 @@ class ContingencyTable(QTableView):
         self.selectionModel().select(
             selection, QItemSelectionModel.ClearAndSelect)
 
+    def _set_sums(self, colsum, rowsum):
+        """
+        Set content of cells on bottom and right edge.
+
+        Parameters
+        ----------
+        colsum : numpy.array
+            Content of cells on bottom edge.
+        rowsum : numpy.array
+            Content of cells on right edge.
+        """
+        bold_font = self.tablemodel.invisibleRootItem().font()
+        bold_font.setBold(True)
+
+        def _sum_item(value, border=""):
+            item = QStandardItem()
+            item.setData(value, Qt.DisplayRole)
+            item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            item.setFlags(Qt.ItemIsEnabled)
+            item.setFont(bold_font)
+            item.setData(border, BorderRole)
+            item.setData(QColor(192, 192, 192), BorderColorRole)
+            return item
+
+        for i in range(len(self.classesh)):
+            self._set_item(len(self.classesv) + 2, i + 2, _sum_item(int(colsum[i]), "t"))
+        for i in range(len(self.classesv)):
+            self._set_item(i + 2, len(self.classesh) + 2, _sum_item(int(rowsum[i]), "l"))
+        self._set_item(len(self.classesv) + 2, len(self.classesh) + 2, _sum_item(int(rowsum.sum())))
+
+    def _set_values(self, matrix, colors, formatstr, tooltip):
+        """
+        Set content of cells which aren't headers and don't represent aggregate values.
+
+        Parameters
+        ----------
+        matrix : numpy.array
+            2D array to be set as data.
+        colors : :obj:`numpy.array`
+            2D array with color values.
+        formatstr : :obj:`str`, optional
+            Format string for cell data.
+        tooltip : :obj:`(int, int) -> str`
+            Function which takes vertical index and horizontal index as arguments and returns
+            desired tooltip as a string.
+        """
+        def _isinvalid(x):
+            return isnan(x) or isinf(x)
+
+        for i in range(len(self.classesv)):
+            for j in range(len(self.classesh)):
+                val = matrix[i, j]
+                col_val = float('nan') if colors is None else colors[i, j]
+                item = QStandardItem()
+                if self.circles:
+                    item.setData(val, CircleAreaRole)
+                else:
+                    item.setData(
+                        "NA" if _isinvalid(val) else formatstr.format(val),
+                        Qt.DisplayRole)
+                    bkcolor = QColor.fromHsl(
+                        [0, 240][i == j], 160,
+                        255 if _isinvalid(col_val) else int(255 - 30 * col_val))
+                    item.setData(QBrush(bkcolor), Qt.BackgroundRole)
+                item.setData("trbl", BorderRole)
+                if tooltip is not None:
+                    item.setToolTip(tooltip(i, j))
+                item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+                self._set_item(i + 2, j + 2, item)
+
     def update_table(self, matrix, colsum=None, rowsum=None, colors=None, formatstr="{}", tooltip=None):
         """
         Sets ``matrix`` as data of the table.
@@ -321,58 +419,15 @@ class ContingencyTable(QTableView):
             Function which takes vertical index and horizontal index as arguments and returns
             desired tooltip as a string. Defaults to no tooltips.
         """
-        def _isinvalid(x):
-            return isnan(x) or isinf(x)
+        selected_indexes = self.get_selection()
 
+        self._set_values(matrix, colors, formatstr, tooltip)
         if not self.circles:
             if colsum is None:
                 colsum = matrix.sum(axis=0)
             if rowsum is None:
                 rowsum = matrix.sum(axis=1)
-
-        selected_indexes = self.get_selection()
-
-        for i in range(len(self.classesv)):
-            for j in range(len(self.classesh)):
-                val = matrix[i, j]
-                col_val = float('nan') if colors is None else colors[i, j]
-                item = QStandardItem()
-                if self.circles:
-                    item.setData(val, CircleArea)
-                else:
-                    item.setData(
-                        "NA" if _isinvalid(val) else formatstr.format(val),
-                        Qt.DisplayRole)
-                    bkcolor = QColor.fromHsl(
-                        [0, 240][i == j], 160,
-                        255 if _isinvalid(col_val) else int(255 - 30 * col_val))
-                    item.setData(QBrush(bkcolor), Qt.BackgroundRole)
-                item.setData("trbl", BorderRole)
-                if tooltip is not None:
-                    item.setToolTip(tooltip(i, j))
-                item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-                item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-                self._set_item(i + 2, j + 2, item)
-
-        if not self.circles:
-            bold_font = self.tablemodel.invisibleRootItem().font()
-            bold_font.setBold(True)
-
-            def _sum_item(value, border=""):
-                item = QStandardItem()
-                item.setData(value, Qt.DisplayRole)
-                item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-                item.setFlags(Qt.ItemIsEnabled)
-                item.setFont(bold_font)
-                item.setData(border, BorderRole)
-                item.setData(QColor(192, 192, 192), BorderColorRole)
-                return item
-
-            for i in range(len(self.classesh)):
-                self._set_item(len(self.classesv) + 2, i + 2, _sum_item(int(colsum[i]), "t"))
-            for i in range(len(self.classesv)):
-                self._set_item(i + 2, len(self.classesh) + 2, _sum_item(int(rowsum[i]), "l"))
-            self._set_item(len(self.classesv) + 2, len(self.classesh) + 2, _sum_item(int(rowsum.sum())))
+            self._set_sums(colsum, rowsum)
 
         self.set_selection(selected_indexes)
 
