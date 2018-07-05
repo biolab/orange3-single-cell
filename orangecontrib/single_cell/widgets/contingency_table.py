@@ -1,5 +1,5 @@
 import unicodedata
-from math import isnan, isinf, sqrt, pi
+from math import isnan, isinf, sqrt, ceil
 
 from AnyQt.QtCore import Qt, QItemSelection, QItemSelectionModel
 from AnyQt.QtGui import QStandardItem, QColor, QFont, QBrush, QPainter, QStandardItemModel
@@ -55,6 +55,10 @@ class CircleItemDelegate(BorderedItemDelegate, gui.VerticalItemDelegate):
     Role `CircleAreaRole` should be a float between 0 and 1 (inclusive) and
     represents area of a circle.
     """
+    def __init__(self, max_diameter, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.max_diameter = max_diameter
+
     def sizeHint(self, option, index):
         """
         Overloads sizeHint and provides sizeHint for vertical text, cell with
@@ -80,8 +84,7 @@ class CircleItemDelegate(BorderedItemDelegate, gui.VerticalItemDelegate):
             QStyledItemDelegate.paint(self, painter, option, index)
             area = index.data(CircleAreaRole)
             rect = option.rect
-            max_radius = 20
-            radius = max(1, max_radius*sqrt(area/pi))
+            radius = max(1, self.max_diameter/2*sqrt(area))
             painter.setPen(Qt.transparent)
             painter.setBrush(Qt.blue)
             painter.setRenderHint(QPainter.Antialiasing)
@@ -129,7 +132,7 @@ class ContingencyTable(QTableView):
         self.setModel(self.tablemodel)
         self.horizontalHeader().hide()
         self.verticalHeader().hide()
-        self.horizontalHeader().setMinimumSectionSize(60)
+        #self.horizontalHeader().setMinimumSectionSize(30)
         self.setShowGrid(False)
         self.setSizePolicy(QSizePolicy.MinimumExpanding,
                            QSizePolicy.MinimumExpanding)
@@ -212,7 +215,7 @@ class ContingencyTable(QTableView):
         Style all cells.
         """
         if self.circles:
-            self.setItemDelegate(CircleItemDelegate(Qt.white))
+            self.setItemDelegate(CircleItemDelegate(ceil(.9 * self.cell_size), Qt.white))
         else:
             self.setItemDelegate(BorderedItemDelegate(Qt.white))
         item = self._item(0, 2)
@@ -235,6 +238,13 @@ class ContingencyTable(QTableView):
                 item = self._item(i, j)
                 item.setFlags(Qt.NoItemFlags)
                 self._set_item(i, j, item)
+
+    def set_cell_size(self, cell_size):
+        assert self.circles
+
+        self.cell_size = cell_size
+        self.setItemDelegate(CircleItemDelegate(ceil(.9 * self.cell_size), Qt.white))
+        self._resize()
 
     def _initialize_headers(self):
         """
@@ -268,7 +278,12 @@ class ContingencyTable(QTableView):
         """
         if self.circles:
             self.resizeRowToContents(1)
+            self.verticalHeader().setDefaultSectionSize(self.cell_size)
+            # for i in range(2, self.tablemodel.rowCount()):
+            #     self.setRowHeight(i, self.cell_size)
             self.horizontalHeader().setDefaultSectionSize(self.rowHeight(2))
+            # for i in range(2, self.tablemodel.columnCount()):
+            #     self.setColumnWidth(i, self.cell_size)
             self.resizeColumnToContents(1)
             self.tablemodel.setRowCount(len(self.classesv) + 2)
             self.tablemodel.setColumnCount(len(self.classesh) + 2)
@@ -280,7 +295,7 @@ class ContingencyTable(QTableView):
             self.tablemodel.setRowCount(len(self.classesv) + 3)
             self.tablemodel.setColumnCount(len(self.classesh) + 3)
 
-    def initialize(self, circles=False, bold_headers=True):
+    def initialize(self, circles=False, cell_size=30, bold_headers=True):
         """
         Initializes table structure. Class headers must be set beforehand.
 
@@ -294,6 +309,7 @@ class ContingencyTable(QTableView):
         assert self.classesv is not None and self.classesh is not None
 
         self.circles = circles
+        self.cell_size = cell_size
         self.bold_headers = bold_headers
 
         self._style_cells()

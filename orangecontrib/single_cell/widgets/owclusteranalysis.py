@@ -50,12 +50,14 @@ class OWClusterAnalysis(widget.OWWidget):
 
     N_GENES_PER_CLUSTER_MAX = 10
     N_MOST_ENRICHED_MAX = 50
+    CELL_SIZES = (14, 22, 30)
 
     settingsHandler = DomainContextHandler(metas_in_res=True)
     cluster_var = ContextSetting(None)
     selection = ContextSetting(set())
     gene_selection = ContextSetting(0)
     differential_expression = ContextSetting(0)
+    cell_size_ix = ContextSetting(2)
     _diff_exprs = ("high", "low", "either")
     n_genes_per_cluster = ContextSetting(3)
     n_most_enriched = ContextSetting(20)
@@ -137,8 +139,11 @@ class OWClusterAnalysis(widget.OWWidget):
         layout.addWidget(gui.appendRadioButton(self.differential_expression_radio_group,
                                                "Either", addToLayout=False), 3, 1)
 
-        box = gui.vBox(self.controlArea, "Sorting")
+        box = gui.vBox(self.controlArea, "Sorting and Zoom")
         gui.checkBox(box, self, "biclustering", "Biclustering of analysis results", callback=self._set_gene_selection)
+        gui.radioButtons(box, self, "cell_size_ix", btnLabels=("S", "M", "L"),
+                         callback=lambda: self.tableview.set_cell_size(self.CELL_SIZES[self.cell_size_ix]),
+                         orientation=Qt.Horizontal)
 
         gui.rubber(self.controlArea)
 
@@ -300,7 +305,8 @@ class OWClusterAnalysis(widget.OWWidget):
         self.clusters, genes, self.model, self.pvalues = f.result()
         genes = [str(gene) for gene in genes]
         self.columns = DiscreteVariable("Gene", genes, ordered=True)
-        self.tableview.set_headers(self.clusters, self.columns.values, circles=True, bold_headers=False)
+        self.tableview.set_headers(self.clusters, self.columns.values, circles=True,
+                                   cell_size=self.CELL_SIZES[self.cell_size_ix], bold_headers=False)
 
         def tooltip(i, j):
             return ("<b>cluster</b>: {}<br /><b>gene</b>: {}<br /><b>fraction expressing</b>: {:.2f}<br />\
@@ -415,8 +421,7 @@ def test():
     app = QApplication([])
 
     w = OWClusterAnalysis()
-    data = Table("../../../../testdata.tab")
-    data.X = data.X > 0
+    data = Table("iris")
     w.set_data(data)
     w.handleNewSignals()
     w.show()
