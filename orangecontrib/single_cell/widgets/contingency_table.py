@@ -132,7 +132,6 @@ class ContingencyTable(QTableView):
         self.setModel(self.tablemodel)
         self.horizontalHeader().hide()
         self.verticalHeader().hide()
-        #self.horizontalHeader().setMinimumSectionSize(30)
         self.setShowGrid(False)
         self.setSizePolicy(QSizePolicy.MinimumExpanding,
                            QSizePolicy.MinimumExpanding)
@@ -240,6 +239,15 @@ class ContingencyTable(QTableView):
                 self._set_item(i, j, item)
 
     def set_cell_size(self, cell_size):
+        """
+        Sets the size of table cells. Valid only if the table is in circles
+        display mode.
+
+        Parameters
+        ----------
+        cell_size : int
+            Size of a single table cell in pixels.
+        """
         assert self.circles
 
         self.cell_size = cell_size
@@ -277,13 +285,9 @@ class ContingencyTable(QTableView):
         Resize table to fit new contents and style.
         """
         if self.circles:
-            self.resizeRowToContents(1)
             self.verticalHeader().setDefaultSectionSize(self.cell_size)
-            # for i in range(2, self.tablemodel.rowCount()):
-            #     self.setRowHeight(i, self.cell_size)
+            self.resizeRowToContents(1)
             self.horizontalHeader().setDefaultSectionSize(self.rowHeight(2))
-            # for i in range(2, self.tablemodel.columnCount()):
-            #     self.setColumnWidth(i, self.cell_size)
             self.resizeColumnToContents(1)
             self.tablemodel.setRowCount(len(self.classesv) + 2)
             self.tablemodel.setColumnCount(len(self.classesh) + 2)
@@ -303,6 +307,8 @@ class ContingencyTable(QTableView):
         ----------
         circles : :obj:`bool`, optional
             Turns on circle display. All table values should be between 0 and 1 (inclusive). Defaults to False.
+        cell_size : :obj:`int`, optional
+            Size of a single table cell. Ignored if circle display mode is off. Defaults to 30.
         bold_headers : :obj:`bool`, optional
             Whether the headers are bold or not. Defaults to True.
         """
