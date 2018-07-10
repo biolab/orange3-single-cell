@@ -139,7 +139,7 @@ class OWMultiSample(owloaddata.OWLoadData):
     HEADER_SCHEMA = (
         ("selected", ""),
         ("name", "File"),
-        ("source", "Source name"),
+        ("source", "Source Name"),
         ("cells", "Cells"),
         ("genes", "Genes"),
         ("size", "Size"),
