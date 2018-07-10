@@ -238,14 +238,11 @@ class OWLoadData(widget.OWWidget):
 
         self.sample_rows_cb = cb = QCheckBox(checked=self._sample_rows_enabled)
         self.sample_rows_p_spin = spin = QSpinBox(
-            minimum=0, maximum=100, value=self._sample_rows_p,
-            enabled=self._sample_rows_enabled
+            minimum=0, maximum=100, value=self._sample_rows_p
         )
         spin.valueChanged.connect(self.set_sample_rows_p)
-        suffix = QLabel("% of cells", enabled=self._sample_rows_enabled)
+        suffix = QLabel("% of cells")
         cb.toggled.connect(self.set_sample_rows_enabled)
-        cb.toggled.connect(spin.setEnabled)
-        cb.toggled.connect(suffix.setEnabled)
 
         grid.addWidget(cb, 0, 0)
         grid.addWidget(spin, 0, 1)
@@ -253,14 +250,11 @@ class OWLoadData(widget.OWWidget):
 
         self.sample_cols_cb = cb = QCheckBox(checked=self._sample_cols_enabled)
         self.sample_cols_p_spin = spin = QSpinBox(
-            minimum=0, maximum=100, value=self._sample_cols_p,
-            enabled=self._sample_cols_enabled
+            minimum=0, maximum=100, value=self._sample_cols_p
         )
         spin.valueChanged.connect(self.set_sample_cols_p)
-        suffix = QLabel("% of genes", enabled=self._sample_cols_enabled)
+        suffix = QLabel("% of genes")
         cb.toggled.connect(self.set_sample_cols_enabled)
-        cb.toggled.connect(spin.setEnabled)
-        cb.toggled.connect(suffix.setEnabled)
 
         grid.addWidget(cb, 1, 0)
         grid.addWidget(spin, 1, 1)
