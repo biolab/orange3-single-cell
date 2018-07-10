@@ -139,7 +139,7 @@ class OWMultiSample(owloaddata.OWLoadData):
     HEADER_SCHEMA = (
         ("selected", ""),
         ("name", "File"),
-        ("source", "Source name"),
+        ("source", "Source Name"),
         ("cells", "Cells"),
         ("genes", "Genes"),
         ("size", "Size"),
@@ -393,7 +393,7 @@ class OWMultiSample(owloaddata.OWLoadData):
         self._current_path = path
         self.setup_gui()
 
-    def set_current_path(self, path, checked=False, source_name=""):
+    def set_current_path(self, path, checked=True, source_name=""):
         super().set_current_path(path)
         self.add_item(checked, source_name)
         self.recent_combo.setCurrentText("Recent files")
