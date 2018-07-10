@@ -25,20 +25,7 @@
 	</annotations>
 	<thumbnail />
 	<node_properties>
-		<properties format="pickle" node_id="0">gAN9cQAoWAoAAABhdXRvX2FwcGx5cQGIWBIAAABjb250cm9sQXJlYVZpc2libGVxAohYEwAAAHNh
-dmVkV2lkZ2V0R2VvbWV0cnlxA0MyAdnQywACAAAAAAJhAAABYwAAAzkAAAIfAAACYQAAAXkAAAM5
-AAACHwAAAAAAAAAABaBxBFgLAAAAX192ZXJzaW9uX19xBUsBWBAAAABjb250ZXh0X3NldHRpbmdz
-cQZdcQcoY09yYW5nZS53aWRnZXRzLnNldHRpbmdzCkNvbnRleHQKcQgpgXEJfXEKKFgEAAAAdGlt
-ZXELR0HWr5HXkQUIWAYAAAB2YWx1ZXNxDH1xDShYBAAAAGdlbmVxDlgEAAAATmFtZXEPS2eGcRBo
-BUsBdVgKAAAAYXR0cmlidXRlc3ERfXESWAUAAABtZXRhc3ETfXEUKFgEAAAATmFtZXEVSwNYAgAA
-AElEcRZLA1gJAAAAQ2VsbCBUeXBlcRdLA1gJAAAAUmVmZXJlbmNlcRhLA3V1YmgIKYFxGX1xGiho
-C0dB1q+IAV3lvWgMfXEbKFgEAAAAZ2VuZXEcWAgAAABnZW5lTmFtZXEdS2eGcR5oBUsBdWgRfXEf
-WAgAAABjZWxsVHlwZXEgSwFzaBN9cSEoWAYAAABnZW5lSURxIksDWAgAAABnZW5lTmFtZXEjSwN1
-dWJoCCmBcSR9cSUoaAtHQdaDbgF8sPdoDH1xJihYBAAAAGdlbmVxJ1gIAAAAZ2VuZU5hbWVxKEtn
-hnEpaAVLAXVoEX1xKlgKAAAAY2VsbE1hcmtlcnErSwFzaBN9cSwoWAYAAABnZW5lSURxLUsDWAgA
-AABnZW5lTmFtZXEuSwN1WA4AAABvcmRlcmVkX2RvbWFpbnEvXXEwKGgrSwGGcTFoLUsDhnEyaC5L
-A4ZxM2V1YmV1Lg==
-</properties>
+		<properties format="literal" node_id="0">{'aggregation': 'Mean expression', 'auto_apply': True, 'controlAreaVisible': True, 'savedWidgetGeometry': b'\x01\xd9\xd0\xcb\x00\x02\x00\x00\x00\x00\x02a\x00\x00\x01c\x00\x00\x039\x00\x00\x02\x1f\x00\x00\x02a\x00\x00\x01y\x00\x00\x039\x00\x00\x02\x1f\x00\x00\x00\x00\x00\x00\x00\x00\x05\xa0', 'score_variable_name': 'Score', '__version__': 1}</properties>
 		<properties format="pickle" node_id="1">gAN9cQAoWAsAAABhdXRvX2NvbW1pdHEBiFgSAAAAY29udHJvbEFyZWFWaXNpYmxlcQKIWA0AAABs
 ZWdlbmRfYW5jaG9ycQNLAUsAhnEESwFLAIZxBYZxBlgIAAAAbWF4X2l0ZXJxB030AVgOAAAAcGNh
 X2NvbXBvbmVudHNxCEsdWAoAAABwZXJwbGV4aXR5cQlLHlgTAAAAc2F2ZWRXaWRnZXRHZW9tZXRy
@@ -49,7 +36,7 @@ dHRlcl9zaXplcRJLAFgTAAAAbGFiZWxfb25seV9zZWxlY3RlZHETiVgLAAAAcG9pbnRfd2lkdGhx
 FEsPWAkAAABzaG93X2dyaWRxFYlYCwAAAHNob3dfbGVnZW5kcRaIWA0AAABzaG93X3JlZ19saW5l
 cReJWBEAAAB0b29sdGlwX3Nob3dzX2FsbHEYiXVYCwAAAF9fdmVyc2lvbl9fcRlLAlgQAAAAY29u
 dGV4dF9zZXR0aW5nc3EaXXEbY09yYW5nZS53aWRnZXRzLnNldHRpbmdzCkNvbnRleHQKcRwpgXEd
-fXEeKFgEAAAAdGltZXEfR0HWr5HXmQhOWAYAAAB2YWx1ZXNxIH1xIShoDX1xIihYCgAAAGF0dHJf
+fXEeKFgEAAAAdGltZXEfR0HW0TJ5HuJpWAYAAAB2YWx1ZXNxIH1xIShoDX1xIihYCgAAAGF0dHJf
 Y29sb3JxI1gFAAAAU2NvcmVxJEtmhnElWAoAAABhdHRyX2xhYmVscSZOSv7///+GcSdYCgAAAGF0
 dHJfc2hhcGVxKE5K/v///4ZxKVgJAAAAYXR0cl9zaXplcSpoJEtmhnErdWgZSwJ1WAoAAABhdHRy
 aWJ1dGVzcSx9cS0oWAQAAABIQkcxcS5LAlgEAAAASEJHMnEvSwJYBgAAAFMxMDBBOXEwSwJYBgAA
@@ -362,6 +349,18 @@ AAAoWAkAAABSZXBsaWNhdGVyGQQAAEsBWAIAAABJRHIaBAAASwNYBwAAAEJhcmNvZGVyGwQAAEsD
 WAUAAABTY29yZXIcBAAASwJ1dWJhdS4=
 </properties>
 		<properties format="literal" node_id="2">{'auto_commit': True, 'controlAreaVisible': True, 'header_state': b'\x00\x00\x00\xff\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\x87\x00\x00\x00\x07\x01\x01\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00d\xff\xff\xff\xff\x00\x00\x00\x81\x00\x00\x00\x00\x00\x00\x00\x07\x00\x00\x00!\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x01r\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x03\xe8\x00\x00\x00\x00d', 'savedWidgetGeometry': b'\x01\xd9\xd0\xcb\x00\x02\x00\x00\x00\x00\x034\x00\x00\x01\x87\x00\x00\x06\xb7\x00\x00\x03\xf4\x00\x00\x034\x00\x00\x01\x9d\x00\x00\x06\xb7\x00\x00\x03\xf4\x00\x00\x00\x00\x00\x00\x00\x00\n\x00', 'selected_id': 'aml-1k.pickle', 'splitter_state': b'\x00\x00\x00\xff\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x01,\x00\x00\x00\xc8\x01\xff\xff\xff\xff\x01\x00\x00\x00\x02\x00', '__version__': 1}</properties>
-		<properties format="literal" node_id="3">{'controlAreaVisible': True, 'header_state': b'\x00\x00\x00\xff\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x02\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\xfc\x00\x00\x00\x04\x01\x01\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00d\xff\xff\xff\xff\x00\x00\x00\x81\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00d\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x01\x1a\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x03\xe8\x00\x00\x00\x00\x9c', 'savedWidgetGeometry': b'\x01\xd9\xd0\xcb\x00\x02\x00\x00\x00\x00\x06j\x00\x00\x02\xe6\x00\x00\x08\xc1\x00\x00\x04\xef\x00\x00\x06j\x00\x00\x02\xfc\x00\x00\x08\xc1\x00\x00\x04\xef\x00\x00\x00\x00\x00\x00\x00\x00\n\x00', 'selected_group': 'Human', '__version__': 1}</properties>
+		<properties format="pickle" node_id="3">gAN9cQAoWBIAAABjb250cm9sQXJlYVZpc2libGVxAYhYDAAAAGhlYWRlcl9zdGF0ZXECQ4cAAAD/
+AAAAAAAAAAEAAAAAAAAAAgEAAAAAAAAAAAAAAAAAAAAAAAAC/AAAAAQBAQABAAAAAAAAAAAAAAAA
+ZP////8AAACBAAAAAAAAAAQAAABkAAAAAQAAAAAAAABkAAAAAQAAAAAAAABkAAAAAQAAAAAAAAEa
+AAAAAQAAAAAAAAPoAAAAAJxxA1gTAAAAc2F2ZWRXaWRnZXRHZW9tZXRyeXEEQzIB2dDLAAIAAAAA
+BmoAAALmAAAIwQAABO8AAAZqAAAC/AAACMEAAATvAAAAAAAAAAAKAHEFWA4AAABzZWxlY3RlZF9n
+cm91cHEGWAUAAABIdW1hbnEHWAsAAABfX3ZlcnNpb25fX3EISwFYEAAAAGNvbnRleHRfc2V0dGlu
+Z3NxCV1xCmNPcmFuZ2Uud2lkZ2V0cy5zZXR0aW5ncwpDb250ZXh0CnELKYFxDH1xDShYBAAAAHRp
+bWVxDkdB1tEyeRbhO1gGAAAAdmFsdWVzcQ99cRAoWA0AAABzZWxlY3RlZF9yb3dzcRFdcRJoCEsB
+dVgFAAAAZ3JvdXBxE2gHdWJhdS4=
+</properties>
 	</node_properties>
+	<session_state>
+		<window_groups />
+	</session_state>
 </scheme>
