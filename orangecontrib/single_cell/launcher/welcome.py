@@ -24,7 +24,7 @@ from AnyQt.QtCore import (  # pylint: disable=unused-import
     QSettings)
 from AnyQt.QtCore import pyqtSignal as Signal, pyqtProperty as Property
 from Orange.canvas.application import workflows
-from Orange.canvas.application.canvasmain import canvas_icons, LINKS
+from Orange.canvas.application.canvasmain import canvas_icons, CanvasMainWindow
 
 from Orange.canvas.gui.dropshadow import DropShadowFrame
 from Orange.canvas.canvas.items.utils import radial_gradient
@@ -696,6 +696,7 @@ def sc_icon(filename):
 
 
 def welcome_dialog_paged(self):
+    # type: (CanvasMainWindow) -> None
     """
     Show a modal multipaged welcome screen.
     """
@@ -753,8 +754,8 @@ def welcome_dialog_paged(self):
     )
     browser.activated.connect(lambda: openselectedbutton.click())
 
-    recent = [previewmodel.PreviewItem(name=title, path=path)
-              for title, path in self.recent_schemes]
+    recent = [previewmodel.PreviewItem(name=item.title, path=item.path)
+              for item in self.recent_schemes]
     model = previewmodel.PreviewModel(items=recent)
     browser = previewbrowser.PreviewBrowser()
     browser.setModel(model)
@@ -831,15 +832,15 @@ def welcome_dialog_paged(self):
 
     def open_example_workflow(path):
         # open a workflow without filename/directory tracking.
-        if not self.pre_close_save():
-            return QDialog.Rejected
-
         wf = self.new_scheme_from(path)
-        if wf is not None:
-            self.set_new_scheme(wf)
-            return QDialog.Accepted
+        if self.is_transient():
+            window = self
         else:
-            return QDialog.Rejected
+            window = self.create_new_window()
+            window.show()
+            window.raise_()
+            window.activateWindow()
+        window.set_new_scheme(wf)
 
     def on_clicked(button):
         current = dlg.currentIndex()
@@ -864,22 +865,25 @@ def welcome_dialog_paged(self):
             assert w.currentIndex() != -1
             path = w.item(w.currentIndex()).property("path")
 
-        if path is not None and \
-                open_workflow_file(path) == QDialog.Accepted:
+        if path is not None:
+            open_workflow_file(path)
             dlg.accept()
 
     buttons.clicked.connect(on_clicked)
 
     def on_open_existing():
-        if self.open_scheme() == QDialog.Accepted:
-            dlg.accept()
+        filedlg = self._open_workflow_dialog()
+        filedlg.fileSelected.connect(self.open_scheme_file)
+        filedlg.accepted.connect(dlg.accept)
+        filedlg.exec()
 
     openexisting.clicked.connect(on_open_existing)
 
-    def on_new_workflow():
-        if self.new_scheme() == QDialog.Accepted:
-            dlg.accept()
+    def new_window():
+        if not self.is_transient():
+            self.new_workflow_window()
+        dlg.accept()
 
-    newbutton.clicked.connect(on_new_workflow)
+    newbutton.clicked.connect(new_window)
 
     dlg.show()
