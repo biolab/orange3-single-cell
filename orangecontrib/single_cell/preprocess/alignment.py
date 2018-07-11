@@ -54,7 +54,7 @@ def quantile_shift(x, y):
     return y + shift
 
 
-def metagene_map(Xs, Ws, use_genes):
+def metagene_map(Xs, Ws, use_genes, align=True, qmin=2.5, qmax=97.5):
     """ Linear map to the meta genes.
         Assumption: Xs (and Ws) are sorted on descending number of rows. """
     n_datasets = len(Xs)
@@ -67,10 +67,11 @@ def metagene_map(Xs, Ws, use_genes):
             Phi[:, j] = W[:, j].T.dot(X[:, genes]).dot(X[:, genes].T).T
 
         # Align all datasets to the largest one
-        Phis[0][:, j] = reference_range(Phis[0][:, j])
-        for d in range(1, n_datasets):
-            Phis[d][:, j] = quantile_shift(Phis[0][:, j],
-                                           reference_range(Phis[d][:, j]))
+        if align:
+            Phis[0][:, j] = reference_range(Phis[0][:, j], min_p=qmin, max_p=qmax)
+            for d in range(1, n_datasets):
+                Phis[d][:, j] = quantile_shift(Phis[0][:, j],
+                                               reference_range(Phis[d][:, j]))
 
     return Phis
 
@@ -106,7 +107,6 @@ def align(Ws):
     # Process each component independently
     for d in range(1, n_datasets):
         for j in range(n_cc):
-
             # Alignment makes sense only if the two vectors are sorted,
             # as there is no other logical correspondence between the cells in the two datasets.
             wl = Ws[0][:, j]
@@ -148,6 +148,7 @@ class SeuratAlignmentModel:
         self.n_components = n_components
         self.n_metagenes = n_metagenes
         self.random_state = random_state
+        self.Ws = None
         self.use_genes = None
         self.correlations = None
         self.shared_correlations = None
@@ -161,7 +162,7 @@ class SeuratAlignmentModel:
         """
         # Datasets are sorted by size for later alignment
         ys = sorted(set(y), key=lambda yi: sum(y == yi), reverse=True)
-        index_map = dict([(yi, np.where(y==yi)[0]) for yi in ys])
+        index_map = dict([(yi, np.where(y == yi)[0]) for yi in ys])
         Xs = [X[index_map[yi]] for yi in ys]
 
         # Step 1: Run canonical correlation analysis
@@ -189,6 +190,78 @@ class SeuratAlignmentModel:
 
         # Step 3: Run dynamic time warping
         Us = align(Phis)
+
+        # Aggregate results according to y
+        Z = np.zeros((X.shape[0], self.n_components))
+        for U, yi in zip(Us, ys):
+            Z[index_map[yi]] = U
+
+        return Z
+
+    def fit(self, X, y):
+        """
+        Fit model parameters.
+        :param X: Numeric matrix.
+        :param y: Class (data set) labels.
+        :return: Ws: Model.
+        """
+        # Datasets are sorted by size for later alignment
+        ys = sorted(set(y), key=lambda yi: sum(y == yi), reverse=True)
+        index_map = dict([(yi, np.where(y == yi)[0]) for yi in ys])
+        Xs = [X[index_map[yi]] for yi in ys]
+
+        # Step 1: Run canonical correlation analysis
+        if len(Xs) == 2:
+            cca_model = SVDCCA(n_components=self.n_components,
+                               random_state=self.random_state,
+                               standardize=True)
+            Ws = cca_model.fit_transform(*Xs)
+            self.correlations = cca_model.correlations
+        elif len(Xs) > 2:
+            cca_model = MultiCCA(n_components=self.n_components,
+                                 random_state=self.random_state,
+                                 standardize=True)
+            Ws = cca_model.fit_transform(Xs)
+            self.correlations = cca_model.correlations
+        else:
+            raise ValueError("At least two data sets (indicated by y) are required!")
+
+        # Step 2: Select metagenes and map to reference range
+        self.use_genes = score_genes(Xs, Ws, method=self.gene_scoring)
+
+        # Step 2a: Compute shared correlations
+        self.shared_correlations = shared_correlation(Xs, Ws, use_genes=self.use_genes)
+
+        self.Ws = Ws
+        return Ws
+
+    def transform(self, X, y, normalize=True, quantile=2.5, dtw=True, Ws=None):
+        """
+        Transform given data based on a model.
+        :param X: Numeric matrix.
+        :param y: Class (data set) labels.
+        :param normalize: Boolean, whether to apply quantile normalization.
+        :param quantile: float (between 0 and 49(, on which quantile will be transformed data normalized.
+        :param dtw: Boolean, wheter to apply Dynamic time warping.
+        :param Ws: Pretrained model.
+        :return: Transformed data.
+        """
+        if Ws is None:
+            Ws = self.Ws
+
+        # Datasets are sorted by size for later alignment
+        ys = sorted(set(y), key=lambda yi: sum(y == yi), reverse=True)
+        index_map = dict([(yi, np.where(y == yi)[0]) for yi in ys])
+        Xs = [X[index_map[yi]] for yi in ys]
+
+        # Step 2: Map to reference range
+        qmin = quantile
+        qmax = 100 - quantile
+        Us = metagene_map(Xs, Ws, self.use_genes, normalize, qmin, qmax)
+
+        # Step 3: Run dynamic time warping
+        if dtw:
+            Us = align(Us)
 
         # Aggregate results according to y
         Z = np.zeros((X.shape[0], self.n_components))
