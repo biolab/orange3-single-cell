@@ -11,8 +11,6 @@ Widgets
    widgets/normalize
    widgets/scoregenes
    widgets/scorecells
-   widgets/clustervariation
-   widgets/clusterstatistics
    widgets/filter
    widgets/tsne
    widgets/louvain
