@@ -47,6 +47,7 @@ class TestOWMultiSample(WidgetTest):
         ))
 
     def test_settings(self):
+        self.widget.saveSettings()
         widget = self.create_widget(
             OWMultiSample, reset_default_settings=False
         )

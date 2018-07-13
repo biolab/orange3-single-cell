@@ -459,7 +459,10 @@ class OWMultiSample(owloaddata.OWLoadData):
             source_name = model.item(i, self._Header.source).text()
             self.samples.append((path, checked, source_name))
             self.loaders[path] = loader
-        self.saveSettings()
+
+    def saveSettings(self):
+        self.write_settings()
+        super().saveSettings()
 
     def read_settings(self):
         samples = self.samples.copy()
