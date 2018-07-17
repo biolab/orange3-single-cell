@@ -1,9 +1,13 @@
+from builtins import property
+
 from AnyQt.QtWidgets import QFormLayout
 from AnyQt.QtGui import QColor
 from AnyQt.QtCore import Qt
 
 import numpy as np
 import pyqtgraph as pg
+from pyqtgraph.graphicsItems import LegendItem
+from pyqtgraph import functions as fn
 from scipy.stats import multivariate_normal as mvn
 
 from Orange.widgets.settings import Setting, ContextSetting, DomainContextHandler
@@ -33,6 +37,14 @@ SCORINGS_NAMES = (
 )
 
 
+class MyItemSample(LegendItem.ItemSample):
+    def paint(self, p, *args):
+        opts = self.item.opts
+        opts['pen'].setWidth(2)
+        p.setPen(fn.mkPen(opts['pen']))
+        p.drawLine(0, 10, 9, 10)
+
+
 def smooth_correlations(M, offset=2):
     """
     Smoothed correlations; Convolve with a small Gaussian bump.
@@ -57,10 +69,11 @@ def interpolate_nans(A):
     return A
 
 
-class OWMDA(widget.OWWidget):
-    name = "MDA"
-    description = "Multi-data alignment with a scree-diagram."
-    icon = "icons/MDA.svg"
+
+class OWAlignDatasets(widget.OWWidget):
+    name = "Align Datasets"
+    description = "Alignment of multiple datasets with a scree-diagram correlation visualization."
+    icon = "icons/AlignDatasets.svg"
     priority = 3050
 
     class Inputs:
@@ -68,7 +81,7 @@ class OWMDA(widget.OWWidget):
 
     class Outputs:
         transformed_data = Output("Transformed Data", Table)
-        genes_components = Output("Genes Per N. Components", Table)
+        genes_components = Output("Genes per n. Components", Table)
 
     settingsHandler = DomainContextHandler()
     auto_update = ContextSetting(True)
@@ -92,7 +105,7 @@ class OWMDA(widget.OWWidget):
     def __init__(self):
         super().__init__()
         self.data = None
-        # self.source_id = None
+        self.source_id = None
         self._mas = None
         self._Ws = None
         self._transformed = None
@@ -248,8 +261,8 @@ class OWMDA(widget.OWWidget):
         self._mas = None
         self._Ws = None
         self._transformed = None
-        # self._transformed_table = None
-        # self._components = None
+        self._transformed_table = None
+        self._components = None
         self._use_genes = None
         self._shared_correlations = None
         self._line = False
@@ -294,9 +307,14 @@ class OWMDA(widget.OWWidget):
         self._legend = self.plot.addLegend(offset=(-1, 1))
         # correlation lines
         smoothed_correlations = smooth_correlations(shared_correlations, offset=2)
+        plotitem = dict()
         for i, corr in enumerate(smoothed_correlations):
-            self.plot_plot = self.plot.plot(np.arange(p), corr, pen=pg.mkPen(QColor(colors[i]), width=2),
-                                            antialias=True, name=self.source_id.values[i])
+            plotitem[i] = self.plot.plot(np.arange(p), corr, pen=pg.mkPen(QColor(colors[i]), width=2),
+                                            antialias=True) # name=self.source_id.values[i]
+        #self.plot.plotItem.legend.addItem(3, "maximum value")
+
+        for i in range(len(plotitem)):
+            self._legend.addItem(MyItemSample(pg.ScatterPlotItem(pen=colors[i])), self.source_id.values[i])
 
         # vertical movable line
         cutpos = self.ncomponents - 1
@@ -312,16 +330,17 @@ class OWMDA(widget.OWWidget):
             pg.PlotCurveItem(pen=pg.mkPen(QColor(colors[i]), style=Qt.DashLine)) for i in
             range(len(shared_correlations))
         )
-
         self.plot_horlabels = tuple(
-            pg.TextItem(color=QColor('k'), anchor=(1, 1)) for i in range(len(shared_correlations))
+            pg.TextItem(color=QColor('k'), anchor=(0, 1)) for _ in range(len(shared_correlations))
         )
 
         for item in self.plot_horlabels + self.plot_horlines:
             self.plot.addItem(item)
         self._set_horline_pos()
 
-        self.plot.setRange(xRange=(0.0, p - 1), yRange=(0.0, 1.0))
+        #self.plot.setRange(xRange=(0.0, p - 1), yRange=(0.0, 1.0))
+        self.plot.setXRange(0.0, p - 1, padding=0)
+        self.plot.setYRange(0.0, 1.0, padding=0)
         self._update_axis()
 
     def _set_horline_pos(self):
@@ -395,33 +414,42 @@ class OWMDA(widget.OWWidget):
                 self._transformed = self._mas.transform(X, y, normalize=self.quantile_normalization,
                                                         quantile=self.quantile_normalization_perc,
                                                         dtw=self.dynamic_time_warping)
-            transformed = self._transformed[:, :self.ncomponents]
 
-            attributes = tuple(ContinuousVariable.make("CCA{}".format(x + 1)) for x in
-                               range(self.ncomponents))
-            dom = Domain(
-                attributes,
-                self.data.domain.class_vars,
-                self.data.domain.metas
-            )
+                attributes = tuple(ContinuousVariable.make("CCA{}".format(x + 1)) for x in
+                                   range(MAX_COMPONENTS))
+                dom = Domain(
+                    attributes,
+                    self.data.domain.class_vars,
+                    self.data.domain.metas
+                )
 
-            # Meta-genes
-            meta_genes = self.data.transform(dom)
-            genes_components = np.zeros((self.data.X.shape[1], self.ncomponents))
-            for key, genes in self._mas.use_genes.items():
-                if key >= self.ncomponents:
-                    break
-                for gene in genes:
-                    genes_components[gene - 1, key] = genes.index(gene) + 1
-            genes_components[genes_components == 0] = np.NaN
-            meta_genes.X = genes_components
-            meta_genes = Table.from_numpy(Domain(attributes), genes_components)
+                # Meta-genes
+                meta_genes = self.data.transform(dom)
+                genes_components = np.zeros((self.data.X.shape[1], MAX_COMPONENTS))
+                for key, genes in self._mas.use_genes.items():
+                    for gene in genes:
+                        genes_components[gene - 1, key] = genes.index(gene) + 1
+                genes_components[genes_components == 0] = np.NaN
+                meta_genes.X = genes_components
+                self.meta_genes = Table.from_numpy(Domain(attributes), genes_components)
 
-            # Transformed data
-            new_domain = add_columns(self.data.domain, attributes=attributes)
-            transformed_table_temp = self.data.transform(new_domain)
-            transformed_table_temp.X[:, -self.ncomponents:] = transformed
-            transformed_table = Table.from_table(dom, transformed_table_temp)
+                # Transformed data
+                transformed = self._transformed
+                new_domain = add_columns(self.data.domain, attributes=attributes)
+                transformed_table_temp = self.data.transform(new_domain)
+                transformed_table_temp.X[:, -MAX_COMPONENTS:] = transformed
+                self.transformed_table = Table.from_table(dom, transformed_table_temp)
+
+            ncomponents_attributes = tuple(ContinuousVariable.make("CCA{}".format(x + 1)) for x in
+                      range(self.ncomponents))
+            ncomponents_domain = Domain(
+                    ncomponents_attributes,
+                    self.data.domain.class_vars,
+                    self.data.domain.metas
+                )
+
+            meta_genes = self.meta_genes.transform(Domain(ncomponents_attributes))
+            transformed_table = self.transformed_table.transform(ncomponents_domain)
 
         self.Outputs.transformed_data.send(transformed_table)
         self.Outputs.genes_components.send(meta_genes)
@@ -463,7 +491,7 @@ def main():
     import gc
     from AnyQt.QtWidgets import QApplication
     app = QApplication([])
-    w = OWMDA()
+    w = OWAlignDatasets()
     in_file = "../tutorials/Showcase-SampleAlignment-data/data_kang2018.tab.gz"
     data = Table(in_file)
     w.set_data(data)

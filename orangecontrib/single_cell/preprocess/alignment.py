@@ -182,7 +182,7 @@ class SeuratAlignmentModel:
             raise ValueError("At least two data sets (indicated by y) are required!")
 
         # Step 2: Select metagenes and map to reference range
-        self.use_genes = score_genes(Xs, Ws, method=self.gene_scoring)
+        self.use_genes = score_genes(Xs, Ws, n_metagenes=self.n_metagenes, method=self.gene_scoring)
         Phis = metagene_map(Xs, Ws, self.use_genes)
 
         # Step 2a: Compute shared correlations
@@ -227,7 +227,7 @@ class SeuratAlignmentModel:
             raise ValueError("At least two data sets (indicated by y) are required!")
 
         # Step 2: Select metagenes and map to reference range
-        self.use_genes = score_genes(Xs, Ws, method=self.gene_scoring)
+        self.use_genes = score_genes(Xs, Ws, n_metagenes=self.n_metagenes, method=self.gene_scoring)
 
         # Step 2a: Compute shared correlations
         self.shared_correlations = shared_correlation(Xs, Ws, use_genes=self.use_genes)
