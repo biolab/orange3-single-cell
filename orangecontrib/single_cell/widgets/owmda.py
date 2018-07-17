@@ -4,15 +4,19 @@ from AnyQt.QtCore import Qt
 
 import numpy as np
 import pyqtgraph as pg
+from scipy.stats import multivariate_normal as mvn
 
+from Orange.widgets.settings import Setting, ContextSetting, DomainContextHandler
 from Orange.data import Table, Domain, ContinuousVariable, DiscreteVariable
 from Orange.widgets import widget, gui, settings
 from Orange.widgets.utils.itemmodels import DomainModel
 from Orange.widgets.widget import Input, Output
+from Orange.widgets.utils.sql import check_sql_input
+from Orange.widgets.utils.annotated_data import add_columns
 
 from orangecontrib.single_cell.preprocess.alignment import SeuratAlignmentModel
 
-# Maximum number of COMPONENTS AND METAGENES
+# Maximum number of components and metagenes
 MAX_COMPONENTS = 50
 MAX_COMPONENTS_DEFAULT = 50
 MAX_GENES = 100
@@ -29,6 +33,30 @@ SCORINGS_NAMES = (
 )
 
 
+def smooth_correlations(M, offset=2):
+    """
+    Smoothed correlations; Convolve with a small Gaussian bump.
+    :param M: model.shared_correlations
+    :param offset: First few values to leave unchanged
+    :return:
+    """
+    g = mvn.pdf(x=np.linspace(-offset, offset, 2 * offset + 1))
+    Z = np.zeros(M.shape)
+    for i, m in enumerate(M):
+        Z[i, :offset] = m[:offset]
+        Z[i, offset:] = np.convolve(m, g, mode="same")[offset:]
+    return Z
+
+
+def interpolate_nans(A):
+    ok = ~np.isnan(A)
+    xp = ok.ravel().nonzero()[0]
+    fp = A[ok]
+    x = np.isnan(A).ravel().nonzero()[0]
+    A[np.isnan(A)] = np.interp(x, xp, fp)
+    return A
+
+
 class OWMDA(widget.OWWidget):
     name = "MDA"
     description = "Multi-data alignment with a scree-diagram."
@@ -39,28 +67,22 @@ class OWMDA(widget.OWWidget):
         data = Input("Data", Table)
 
     class Outputs:
-        transformed_data = Output("Transformed data", Table)
-        genes = Output("Meta-genes", np.ndarray)
-        genes_components = Output("Genes per n. components", Table)
+        transformed_data = Output("Transformed Data", Table)
+        genes_components = Output("Genes Per N. Components", Table)
 
-    # settingsHandler = settings.DomainContextHandler()
-    auto_update = settings.Setting(True)
-    auto_commit = settings.Setting(True)
-    axis_labels = settings.Setting(10)
-    source_id = settings.Setting('')
-    ncomponents = settings.Setting(20)
-    ngenes = settings.Setting(30)
-    scoring = settings.Setting(SCORINGS_NAMES[0])
-    quantile_normalization = settings.Setting(False)
-    quantile_normalization_perc = settings.Setting(2.5)
-    dynamic_time_warping = settings.Setting(False)
+    settingsHandler = DomainContextHandler()
+    auto_update = ContextSetting(True)
+    auto_commit = Setting(True)
+    axis_labels = ContextSetting(10)
+    source_id = ContextSetting(None)
+    ncomponents = ContextSetting(20)
+    ngenes = ContextSetting(30)
+    scoring = ContextSetting(SCORINGS_NAMES[0])
+    quantile_normalization = ContextSetting(False)
+    quantile_normalization_perc = ContextSetting(2.5)
+    dynamic_time_warping = ContextSetting(False)
 
     graph_name = "plot.plotItem"
-
-    class Warning(widget.OWWidget.Warning):
-        trivial_components = widget.Msg(
-            "All components of the PCA are trivial (explain 0 variance). "
-            "Input data is constant (or near constant).")
 
     class Error(widget.OWWidget.Error):
         no_features = widget.Msg("At least 1 feature is required")
@@ -70,6 +92,7 @@ class OWMDA(widget.OWWidget):
     def __init__(self):
         super().__init__()
         self.data = None
+        # self.source_id = None
         self._mas = None
         self._Ws = None
         self._transformed = None
@@ -79,8 +102,9 @@ class OWMDA(widget.OWWidget):
         self._transformed_table = None
         self._line = False
         self._feature_model = DomainModel(valid_types=DiscreteVariable)
+        self._feature_model.set_domain(None)
         self._init_mas()
-
+        self._legend = None
         form = QFormLayout(
             labelAlignment=Qt.AlignLeft,
             formAlignment=Qt.AlignLeft,
@@ -146,6 +170,8 @@ class OWMDA(widget.OWWidget):
             label="Dynamic time warping"
         )
 
+        self.controlArea.layout().addStretch()
+
         gui.auto_commit(self.controlArea, self, "auto_commit", "Apply",
                         callback=self._invalidate_selection(),
                         checkbox_label="Apply automatically")
@@ -167,7 +193,10 @@ class OWMDA(widget.OWWidget):
         self.mainArea.layout().addWidget(self.plot)
 
     @Inputs.data
+    @check_sql_input
     def set_data(self, data):
+        # if self._feature_model:
+        #    self.closeContext()
         self.clear_messages()
         self.clear()
         self.information()
@@ -177,6 +206,7 @@ class OWMDA(widget.OWWidget):
         if data:
             self._feature_model.set_domain(data.domain)
             if self._feature_model:
+                # self.openContext(data)
                 if self.source_id is None or self.source_id == '':
                     self.source_id = self._feature_model[0]
             if len(data.domain.attributes) == 0:
@@ -193,6 +223,8 @@ class OWMDA(widget.OWWidget):
             else:
                 MAX_COMPONENTS = MAX_COMPONENTS_DEFAULT
 
+        self.fit()
+
     def fit(self):
         if self.data is None:
             return
@@ -202,27 +234,33 @@ class OWMDA(widget.OWWidget):
         y = self.data.get_column_view(self.source_id)[0]
 
         self._Ws = self._mas.fit(X, y)
-        self._shared_correlations = self._mas.shared_correlations
+        shared_correlations = self._mas.shared_correlations
+        self._shared_correlations = np.array([interpolate_nans(x) for x in shared_correlations])
         self._use_genes = self._mas.use_genes
 
         self._setup_plot()
+        if self.auto_commit:
+            self.commit()
 
     def clear(self):
+        self.data = None
+        self.source_id = None
         self._mas = None
         self._Ws = None
         self._transformed = None
-        self._transformed_table = None
-        self._components = None
+        # self._transformed_table = None
+        # self._components = None
         self._use_genes = None
         self._shared_correlations = None
         self._line = False
+        # self._legend = None
+        self._feature_model.set_domain(None)
         self.plot_horlabels = []
         self.plot_horlines = []
         self.plot.clear()
 
     def clear_outputs(self):
         self.Outputs.transformed_data.send(None)
-        self.Outputs.genes.send(None)
         self.Outputs.genes_components.send(None)
 
     def _init_mas(self):
@@ -238,7 +276,6 @@ class OWMDA(widget.OWWidget):
 
         self.fit()
         self._setup_plot()
-        self._transformed = None
         self.commit()
 
     def _setup_plot(self):
@@ -252,15 +289,14 @@ class OWMDA(widget.OWWidget):
         # Colors chosen based on: http://colorbrewer2.org/?type=qualitative&scheme=Set1&n=9
         colors = ['#e41a1c', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00', '#ffff33', '#a65628', '#f781bf', '#999999']
 
+        if self._legend is not None:
+            self._legend.scene().removeItem(self._legend)
+        self._legend = self.plot.addLegend(offset=(-1, 1))
         # correlation lines
-        for i, corr in enumerate(shared_correlations):
-            # Smoothening - not working, needs fix for NaN values in shared_correlations
-            # f = interp1d(np.arange(p), corr, bounds_error=False, fill_value='extrapolate', kind='cubic')
-            # xnew = np.linspace(0, p-1, num=3*p, endpoint=True)
-            self.plot.plot(np.arange(p), corr,
-                           pen=pg.mkPen(QColor(colors[i]), width=2),
-                           antialias=True,
-                           name="Correlation")
+        smoothed_correlations = smooth_correlations(shared_correlations, offset=2)
+        for i, corr in enumerate(smoothed_correlations):
+            self.plot_plot = self.plot.plot(np.arange(p), corr, pen=pg.mkPen(QColor(colors[i]), width=2),
+                                            antialias=True, name=self.source_id.values[i])
 
         # vertical movable line
         cutpos = self.ncomponents - 1
@@ -287,7 +323,6 @@ class OWMDA(widget.OWWidget):
 
         self.plot.setRange(xRange=(0.0, p - 1), yRange=(0.0, 1.0))
         self._update_axis()
-        return
 
     def _set_horline_pos(self):
         cutidx = self.ncomponents - 1
@@ -323,7 +358,7 @@ class OWMDA(widget.OWWidget):
 
     def _invalidate_selection(self):
         if self.data is not None:
-            self._transformed_table = None
+            self._transformed = None
             self.commit()
 
     def _update_ngenes_spin(self):
@@ -351,9 +386,9 @@ class OWMDA(widget.OWWidget):
         axis.setTicks([[(i, str(i + 1)) for i in range(0, p, d)]])
 
     def commit(self):
-        transformed_table = genes = genes_componenets = None
+        transformed_table = meta_genes = genes_componenets = None
         if self._mas is not None:
-            if self._transformed_table is None:
+            if self._transformed is None:
                 # Compute the full transform (MAX_COMPONENTS components) only once.
                 X = self.data.X
                 y = self.data.get_column_view(self.source_id)[0]
@@ -362,37 +397,34 @@ class OWMDA(widget.OWWidget):
                                                         dtw=self.dynamic_time_warping)
             transformed = self._transformed[:, :self.ncomponents]
 
-            # Meta genes for selected n components
-            genes = np.array(self.data.domain.attributes)[self._use_genes[self.ncomponents - 1]]
+            attributes = tuple(ContinuousVariable.make("CCA{}".format(x + 1)) for x in
+                               range(self.ncomponents))
+            dom = Domain(
+                attributes,
+                self.data.domain.class_vars,
+                self.data.domain.metas
+            )
 
-            # Meta genes for all up to MAX n components
-            genes_componenets = Table.from_numpy(
-                Domain([DiscreteVariable.make("{}".format(x + 1)) for x in range(MAX_COMPONENTS)]),
-                np.array([x for _, x in self._mas.use_genes.items()]).T
-                )
-            genes_componenets.domain.attributes = Domain(
-                [DiscreteVariable.make("{}".format(x + 1)) for x in range(MAX_COMPONENTS)])
+            # Meta-genes
+            meta_genes = self.data.transform(dom)
+            genes_components = np.zeros((self.data.X.shape[1], self.ncomponents))
+            for key, genes in self._mas.use_genes.items():
+                if key >= self.ncomponents:
+                    break
+                for gene in genes:
+                    genes_components[gene - 1, key] = genes.index(gene) + 1
+            genes_components[genes_components == 0] = np.NaN
+            meta_genes.X = genes_components
+            meta_genes = Table.from_numpy(Domain(attributes), genes_components)
 
             # Transformed data
-            transformed_table = Table.from_numpy(
-                Domain(
-                    [ContinuousVariable.make("CC{}".format(x)) for x in
-                     range(self.ncomponents)],
-                    self.data.domain.class_vars,
-                    self.data.domain.metas
-                ),
-                transformed,
-                self.data.Y,
-                self.data.metas,
-                self.data.W
-            )
-            transformed_table.domain.attributes = [ContinuousVariable.make("CC{}".format(x)) for x in
-                                                   range(self.ncomponents)]
-            self._transformed_table = transformed_table
+            new_domain = add_columns(self.data.domain, attributes=attributes)
+            transformed_table_temp = self.data.transform(new_domain)
+            transformed_table_temp.X[:, -self.ncomponents:] = transformed
+            transformed_table = Table.from_table(dom, transformed_table_temp)
 
         self.Outputs.transformed_data.send(transformed_table)
-        self.Outputs.genes.send(genes)
-        self.Outputs.genes_components.send(genes_componenets)
+        self.Outputs.genes_components.send(meta_genes)
 
     def send_report(self):
         if self.data is None:
@@ -402,9 +434,10 @@ class OWMDA(widget.OWWidget):
             ("Selected num. of components", self.ncomponents),
             ("Selected num. of genes", self.ngenes),
             ("Scoring", self.scoring),
-            ("Quantile normalization", self.quantile_normalization),
-            ("Quantile normalization percentage", self.quantile_normalization_perc),
-            ("Dynamic time warping", self.dynamic_time_warping)
+            ("Quantile normalization", True if self.quantile_normalization else "False"),
+            ("Quantile normalization percentage",
+             self.quantile_normalization_perc if self.quantile_normalization else False),
+            ("Dynamic time warping", True if self.dynamic_time_warping else "False")
         ))
         self.report_plot()
 
@@ -433,10 +466,8 @@ def main():
     w = OWMDA()
     in_file = "../tutorials/Showcase-SampleAlignment-data/data_kang2018.tab.gz"
     data = Table(in_file)
-    data.Y[-2000:] = 2
     w.set_data(data)
     w.show()
-    w.get_model()
     w.raise_()
     rval = w.exec()
     w.deleteLater()
