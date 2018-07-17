@@ -130,7 +130,7 @@ class OWFilter(widget.OWWidget):
     class Error(widget.OWWidget.Error):
         invalid_range = widget.Msg(
             "Negative values in input data.\n"
-            "This filter is only defines for for non-negative values."
+            "This filter is only defined for non-negative values."
         )
         invalid_domain = widget.Msg(
             "Invalid domain\n"
