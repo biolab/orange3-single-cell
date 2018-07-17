@@ -296,6 +296,7 @@ class OWFilter(widget.OWWidget):
             (ViolinPlot.Low if self.limit_lower_enabled else 0) |
             (ViolinPlot.High if self.limit_upper_enabled else 0)
         )
+        self._plot.setRange(QRectF(-1., 0., 2., 1.))
         self._plot.selectionEdited.connect(self._limitchanged_plot)
         self._view.setCentralWidget(self._plot)
 
@@ -401,9 +402,11 @@ class OWFilter(widget.OWWidget):
         self.unconditional_commit()
 
     def clear(self):
-        self._plot.clear()
         self.data = None
         self._state = None
+        self._plot.clear()
+        # reset the plot range
+        self._plot.setRange(QRectF(-1., 0., 2., 1.))
         self._update_info()
         self.Warning.clear()
         self.Error.clear()
