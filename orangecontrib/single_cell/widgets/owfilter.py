@@ -298,7 +298,6 @@ class OWFilter(widget.OWWidget):
         )
         self._plot.selectionEdited.connect(self._limitchanged_plot)
         self._view.setCentralWidget(self._plot)
-        self._plot.setTitle(FilterInfo[self.selected_filter_metric][1])
 
         bottom = self._plot.getAxis("bottom")  # type: pg.AxisItem
         bottom.hide()
@@ -314,6 +313,7 @@ class OWFilter(widget.OWWidget):
             QAction("Select All", self, shortcut=QKeySequence.SelectAll,
                     triggered=self._select_all)
         )
+        self._setup_axes()
 
     def sizeHint(self):
         sh = super().sizeHint()  # type: QSize
@@ -326,6 +326,7 @@ class OWFilter(widget.OWWidget):
             self.threshold_stacks[0].setCurrentIndex(type_)
             self.threshold_stacks[1].setCurrentIndex(type_)
             self.filter_metric_cb.setEnabled(type_ != Data)
+            self._setup_axes()
             if self.data is not None:
                 self._setup(self.data, type_)
                 self._schedule_commit()
@@ -344,6 +345,7 @@ class OWFilter(widget.OWWidget):
         return Scale[self.scale]
 
     def _update_metric(self):
+        self._update_scale()
         if self.data is not None:
             self._setup(self.data, self.selected_filter_type, )
 
@@ -446,12 +448,47 @@ class OWFilter(widget.OWWidget):
         self.limit_upper = 2 ** 31 - 1
         self._limitchanged()
 
+    def _setup_axes(self):
+        # Setup the plot axes and title
+        filter_type = self.filter_type()
+        info = FilterInfo[filter_type]
+        _, title, _, *_ = info
+
+        if filter_type in [Cells, Genes]:
+            measure = self.selected_filter_metric
+        else:
+            measure = None
+
+        if filter_type == Cells and measure == TotalCounts:
+            axis_label = "Total counts (library size)"
+        elif filter_type == Cells and measure == DetectionCount:
+            axis_label = "Number of expressed genes"
+        elif filter_type == Genes and measure == TotalCounts:
+            axis_label = "Total counts"
+        elif filter_type == Genes and measure == DetectionCount:
+            # TODO: Too long
+            axis_label = "Number of cells a gene is expressed in"
+        elif filter_type == Data:
+            axis_label = "Gene Expression"
+
+        ax = self._plot.getAxis("left")
+        if self.filter_scale() == Scale.Log1p:
+            axis_label = "1 + '{}' <i>(in log scale)</i>".format(axis_label)
+            ax.setLabel(axis_label)
+            ax.setLogMode(True)
+        else:
+            ax.setLogMode(False)
+            ax.setLabel(axis_label)
+        # Reset the tick text area width
+        ax.textWidth = 30
+        ax.setWidth(None)
+
+        self._plot.setTitle(title)
+
     def _setup(self, data, filter_type):
         self._plot.clear()
         self._state = None
-
-        title = None
-        sample_range = None
+        self._setup_axes()
 
         span = -1.0  # data span
         measure = self.selected_filter_metric if filter_type != Data else None
@@ -460,20 +497,8 @@ class OWFilter(widget.OWWidget):
         if filter_type in [Cells, Genes]:
             if filter_type == Cells:
                 axis = 1
-                title = "Cell Filter"
-                if measure == TotalCounts:
-                    axis_label = "Total counts (library size)"
-                else:
-                    axis_label = "Number of expressed genes"
             else:
                 axis = 0
-                title = "Gene Filter"
-                if measure == TotalCounts:
-                    axis_label = "Total counts"
-                else:
-                    # TODO: Too long
-                    axis_label = "Number of cells a gene is expressed in"
-
             if measure == TotalCounts:
                 counts = np.nansum(data.X, axis=axis)
             else:
@@ -503,8 +528,6 @@ class OWFilter(widget.OWWidget):
                 x = np.r_[x1, x2, x3]
             else:
                 self.Warning.sampling_in_effect.clear()
-            title = "Data Filter"
-            axis_label = "Gene Expression"
         else:
             assert False
 
@@ -577,15 +600,6 @@ class OWFilter(widget.OWWidget):
         spinhigh.setDecimals(ndecimals)
         self.limit_upper = upper
 
-        ax = self._plot.getAxis("left")  # type: pg.AxisItem
-        if scale == Scale.Log1p:
-            ax.setLogMode(True)
-            ax.setLabel("1 + '{}' <i>(in log scale)</i>".format(axis_label))
-        else:
-            ax.setLogMode(False)
-            ax.setLabel(axis_label)
-
-        self._plot.setTitle(title)
         self._state = state
         self._update_info()
 
@@ -607,6 +621,7 @@ class OWFilter(widget.OWWidget):
         self.thresholds[self.selected_filter_type, metric] = (lower, upper)
 
     def _update_scale(self):
+        self._setup_axes()
         if self.data is not None:
             self._setup(self.data, self.filter_type())
 
