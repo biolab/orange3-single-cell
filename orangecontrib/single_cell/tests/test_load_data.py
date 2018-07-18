@@ -53,8 +53,7 @@ class TestLoadData(unittest.TestCase):
         self.assertEqual(round(loader.sparsity, 2), 0.99)
 
     def test_file_summary_pickle(self):
-        file_name = os.path.join(os.path.dirname(__file__),
-                                 "data/data.pkl")
+        file_name = os.path.join(os.path.dirname(__file__), "data/data.pkl")
         loader = PickleLoader(file_name)
         self.assertEqual(loader.file_size, 5021)
         self.assertEqual(loader.n_rows, None)
@@ -62,8 +61,7 @@ class TestLoadData(unittest.TestCase):
         self.assertEqual(loader.sparsity, None)
 
     def test_file_summary_gz(self):
-        file_name = os.path.join(os.path.dirname(__file__),
-                                 "data/data.txt.gz")
+        file_name = os.path.join(os.path.dirname(__file__), "data/data.txt.gz")
         loader = Loader(file_name)
         self.assertEqual(loader.file_size, 361)
         self.assertEqual(loader.n_rows, 10)

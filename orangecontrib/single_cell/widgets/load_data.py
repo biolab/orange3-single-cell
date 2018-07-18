@@ -1,5 +1,4 @@
 import os
-import csv
 import random
 from itertools import chain
 from typing import Dict, Tuple
@@ -123,37 +122,34 @@ class Loader:
 
     def _set_file_parameters(self):
         try:
-            with open_compressed(self._file_name, "rt", encoding="latin-1") as f:
-                line = next(csv.reader(f, delimiter=self.separator))
-                self.n_cols = len(line)
-                self.n_rows = sum(1 for _ in f)
+            args = (self._file_name,)
+            col_kwargs = {"sep": self.separator, "index_col": None, "nrows": 1}
+            row_kwargs = {"sep": self.separator, "usecols": [1]}
+            self.n_cols = self.df_read_func(*args, **col_kwargs).shape[1]
+            self.n_rows = self.df_read_func(*args, **row_kwargs).shape[0]
+            self._set_sparsity()
         except Exception:
             pass
 
-        try:
-            self.__set_sparsity()
-        except Exception:
-            pass
-
-    def __set_sparsity(self):
+    def _set_sparsity(self):
         """Get approximate sparsity if number of columns is bigger than 100."""
         if self.n_cols is not None and self.n_rows is not None:
-            max_c = 100
+            n_max = 100
             np.random.seed(42)
-            use_cols = np.arange(1, self.n_cols - 1) if self.n_cols < max_c \
-                else np.random.randint(1, self.n_cols - 1, max_c)
+            use_cols = np.arange(1, self.n_cols - 1) if self.n_cols < n_max \
+                else np.random.randint(1, self.n_cols - 1, n_max)
 
-            data = np.genfromtxt(
-                self._file_name, delimiter=self.separator,
-                skip_header=1, usecols=use_cols, max_rows=max_c)
+            data = self.df_read_func(
+                self._file_name, usecols=use_cols, sep=self.separator,
+                skipfooter=(max(0, self.n_rows - n_max))
+            )
 
-            non_zero_el = np.count_nonzero(data)
-            all_el = data.shape[0] * data.shape[1]
-            self.sparsity = (all_el - non_zero_el) / all_el
+            n_all = data.shape[0] * data.shape[1]
+            self.sparsity = (n_all - np.count_nonzero(data)) / n_all
 
     def _load_data(self, skip_row=None, header_rows=None, header_cols=None,
                    use_cols=None, **kwargs):
-        df = pd.read_csv(
+        df = self.df_read_func(
             self._file_name, sep=self.separator, index_col=header_cols,
             header=header_rows, skiprows=skip_row, usecols=use_cols
         )
@@ -169,6 +165,10 @@ class Loader:
         attrs = [ContinuousVariable.make(str(g)) for g in df.columns]
 
         return attrs, df.values, df.iloc[:, :0], df.index
+
+    @staticmethod
+    def df_read_func(*args, **kwargs):
+        return pd.read_csv(*args, **kwargs)
 
     def __call__(self):
         self.__reset_error_messages()
@@ -581,4 +581,3 @@ class Concatenate:
         data = data.transform(domain)
         data[:, source_var] = np.full((len(data), 1), 0, dtype=object)
         return data, source_var
-
