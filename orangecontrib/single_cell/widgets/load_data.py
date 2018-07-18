@@ -39,6 +39,8 @@ def get_data_loader(file_name):
         return CsvLoader(file_name)
     elif ext in (".pkl", ".pickle"):
         return PickleLoader(file_name)
+    elif ext in (".xls", ".xlsx"):
+        return ExcelLoader(file_name)
     else:
         return Loader(file_name)
 
@@ -539,6 +541,12 @@ class PickleLoader(Loader):
             if p < 100 and self.n_cols > 3:
                 return random.sample(attributes, int(self.n_cols * p / 100))
         return attributes
+
+
+class ExcelLoader(Loader):
+    @staticmethod
+    def df_read_func(*args, **kwargs):
+        return pd.read_excel(*args, **kwargs)
 
 
 class Concatenate:

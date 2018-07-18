@@ -6,7 +6,8 @@ import numpy.testing as npt
 import pandas as pd
 
 from orangecontrib.single_cell.widgets.load_data import (
-    MtxLoader, CountLoader, Loader, PickleLoader, get_data_loader, Concatenate
+    ExcelLoader, MtxLoader, CountLoader, Loader, PickleLoader,
+    get_data_loader, Concatenate
 )
 
 
@@ -16,6 +17,7 @@ class TestLoadData(unittest.TestCase):
         self.assertIsInstance(get_data_loader("lib.cell.count"), CountLoader)
         loader = get_data_loader("DATA_MATRIX_LOG_TPM.txt")
         self.assertIsInstance(loader, Loader)
+        self.assertIsInstance(get_data_loader("data.xls"), ExcelLoader)
 
     def test_get_data_loader_pickle(self):
         self.assertIsInstance(get_data_loader("data.pkl"), PickleLoader)
@@ -68,6 +70,14 @@ class TestLoadData(unittest.TestCase):
         self.assertEqual(loader.n_cols, 15)
         self.assertEqual(round(loader.sparsity, 2), 0.86)
 
+    def test_file_summary_xls(self):
+        file_name = os.path.join(os.path.dirname(__file__), "data/data.xlsx")
+        loader = ExcelLoader(file_name)
+        self.assertEqual(loader.file_size, 9160)
+        self.assertEqual(loader.n_rows, 10)
+        self.assertEqual(loader.n_cols, 15)
+        self.assertEqual(round(loader.sparsity, 2), 0.86)
+
     def test_load_data_mtx(self):
         file_name = os.path.join(os.path.dirname(__file__),
                                  "data/10x/mm10/matrix.mtx")
@@ -80,6 +90,19 @@ class TestLoadData(unittest.TestCase):
                 continue
             array[series.iloc[1] - 1, series.iloc[0] - 1] = series.iloc[2]
         npt.assert_array_equal(X, array)
+
+    def test_load_data_xls(self):
+        kwargs = {"header_rows": 0, "header_cols": 0}
+        xls_path = os.path.join(os.path.dirname(__file__), "data/data.xlsx")
+        xls_loader = ExcelLoader(xls_path)
+        xls_attrs, xls_X, xls_M, xls_M_index = xls_loader._load_data(**kwargs)
+        csv_loader = Loader(os.path.join(os.path.dirname(__file__),
+                                         "data/DATA_MATRIX_LOG_TPM.txt"))
+        csv_attrs, csv_X, csv_M, csv_M_index = csv_loader._load_data(**kwargs)
+        self.assertEqual(xls_attrs, csv_attrs)
+        npt.assert_array_almost_equal(xls_X, csv_X)
+        npt.assert_array_equal(xls_M, csv_M)
+        npt.assert_array_equal(xls_M_index, csv_M_index)
 
     def test_n_genes_n_cells(self):
         file_name = os.path.join(os.path.dirname(__file__),
