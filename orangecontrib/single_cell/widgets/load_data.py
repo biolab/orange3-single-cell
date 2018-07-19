@@ -184,8 +184,11 @@ class Loader:
         header_rows = self.__header_rows()
         header_cols, header_cols_indices = self.__header_cols()
 
-        usecols, skip_col, skip_row = self.__update_reading_parameters(
-            skip_col, skip_row, header_cols_indices)
+        usecols, skip_col, skip_row, header_cols, header_rows = \
+            self.__update_reading_parameters(
+                skip_col, skip_row, header_cols_indices,
+                header_cols, header_rows
+            )
 
         try:
             attrs, X, meta_df, meta_df_index = self._load_data(
@@ -255,19 +258,16 @@ class Loader:
                     return i > 3 and rstate.uniform(0, 100) > p
         return skip_col
 
-    def __update_reading_parameters(self, skip_col, skip_row, header_cols):
+    def __update_reading_parameters(self, skip_col, skip_row, header_indices,
+                                    header_cols, header_rows):
         self._use_rows_mask = None
         self._use_cols_mask = None
         usecols = None
 
         if skip_col is not None:
-            ncols = pd.read_csv(
-                self._file_name, sep=self.separator, index_col=None,
-                nrows=1).shape[1]
             self._use_cols_mask = np.array([
-                not skip_col(i) or i in header_cols
-                for i in range(ncols)
-            ], dtype=bool)
+                not skip_col(i) or i in header_indices
+                for i in range(self.n_cols)], dtype=bool)
             usecols = np.flatnonzero(self._use_cols_mask)
 
         if skip_row is not None:
@@ -277,7 +277,34 @@ class Loader:
                 r = test(i)
                 self._use_rows_mask.append(r)
                 return r
-        return usecols, skip_col, skip_row
+
+        # if skipping more than one leading columns/rows, use the
+        # first one when creating domain
+        if isinstance(header_cols, list) and self.transposed:
+            if skip_col is None:
+                mask = np.array([i not in header_cols[1:] for i
+                                 in range(self.n_cols)], dtype=bool)
+            else:
+                mask = np.array([i not in header_cols[1:] and not skip_col(i)
+                                 for i in range(self.n_cols)], dtype=bool)
+            self._use_cols_mask = mask
+            usecols = np.flatnonzero(mask)
+            header_cols = 0
+
+        if isinstance(header_rows, list) and not self.transposed:
+            if skip_row is None:
+                skip_row = header_rows[1:]
+            else:
+                self._use_rows_mask = []
+
+                def skip_row(i, test=skip_row, header=header_rows[1:]):
+                    r = test(i) or i in header
+                    self._use_rows_mask.append(r)
+                    return r
+
+            header_rows = 0
+
+        return usecols, skip_col, skip_row, header_cols, header_rows
 
     def __update_metas(self, meta_df, meta_df_index, X):
         row_annot_df = pd.read_csv(
@@ -360,17 +387,17 @@ class Loader:
         if not attrs and X.shape[1]:
             attrs = Domain.from_numpy(X).attributes
 
-        metas = None
-        M = None
-        if meta_parts:
-            meta_parts = [df_.reset_index() if not df_.index.is_integer()
-                          else df_ for df_ in meta_parts]
-            metas = [StringVariable.make(name)
-                     for name in chain(*(_.columns for _ in meta_parts))]
-            M = np.hstack(tuple(df_.values for df_ in meta_parts))
-
-        domain = Domain(attrs, metas=metas)
         try:
+            metas = None
+            M = None
+            if meta_parts:
+                meta_parts = [df_.reset_index() if not df_.index.is_integer()
+                              else df_ for df_ in meta_parts]
+                metas = [StringVariable.make(name)
+                         for name in chain(*(_.columns for _ in meta_parts))]
+                M = np.hstack(tuple(df_.values for df_ in meta_parts))
+
+            domain = Domain(attrs, metas=metas)
             table = Table.from_numpy(domain, X, None, M)
         except ValueError:
             table = None
