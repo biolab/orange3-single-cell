@@ -8,7 +8,9 @@ import numpy as np
 import pandas as pd
 import scipy.io
 
-from Orange.data import ContinuousVariable, Domain, Table, StringVariable
+from Orange.data import (
+    ContinuousVariable, DiscreteVariable, StringVariable, Domain, Table
+)
 from Orange.data.io import Compression, open_compressed, PickleReader
 
 
@@ -564,18 +566,19 @@ class Concatenate:
                             metas=sorted(metas, key=key))
             concat_data_t = concat_data.transform(domain)
             data_t = data.transform(domain)
+            source_var.values.append(source_name)
             data_t[:, source_var] = np.full(
-                (len(data), 1), source_name, dtype=object
+                (len(data), 1), len(source_var.values) - 1, dtype=object
             )
             concat_data = Table.concatenate((concat_data_t, data_t), axis=0)
         return concat_data
 
     @staticmethod
     def append_source_name(data, name):
-        source_var = StringVariable("source")
+        source_var = DiscreteVariable("source", values=[name])
         metas = data.domain.metas + (source_var,)
         domain = Domain(data.domain.attributes, metas=metas)
         data = data.transform(domain)
-        data[:, source_var] = np.full((len(data), 1), name, dtype=object)
+        data[:, source_var] = np.full((len(data), 1), 0, dtype=object)
         return data, source_var
 

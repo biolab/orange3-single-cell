@@ -1,8 +1,8 @@
-Orange3>=3.12.0
+Orange3>=3.14.0
 joblib>=0.11
 networkx
 pandas>=0.20
-orange3-bioinformatics==3.1.0
+orange3-bioinformatics==3.1.1
 fastdtw
 sklearn
 numpy

@@ -191,7 +191,6 @@ class OWtSNE(OWWidget):
         self.signal_data = None
 
         self._subset_mask = None  # type: Optional[np.ndarray]
-        self._invalidated = False
         self.pca_data = None
         self._curve = None
         self._data_metas = None
@@ -319,13 +318,6 @@ class OWtSNE(OWWidget):
         data : Optional[Orange.data.Table]
         """
         self.signal_data = data
-        if self.data and data and np.array_equal(self.data.X, data.X):
-            self.closeContext()
-            self.data = data
-            self.init_attr_values()
-            self.openContext(self.data)
-        else:
-            self._invalidated = True
 
     @Inputs.data_subset
     def set_subset_data(self, subset_data):
@@ -508,16 +500,23 @@ class OWtSNE(OWWidget):
             self.__start()
 
     def handleNewSignals(self):
-        if self._invalidated:
+        if self.data and self.signal_data and np.array_equal(
+                self.data.X, self.signal_data.X):
+            invalidated = False
+            self.closeContext()
+            self.data = self.signal_data
+            self.init_attr_values()
+            self.openContext(self.data)
+        else:
+            invalidated = True
             self._initialize()
-            self.start()
 
         if self._subset_mask is None and self.subset_data is not None and \
                 self.data is not None:
             self._subset_mask = np.in1d(self.data.ids, self.subset_data.ids)
 
-        if self._invalidated:
-            self._invalidated = False
+        if invalidated:
+            self.start()
         else:
             self._update_plot(new=True)
         self.unconditional_commit()

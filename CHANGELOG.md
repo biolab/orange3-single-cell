@@ -1,6 +1,17 @@
 Change Log
 ==========
 
+Version 0.7 (2018-07-11)
+------------------------
+##### New Features and Widgets
+* Load Data: a major upgrade of a Load Data widget from 0.6, now supports simultaneous loading of multiple data sets that are merged in a single data table. Tab or comma-separated and 10X Genomics Data files are supported.
+* Gene Set Enrichment: now supports custom lists and classifications of gene markers. Use File to read the data with gene name and group marker, standardize gene names with Gene Name Matcher, and then feed the custom gene list into Gene Set Enrichment.
+* Score Cells: includes new scoring methods that result in the clearer identification of cell types in embedding maps.
+* Other improvements stem from improvements in Orange suite. Workflows can now be edited in separate windows. Saving of the data has been speed-up.
+
+#### Performance Improvements
+* t-SNE: improved checking of the input data to avoid unnecessary recomputation.
+
 Version 0.6 (2018-05-31)
 ------------------------
 ##### New Features and Widgets

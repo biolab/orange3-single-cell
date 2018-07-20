@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<scheme description="Load the data from scOrange single cell database, see the expression values in a spreadsheet, and use Louvain clustering to find cell groups. Visualize cell landscape in a t-SNE projection and inspect the results of clustering. Select a subset of cells in t-SNE to examine their type or gene expression statistics in the Box Plot." title="Cell landscape and clustering" version="2.0">
+<scheme description="Load the data from scOrange single cell database, see the expression values in a spreadsheet, and use Louvain clustering to find cell groups. Visualize cell landscape in a t-SNE projection and inspect the results of clustering. Select a subset of cells in t-SNE to examine their type or gene expression statistics in the Box Plot." title="Clustering and t-SNE" version="2.0">
 	<nodes>
 		<node id="0" name="t-SNE" position="(360.0, 181.0)" project_name="Orange3-SingleCell" qualified_name="orangecontrib.single_cell.widgets.owtsne.OWtSNE" title="t-SNE" version="" />
 		<node id="1" name="Data Table" position="(254.0, 293.0)" project_name="Orange3" qualified_name="Orange.widgets.data.owtable.OWDataTable" title="Data Table" version="" />
@@ -41,7 +41,7 @@ dHRlcl9zaXplcRJLAFgTAAAAbGFiZWxfb25seV9zZWxlY3RlZHETiVgLAAAAcG9pbnRfd2lkdGhx
 FEsOWAkAAABzaG93X2dyaWRxFYlYCwAAAHNob3dfbGVnZW5kcRaIWA0AAABzaG93X3JlZ19saW5l
 cReJWBEAAAB0b29sdGlwX3Nob3dzX2FsbHEYiXVYCwAAAF9fdmVyc2lvbl9fcRlLAlgQAAAAY29u
 dGV4dF9zZXR0aW5nc3EaXXEbKGNPcmFuZ2Uud2lkZ2V0cy5zZXR0aW5ncwpDb250ZXh0CnEcKYFx
-HX1xHihYBAAAAHRpbWVxH0dB1sOli+Fwl1gGAAAAdmFsdWVzcSB9cSEoaA19cSIoWAoAAABhdHRy
+HX1xHihYBAAAAHRpbWVxH0dB1tEx+c6B8VgGAAAAdmFsdWVzcSB9cSEoaA19cSIoWAoAAABhdHRy
 X2NvbG9ycSNYBwAAAENsdXN0ZXJxJEtlhnElWAoAAABhdHRyX2xhYmVscSZOSv7///+GcSdYCgAA
 AGF0dHJfc2hhcGVxKFgEAAAAVHlwZXEpS2WGcSpYCQAAAGF0dHJfc2l6ZXErTkr+////hnEsdWgZ
 SwJ1WAoAAABhdHRyaWJ1dGVzcS19cS4oWAQAAABIQkcxcS9LAlgEAAAASEJHMnEwSwJYBgAAAFMx
@@ -1028,7 +1028,7 @@ ZWRXaWRnZXRHZW9tZXRyeXEGQzIB2dDLAAIAAAAAAq4AAAM/AAAH9wAABUgAAAKuAAADVQAAB/cA
 AAVIAAAAAAAAAAAKAHEHWAsAAABzZWxlY3Rfcm93c3EIiFgVAAAAc2hvd19hdHRyaWJ1dGVfbGFi
 ZWxzcQmIWBIAAABzaG93X2Rpc3RyaWJ1dGlvbnNxColYCwAAAF9fdmVyc2lvbl9fcQtLAVgQAAAA
 Y29udGV4dF9zZXR0aW5nc3EMXXENY09yYW5nZS53aWRnZXRzLnNldHRpbmdzCkNvbnRleHQKcQ4p
-gXEPfXEQKFgEAAAAdGltZXERR0HWw6WLcMVyWAYAAAB2YWx1ZXNxEn1xEyhYDQAAAHNlbGVjdGVk
+gXEPfXEQKFgEAAAAdGltZXERR0HW0TH5XfHUWAYAAAB2YWx1ZXNxEn1xEyhYDQAAAHNlbGVjdGVk
 X2NvbHNxFF1xFShLAEsBSwJLA0sESwVLBksHSwhLCUsKSwtLDEsNSw5LD0sQSxFLEksTSxRLFUsW
 SxdLGEsZSxpLG0scSx1LHksfSyBLIUsiSyNLJEslSyZLJ0soSylLKksrSyxLLUsuSy9LMEsxSzJL
 M0s0SzVLNks3SzhLOUs6SztLPEs9Sz5LP0tAS0FLQktDS0RLRUtGS0dLSEtJS0pLS0tMS01LTktP
@@ -1986,7 +1986,7 @@ bmUteHIJCAAASwJYBgAAAHRzbmUteXIKCAAASwJ1dWJldS4=
 YXZlZFdpZGdldEdlb21ldHJ5cQNDMgHZ0MsAAgAAAAAEeQAAAiQAAAVzAAADWAAABHkAAAI6AAAF
 cwAAA1gAAAAAAAAAAAoAcQRYCwAAAF9fdmVyc2lvbl9fcQVLAVgQAAAAY29udGV4dF9zZXR0aW5n
 c3EGXXEHY09yYW5nZS53aWRnZXRzLnNldHRpbmdzCkNvbnRleHQKcQgpgXEJfXEKKFgEAAAAdGlt
-ZXELR0HWw6WLd9zrWAYAAAB2YWx1ZXNxDH1xDShYCQAAAGFwcGx5X3BjYXEOiEr+////hnEPWAwA
+ZXELR0HW0TH5ZaNIWAYAAAB2YWx1ZXNxDH1xDShYCQAAAGFwcGx5X3BjYXEOiEr+////hnEPWAwA
 AABrX25laWdoYm91cnNxEEseSv7///+GcRFYCgAAAG1ldHJpY19pZHhxEksASv7///+GcRNYDgAA
 AHBjYV9jb21wb25lbnRzcRRLGUr+////hnEVWAoAAAByZXNvbHV0aW9ucRZHP/AAAAAAAABK/v//
 /4ZxF2gFSwF1WAoAAABhdHRyaWJ1dGVzcRh9cRkoWAQAAABIQkcxcRpLAlgEAAAASEJHMnEbSwJY
@@ -2298,4 +2298,7 @@ AG1ldGFzcgMEAAB9cgQEAAAoWAkAAABSZXBsaWNhdGVyBQQAAEsBWAIAAABJRHIGBAAASwNYBwAA
 AEJhcmNvZGVyBwQAAEsDdXViYXUu
 </properties>
 	</node_properties>
+	<session_state>
+		<window_groups />
+	</session_state>
 </scheme>
