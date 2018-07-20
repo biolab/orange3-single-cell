@@ -411,7 +411,7 @@ class OWMultiSample(owloaddata.OWLoadData):
         filters = owloaddata.Formats
         dlg.setNameFilters(filters)
         if filters:
-            dlg.selectNameFilter(filters[0])
+            dlg.selectNameFilter(filters[-1])
         if dlg.exec_() == QFileDialog.Accepted:
             for filename in dlg.selectedFiles():
                 self.set_current_path(filename)
