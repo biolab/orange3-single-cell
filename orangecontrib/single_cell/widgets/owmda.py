@@ -72,7 +72,7 @@ def interpolate_nans(A):
 
 class OWAlignDatasets(widget.OWWidget):
     name = "Align Datasets"
-    description = "Alignment of multiple datasets with a scree-diagram correlation visualization."
+    description = "Alignment of multiple datasets with a diagram of correlation visualization."
     icon = "icons/AlignDatasets.svg"
     priority = 3050
 
@@ -233,6 +233,7 @@ class OWAlignDatasets(widget.OWWidget):
             global MAX_COMPONENTS
             if len(data.domain.attributes) < MAX_COMPONENTS_DEFAULT:
                 MAX_COMPONENTS = len(data.domain.attributes)
+                self.ncomponents = MAX_COMPONENTS // 2
             else:
                 MAX_COMPONENTS = MAX_COMPONENTS_DEFAULT
 
