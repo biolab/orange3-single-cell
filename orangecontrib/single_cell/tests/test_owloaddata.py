@@ -5,6 +5,7 @@ import numpy.testing as npt
 import pandas as pd
 
 from Orange.data import ContinuousVariable
+from Orange.widgets.data.owtable import OWDataTable
 from Orange.widgets.tests.base import WidgetTest
 
 from orangecontrib.single_cell.widgets.owloaddata import OWLoadData
@@ -35,6 +36,18 @@ class TestOWLoadData(WidgetTest):
         self.widget.set_current_path(file_name)
         text = self.widget.summary_label.text()
         self.assertEqual(text, "1.1 KB, 10 rows, 15 columns")
+        self._check_headers_and_row_labels_box((1, True, 1, True))
+        self._check_input_data_structure_box((True, True, False, True))
+        self._check_sample_data_box()
+        values = ((False, True, "", False),
+                  (False, True, "", False))
+        self._check_annotation_files_box(values)
+
+    def test_open_xls(self):
+        file_name = os.path.join(self._path, "data.xlsx")
+        self.widget.set_current_path(file_name)
+        text = self.widget.summary_label.text()
+        self.assertEqual(text, "8.9 KB, 10 rows, 15 columns")
         self._check_headers_and_row_labels_box((1, True, 1, True))
         self._check_input_data_structure_box((True, True, False, True))
         self._check_sample_data_box()
@@ -100,6 +113,16 @@ class TestOWLoadData(WidgetTest):
         self._test_load_data_x(data.X, df)
         self._test_load_data_broad_metas(data.metas, df)
 
+    def test_load_data_xls(self):
+        file_name = os.path.join(self._path, "data.xlsx")
+        self.widget.set_current_path(file_name)
+        self.widget.commit()
+        data = self.get_output("Data")
+        df = pd.read_excel(file_name, header=0, index_col=0)
+        self._test_load_data_attributes(data.domain.attributes, df)
+        self._test_load_data_x(data.X, df)
+        self._test_load_data_broad_metas(data.metas, df)
+
     def test_load_data_compressed(self):
         file_name = os.path.join(self._path, "data.txt.gz")
         self.widget.set_current_path(file_name)
@@ -132,6 +155,22 @@ class TestOWLoadData(WidgetTest):
         data = self.get_output("Data")
         df = pd.read_csv(
             file_name, header=0, sep="\t", index_col=0,
+            usecols=[0, 1, 2, 3, 5, 7, 12, 14], skiprows=[4, 5, 6, 7, 9, 10])
+        self._test_load_data_attributes(data.domain.attributes, df)
+        self._test_load_data_x(data.X, df)
+        self._test_load_data_broad_metas(data.metas, df)
+
+    def test_load_data_xls_sample(self):
+        file_name = os.path.join(self._path, "data.xlsx")
+        self.widget.set_current_path(file_name)
+        self.widget.sample_rows_cb.setChecked(True)
+        self.widget.sample_cols_cb.setChecked(True)
+        self.widget.set_sample_rows_p(40)
+        self.widget.set_sample_cols_p(60)
+        self.widget.commit()
+        data = self.get_output("Data")
+        df = pd.read_excel(
+            file_name, header=0, index_col=0,
             usecols=[0, 1, 2, 3, 5, 7, 12, 14], skiprows=[4, 5, 6, 7, 9, 10])
         self._test_load_data_attributes(data.domain.attributes, df)
         self._test_load_data_x(data.X, df)
@@ -242,3 +281,18 @@ class TestOWLoadData(WidgetTest):
 
     def _test_load_data_broad_metas(self, metas, data_frame):
         npt.assert_array_equal(metas.flatten(), data_frame.columns.values)
+
+    def test_valid_output(self):
+        widget = self.create_widget(OWDataTable)
+        self.widget.set_current_path(os.path.join(self._path, "data.xlsx"))
+        self.widget.set_header_rows_count(3)
+        self.widget.set_header_cols_count(2)
+        self.widget.sample_rows_cb.setChecked(True)
+        self.widget.sample_cols_cb.setChecked(True)
+        self.widget.set_sample_rows_p(40)
+        self.widget.set_sample_cols_p(60)
+        self.widget.commit()
+        data = self.get_output("Data")
+        self.assertIsNotNone(data)
+        self.assertEqual(data.X.shape, (3, 7))
+        widget.set_dataset(data)

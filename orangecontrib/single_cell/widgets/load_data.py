@@ -1,5 +1,4 @@
 import os
-import csv
 import random
 from itertools import chain
 from typing import Dict, Tuple
@@ -40,6 +39,8 @@ def get_data_loader(file_name):
         return CsvLoader(file_name)
     elif ext in (".pkl", ".pickle"):
         return PickleLoader(file_name)
+    elif ext in (".xls", ".xlsx"):
+        return ExcelLoader(file_name)
     else:
         return Loader(file_name)
 
@@ -123,37 +124,34 @@ class Loader:
 
     def _set_file_parameters(self):
         try:
-            with open_compressed(self._file_name, "rt", encoding="latin-1") as f:
-                line = next(csv.reader(f, delimiter=self.separator))
-                self.n_cols = len(line)
-                self.n_rows = sum(1 for _ in f)
+            args = (self._file_name,)
+            col_kwargs = {"sep": self.separator, "index_col": None, "nrows": 1}
+            row_kwargs = {"sep": self.separator, "usecols": [1]}
+            self.n_cols = self.df_read_func(*args, **col_kwargs).shape[1]
+            self.n_rows = self.df_read_func(*args, **row_kwargs).shape[0]
+            self._set_sparsity()
         except Exception:
             pass
 
-        try:
-            self.__set_sparsity()
-        except Exception:
-            pass
-
-    def __set_sparsity(self):
+    def _set_sparsity(self):
         """Get approximate sparsity if number of columns is bigger than 100."""
         if self.n_cols is not None and self.n_rows is not None:
-            max_c = 100
+            n_max = 100
             np.random.seed(42)
-            use_cols = np.arange(1, self.n_cols - 1) if self.n_cols < max_c \
-                else np.random.randint(1, self.n_cols - 1, max_c)
+            use_cols = np.arange(1, self.n_cols - 1) if self.n_cols < n_max \
+                else np.random.randint(1, self.n_cols - 1, n_max)
 
-            data = np.genfromtxt(
-                self._file_name, delimiter=self.separator,
-                skip_header=1, usecols=use_cols, max_rows=max_c)
+            data = self.df_read_func(
+                self._file_name, usecols=use_cols, sep=self.separator,
+                skipfooter=(max(0, self.n_rows - n_max))
+            )
 
-            non_zero_el = np.count_nonzero(data)
-            all_el = data.shape[0] * data.shape[1]
-            self.sparsity = (all_el - non_zero_el) / all_el
+            n_all = data.shape[0] * data.shape[1]
+            self.sparsity = (n_all - np.count_nonzero(data)) / n_all
 
     def _load_data(self, skip_row=None, header_rows=None, header_cols=None,
                    use_cols=None, **kwargs):
-        df = pd.read_csv(
+        df = self.df_read_func(
             self._file_name, sep=self.separator, index_col=header_cols,
             header=header_rows, skiprows=skip_row, usecols=use_cols
         )
@@ -170,6 +168,10 @@ class Loader:
 
         return attrs, df.values, df.iloc[:, :0], df.index
 
+    @staticmethod
+    def df_read_func(*args, **kwargs):
+        return pd.read_csv(*args, **kwargs)
+
     def __call__(self):
         self.__reset_error_messages()
 
@@ -182,8 +184,11 @@ class Loader:
         header_rows = self.__header_rows()
         header_cols, header_cols_indices = self.__header_cols()
 
-        usecols, skip_col, skip_row = self.__update_reading_parameters(
-            skip_col, skip_row, header_cols_indices)
+        usecols, skip_col, skip_row, header_cols, header_rows = \
+            self.__update_reading_parameters(
+                skip_col, skip_row, header_cols_indices,
+                header_cols, header_rows
+            )
 
         try:
             attrs, X, meta_df, meta_df_index = self._load_data(
@@ -253,19 +258,16 @@ class Loader:
                     return i > 3 and rstate.uniform(0, 100) > p
         return skip_col
 
-    def __update_reading_parameters(self, skip_col, skip_row, header_cols):
+    def __update_reading_parameters(self, skip_col, skip_row, header_indices,
+                                    header_cols, header_rows):
         self._use_rows_mask = None
         self._use_cols_mask = None
         usecols = None
 
         if skip_col is not None:
-            ncols = pd.read_csv(
-                self._file_name, sep=self.separator, index_col=None,
-                nrows=1).shape[1]
             self._use_cols_mask = np.array([
-                not skip_col(i) or i in header_cols
-                for i in range(ncols)
-            ], dtype=bool)
+                not skip_col(i) or i in header_indices
+                for i in range(self.n_cols)], dtype=bool)
             usecols = np.flatnonzero(self._use_cols_mask)
 
         if skip_row is not None:
@@ -275,7 +277,34 @@ class Loader:
                 r = test(i)
                 self._use_rows_mask.append(r)
                 return r
-        return usecols, skip_col, skip_row
+
+        # if skipping more than one leading columns/rows, use the
+        # first one when creating domain
+        if isinstance(header_cols, list) and self.transposed:
+            if skip_col is None:
+                mask = np.array([i not in header_cols[1:] for i
+                                 in range(self.n_cols)], dtype=bool)
+            else:
+                mask = np.array([i not in header_cols[1:] and not skip_col(i)
+                                 for i in range(self.n_cols)], dtype=bool)
+            self._use_cols_mask = mask
+            usecols = np.flatnonzero(mask)
+            header_cols = 0
+
+        if isinstance(header_rows, list) and not self.transposed:
+            if skip_row is None:
+                skip_row = header_rows[1:]
+            else:
+                self._use_rows_mask = []
+
+                def skip_row(i, test=skip_row, header=header_rows[1:]):
+                    r = test(i) or i in header
+                    self._use_rows_mask.append(r)
+                    return r
+
+            header_rows = 0
+
+        return usecols, skip_col, skip_row, header_cols, header_rows
 
     def __update_metas(self, meta_df, meta_df_index, X):
         row_annot_df = pd.read_csv(
@@ -358,17 +387,17 @@ class Loader:
         if not attrs and X.shape[1]:
             attrs = Domain.from_numpy(X).attributes
 
-        metas = None
-        M = None
-        if meta_parts:
-            meta_parts = [df_.reset_index() if not df_.index.is_integer()
-                          else df_ for df_ in meta_parts]
-            metas = [StringVariable.make(name)
-                     for name in chain(*(_.columns for _ in meta_parts))]
-            M = np.hstack(tuple(df_.values for df_ in meta_parts))
-
-        domain = Domain(attrs, metas=metas)
         try:
+            metas = None
+            M = None
+            if meta_parts:
+                meta_parts = [df_.reset_index() if not df_.index.is_integer()
+                              else df_ for df_ in meta_parts]
+                metas = [StringVariable.make(name)
+                         for name in chain(*(_.columns for _ in meta_parts))]
+                M = np.hstack(tuple(df_.values for df_ in meta_parts))
+
+            domain = Domain(attrs, metas=metas)
             table = Table.from_numpy(domain, X, None, M)
         except ValueError:
             table = None
@@ -541,6 +570,12 @@ class PickleLoader(Loader):
         return attributes
 
 
+class ExcelLoader(Loader):
+    @staticmethod
+    def df_read_func(*args, **kwargs):
+        return pd.read_excel(*args, **kwargs)
+
+
 class Concatenate:
     INTERSECTION, UNION = range(2)
 
@@ -581,4 +616,3 @@ class Concatenate:
         data = data.transform(domain)
         data[:, source_var] = np.full((len(data), 1), 0, dtype=object)
         return data, source_var
-
