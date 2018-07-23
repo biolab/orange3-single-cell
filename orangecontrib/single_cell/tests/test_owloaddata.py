@@ -144,6 +144,13 @@ class TestOWLoadData(WidgetTest):
         self._test_load_data_x(data.X, df)
         self._test_load_data_broad_metas(data.metas, df)
 
+    def test_load_data_loom(self):
+        file_name = os.path.join(self._path, "data.loom")
+        self.widget.set_current_path(file_name)
+        self.widget.commit()
+        self.assertEqual(self.get_output("Data").X.shape, (20, 10))
+        self.assertEqual(self.get_output("Data").metas.shape, (20, 1))
+
     def test_load_data_broad_sample(self):
         file_name = os.path.join(self._path, "DATA_MATRIX_LOG_TPM.txt")
         self.widget.set_current_path(file_name)
@@ -206,6 +213,27 @@ class TestOWLoadData(WidgetTest):
         df = pd.read_csv(file_name, header=0, sep="\t", index_col=None,
                          skiprows=[4, 6, 8, 9, 10])
         self._test_load_data_metas(data.metas, df)
+
+    def test_load_data_loom_sample(self):
+        file_name = os.path.join(self._path, "data.loom")
+        self.widget.set_current_path(file_name)
+        self.widget.sample_rows_cb.setChecked(True)
+        self.widget.sample_cols_cb.setChecked(True)
+        self.widget.set_sample_rows_p(40)
+        self.widget.set_sample_cols_p(60)
+        self.widget.commit()
+        data = self.get_output("Data")
+        X = np.array([[4, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0],
+                      [0, 0, 0, 0, 0, 0], [0, 7, 0, 0, 0, 0],
+                      [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0],
+                      [0, 0, 0, 0, 5, 0], [9, 0, 0, 0, 0, 0],
+                      [0, 0, 0, 0, 6, 0], [0, 0, 0, 0, 0, 0],
+                      [0, 0, 0, 0, 0, 0]])
+        npt.assert_array_equal(data.X, X)
+        metas = np.array([[0, 1, 2, 3, 4, 5, 6, 7, 8, 13, 16]]).T
+        npt.assert_array_equal(data.metas, metas)
+        self.assertListEqual([attr.name for attr in data.domain.attributes],
+                             ["0", "1", "2", "3", "6", "7"])
 
     def test_not_enough_headers(self):
         file_name = os.path.join(self._path, "DATA_MATRIX_LOG_TPM.txt")

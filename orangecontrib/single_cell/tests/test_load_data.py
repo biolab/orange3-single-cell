@@ -6,7 +6,7 @@ import numpy.testing as npt
 import pandas as pd
 
 from orangecontrib.single_cell.widgets.load_data import (
-    ExcelLoader, MtxLoader, CountLoader, Loader, PickleLoader,
+    LoomLoader, ExcelLoader, MtxLoader, CountLoader, Loader, PickleLoader,
     get_data_loader, Concatenate
 )
 
@@ -18,6 +18,7 @@ class TestLoadData(unittest.TestCase):
         loader = get_data_loader("DATA_MATRIX_LOG_TPM.txt")
         self.assertIsInstance(loader, Loader)
         self.assertIsInstance(get_data_loader("data.xls"), ExcelLoader)
+        self.assertIsInstance(get_data_loader("data.loom"), LoomLoader)
 
     def test_get_data_loader_pickle(self):
         self.assertIsInstance(get_data_loader("data.pkl"), PickleLoader)
@@ -77,6 +78,14 @@ class TestLoadData(unittest.TestCase):
         self.assertEqual(loader.n_rows, 10)
         self.assertEqual(loader.n_cols, 15)
         self.assertEqual(round(loader.sparsity, 2), 0.86)
+
+    def test_file_summary_loom(self):
+        file_name = os.path.join(os.path.dirname(__file__), "data/data.loom")
+        loader = LoomLoader(file_name)
+        self.assertEqual(loader.file_size, 14100)
+        self.assertEqual(loader.n_rows, 10)
+        self.assertEqual(loader.n_cols, 20)
+        self.assertEqual(round(loader.sparsity, 2), 0.93)
 
     def test_load_data_mtx(self):
         file_name = os.path.join(os.path.dirname(__file__),
