@@ -1,9 +1,10 @@
 import numpy as np
+import numpy.testing
 
 import Orange.data
 from Orange.widgets.tests.base import WidgetTest
 
-from orangecontrib.single_cell.widgets.owfilter import OWFilter
+from orangecontrib.single_cell.widgets.owfilter import OWFilter, log1p, expm1
 
 
 class TestOWFilterCells(WidgetTest):
@@ -106,3 +107,13 @@ class TestOWFilterCells(WidgetTest):
 
         self.send_signal(self.widget.Inputs.data, None)
         self.assertIsNone(self.get_output(self.widget.Outputs.data))
+
+    def test_utils(self):
+        # test log1p and its inverse
+        x = 10 ** np.arange(9)
+        np.testing.assert_allclose(log1p(x), np.log10(1 + x))
+        np.testing.assert_allclose(expm1(log1p(x)), x)
+        x = 1 / (10 ** np.arange(1, 7))
+        np.testing.assert_allclose(log1p(x), np.log10(1 + x))
+        np.testing.assert_allclose(expm1(log1p(x)), x)
+

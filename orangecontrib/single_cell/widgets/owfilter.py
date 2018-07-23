@@ -1,14 +1,19 @@
 import sys
+import enum
+import math
+import numbers
 
 from contextlib import contextmanager
-from types import SimpleNamespace, FunctionType
-from typing import Optional, Sequence, Tuple, Dict, Iterator
+from types import SimpleNamespace
+
+import typing
+from typing import Optional, Sequence, Tuple, Dict, Callable, Union, Iterable
 
 import numpy as np
 from scipy import stats
 
 from AnyQt.QtCore import Qt, QSize, QPointF, QRectF, QLineF, QTimer
-from AnyQt.QtCore import pyqtSignal as Signal, pyqtSlot as Slot, pyqtBoundSignal
+from AnyQt.QtCore import pyqtSignal as Signal, pyqtSlot as Slot
 from AnyQt.QtGui import (
     QPainter, QPolygonF, QPainterPath, QPalette, QPen, QBrush, QColor,
     QKeySequence
@@ -55,6 +60,24 @@ MeasureInfo = {
 }
 
 
+# Plot scales
+class Scale(enum.Enum):
+    Linear = "Linear"
+    Log1p = "Log1p"
+
+
+def log1p(x, base=10.):
+    x = np.log1p(x)
+    x /= np.log(base)
+    return x
+
+
+def expm1(x, base=10.):
+    x = np.asarray(x)
+    x *= np.log(base)
+    return np.expm1(x)
+
+
 class ScatterPlotItem(pg.ScatterPlotItem):
     def paint(self, painter, *args):
         if self.opts["antialias"]:
@@ -62,6 +85,29 @@ class ScatterPlotItem(pg.ScatterPlotItem):
         if self.opts["pxMode"]:
             painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
         super().paint(painter, *args)
+
+
+if typing.TYPE_CHECKING:
+    ArrayLike = Union[np.ndarray, np.generic, numbers.Number, Iterable]
+    Transform = Callable[[ArrayLike], np.ndarray]
+
+
+# filter state data class
+class _FilterData:
+    #: The array used for filtering/ploting. Is some marginal statistic
+    #: of the input.
+    x = ...   # type: np.ndarray
+    #: The transformed array x (log1p).
+    #: NOTE: xt.size need not match x.size (non finite values can be omitted)
+    xt = ...  # type: np.ndarray
+    #: The transformation function mapping x to xt
+    transform = ...      # type: Transform
+    #: The inverse of `transform`,
+    transform_inv = ...  # type: Transform
+    #: min/max bounds of x
+    xmin = xmax = ...    # type: float
+    #: min/max bounds of xt
+    xtmin = xtmax = ...  # type: float
 
 
 class OWFilter(widget.OWWidget):
@@ -76,14 +122,19 @@ class OWFilter(widget.OWWidget):
         data = widget.Output("Data", Orange.data.Table)
 
     class Warning(widget.OWWidget.Warning):
-        invalid_range = widget.Msg(
-            "Negative values in input data.\n"
-            "This filter only makes sense for non-negative measurements "
-            "where 0 indicates a lack (of) and/or a neutral reading."
-        )
         sampling_in_effect = widget.Msg(
             "Too many data points to display.\n"
             "Sampling {} of {} data points."
+        )
+
+    class Error(widget.OWWidget.Error):
+        invalid_range = widget.Msg(
+            "Negative values in input data.\n"
+            "This filter is only defined for non-negative values."
+        )
+        invalid_domain = widget.Msg(
+            "Invalid domain\n"
+            "Domain contains non numeric columns."
         )
 
     #: Filter mode.
@@ -116,12 +167,15 @@ class OWFilter(widget.OWWidget):
         (Data, -1): (0.0, 2.0 ** 31 - 1)
     })  # type: Dict[Tuple[int, int], Tuple[float, float]]
 
+    #: Plot scale: 'Linear' or 'Log1p'
+    scale = settings.Setting(Scale.Linear.name)  # type: str
+
     auto_commit = settings.Setting(True)   # type: bool
 
     def __init__(self):
         super().__init__()
         self.data = None      # type: Optional[Orange.data.Table]
-        self._counts = None   # type: Optional[np.ndarray]
+        self._state = None     # type: Optional[_FilterData]
 
         box = gui.widgetBox(self.controlArea, "Info")
         self._info = QLabel(box, wordWrap=True)
@@ -215,11 +269,19 @@ class OWFilter(widget.OWWidget):
         cb.setAttribute(Qt.WA_LayoutUsesWidgetRect, True)
         form.addRow(cb, self.threshold_stacks[1])
 
-        box = gui.widgetBox(self.controlArea, "View")
+        box = gui.widgetBox(self.controlArea, "Plot Options")
         self._showpoints = gui.checkBox(
             box, self, "display_dotplot", "Show data points",
             callback=self._update_dotplot
         )
+        self.log_scale_cb = QCheckBox(
+            "Log scale", checked=self.scale == Scale.Log1p.name
+        )
+        self.log_scale_cb.toggled[bool].connect(
+            lambda state:
+                self.set_filter_scale(Scale.Log1p if state else Scale.Linear)
+        )
+        box.layout().addWidget(self.log_scale_cb)
 
         self.controlArea.layout().addStretch(10)
 
@@ -234,9 +296,9 @@ class OWFilter(widget.OWWidget):
             (ViolinPlot.Low if self.limit_lower_enabled else 0) |
             (ViolinPlot.High if self.limit_upper_enabled else 0)
         )
+        self._plot.setRange(QRectF(-1., 0., 2., 1.))
         self._plot.selectionEdited.connect(self._limitchanged_plot)
         self._view.setCentralWidget(self._plot)
-        self._plot.setTitle(FilterInfo[self.selected_filter_metric][1])
 
         bottom = self._plot.getAxis("bottom")  # type: pg.AxisItem
         bottom.hide()
@@ -252,6 +314,7 @@ class OWFilter(widget.OWWidget):
             QAction("Select All", self, shortcut=QKeySequence.SelectAll,
                     triggered=self._select_all)
         )
+        self._setup_axes()
 
     def sizeHint(self):
         sh = super().sizeHint()  # type: QSize
@@ -264,6 +327,7 @@ class OWFilter(widget.OWWidget):
             self.threshold_stacks[0].setCurrentIndex(type_)
             self.threshold_stacks[1].setCurrentIndex(type_)
             self.filter_metric_cb.setEnabled(type_ != Data)
+            self._setup_axes()
             if self.data is not None:
                 self._setup(self.data, type_)
                 self._schedule_commit()
@@ -271,7 +335,18 @@ class OWFilter(widget.OWWidget):
     def filter_type(self):
         return self.selected_filter_type
 
+    def set_filter_scale(self, scale):
+        # type: (Scale) -> None
+        if self.scale != scale:
+            self.scale = scale.name
+            self.log_scale_cb.setChecked(scale == Scale.Log1p)
+            self._update_scale()
+
+    def filter_scale(self):
+        return Scale[self.scale]
+
     def _update_metric(self):
+        self._update_scale()
         if self.data is not None:
             self._setup(self.data, self.selected_filter_type, )
 
@@ -308,20 +383,33 @@ class OWFilter(widget.OWWidget):
     def set_data(self, data):
         # type: (Optional[Orange.data.Table]) -> None
         self.clear()
+
+        if data is not None and \
+                any(type(v) is not Orange.data.ContinuousVariable
+                    for v in data.domain.attributes):
+            self.Error.invalid_domain()
+            data = None
+
+        if data is not None and np.any(data.X < 0):
+            self.Error.invalid_range()
+            data = None
+
         self.data = data
+
         if data is not None:
-            if np.any(data.X < 0):
-                self.Warning.invalid_range()
             self._setup(data, self.filter_type())
 
         self.unconditional_commit()
 
     def clear(self):
-        self._plot.clear()
         self.data = None
-        self._counts = None
+        self._state = None
+        self._plot.clear()
+        # reset the plot range
+        self._plot.setRange(QRectF(-1., 0., 2., 1.))
         self._update_info()
         self.Warning.clear()
+        self.Error.clear()
 
     def _update_info(self):
         text = []
@@ -337,12 +425,13 @@ class OWFilter(widget.OWWidget):
             ]
             if self._is_filter_enabled() and \
                     self.filter_type() in [Cells, Genes]:
-                mask = np.ones(self._counts.shape, dtype=bool)
+                counts = self._state.x
+                mask = np.ones(counts.shape, dtype=bool)
                 if self.limit_lower_enabled:
-                    mask &= self.limit_lower <= self._counts
+                    mask &= self.limit_lower <= counts
 
                 if self.limit_upper_enabled:
-                    mask &= self._counts <= self.limit_upper
+                    mask &= counts <= self.limit_upper
 
                 n = np.count_nonzero(mask)
                 subject = "cell" if self.filter_type() == Cells else "gene"
@@ -362,47 +451,68 @@ class OWFilter(widget.OWWidget):
         self.limit_upper = 2 ** 31 - 1
         self._limitchanged()
 
+    def _setup_axes(self):
+        # Setup the plot axes and title
+        filter_type = self.filter_type()
+        info = FilterInfo[filter_type]
+        _, title, _, *_ = info
+
+        if filter_type in [Cells, Genes]:
+            measure = self.selected_filter_metric
+        else:
+            measure = None
+
+        if filter_type == Cells and measure == TotalCounts:
+            axis_label = "Total counts (library size)"
+        elif filter_type == Cells and measure == DetectionCount:
+            axis_label = "Number of expressed genes"
+        elif filter_type == Genes and measure == TotalCounts:
+            axis_label = "Total counts"
+        elif filter_type == Genes and measure == DetectionCount:
+            # TODO: Too long
+            axis_label = "Number of cells a gene is expressed in"
+        elif filter_type == Data:
+            axis_label = "Gene Expression"
+
+        ax = self._plot.getAxis("left")
+        if self.filter_scale() == Scale.Log1p:
+            axis_label = "1 + '{}' <i>(in log scale)</i>".format(axis_label)
+            ax.setLabel(axis_label)
+            ax.setLogMode(True)
+        else:
+            ax.setLogMode(False)
+            ax.setLabel(axis_label)
+        # Reset the tick text area width
+        ax.textWidth = 30
+        ax.setWidth(None)
+
+        self._plot.setTitle(title)
+
     def _setup(self, data, filter_type):
         self._plot.clear()
-        self._counts = None
-        title = None
-        sample_range = None
+        self._state = None
+        self._setup_axes()
 
         span = -1.0  # data span
         measure = self.selected_filter_metric if filter_type != Data else None
+        state = _FilterData()
 
         if filter_type in [Cells, Genes]:
             if filter_type == Cells:
                 axis = 1
-                title = "Cell Filter"
-                if measure == TotalCounts:
-                    axis_label = "Total counts (library size)"
-                else:
-                    axis_label = "Number of expressed genes"
             else:
                 axis = 0
-                title = "Gene Filter"
-                if measure == TotalCounts:
-                    axis_label = "Total counts"
-                else:
-                    # TODO: Too long
-                    axis_label = "Number of cells a gene is expressed in"
-
             if measure == TotalCounts:
                 counts = np.nansum(data.X, axis=axis)
             else:
                 mask = (data.X != 0) & (np.isfinite(data.X))
                 counts = np.count_nonzero(mask, axis=axis)
             x = counts
-            if x.size:
-                span = np.ptp(x)
-            self._counts = counts
             self.Warning.sampling_in_effect.clear()
         elif filter_type == Data:
             x = data.X.ravel()
             x = x[np.isfinite(x)]
             x = x[x != 0]
-            self._counts = x
             MAX_DISPLAY_SIZE = 20000
             if x.size > MAX_DISPLAY_SIZE:
                 self.Warning.sampling_in_effect(MAX_DISPLAY_SIZE, x.size)
@@ -419,18 +529,55 @@ class OWFilter(widget.OWWidget):
                     x2, size=MAX_DISPLAY_SIZE - 2 * tails, replace=False,
                 )
                 x = np.r_[x1, x2, x3]
-                span = x[-1] - x[0]
             else:
-                span = np.ptp(x)
                 self.Warning.sampling_in_effect.clear()
-            title = "Data Filter"
-            axis_label = "Gene Expression"
         else:
             assert False
+
+        state.x = x
+
+        scale = self.filter_scale()
+
+        if scale == Scale.Log1p:
+            scale_transform = log1p
+            scale_transform_inv = expm1
+        else:
+            scale_transform = lambda x: x
+            scale_transform_inv = scale_transform
+
+        state.transform = scale_transform
+        state.transform_inv = scale_transform_inv
+
+        if x.size:
+            xmin, xmax = np.min(x), np.max(x)
+        else:
+            xmin = xmax = 0., 1.
+
+        state.xmin, state.xmax = xmin, xmax
+
+        xs = scale_transform(x)
+        xs = xs[np.isfinite(xs)]
+        state.xt = xs
+
+        if xs.size:
+            xsmin, xsmax = np.min(xs), np.max(xs)
+            # find effective xmin, xmax (valid in both original and transformed
+            # space
+            xmin_, xmax_ = scale_transform_inv([xsmin, xsmax])
+            xmin, xmax = max(xmin, xmin_), min(xmax, xmax_)
+
+            lower = np.clip(self.limit_lower, xmin, xmax)
+            upper = np.clip(self.limit_upper, xmin, xmax)
+        else:
+            xmin, xmax = 0., 1.
+            lower, upper = 0., 1.
+
+        state.xtmin, state.xtmax = xsmin, xsmax
 
         spinlow = self.threshold_stacks[0].widget(filter_type)
         spinhigh = self.threshold_stacks[1].widget(filter_type)
         if filter_type == Data or measure == TotalCounts:
+            span = xmax - xmin
             if span > 0:
                 ndecimals = max(4 - int(np.floor(np.log10(span))), 1)
             else:
@@ -438,24 +585,25 @@ class OWFilter(widget.OWWidget):
         else:
             ndecimals = 1
 
-        spinlow.setDecimals(ndecimals)
-        spinhigh.setDecimals(ndecimals)
+        # Round effective bounds (spin <=> plot cut lines)
+        lower = round(lower, ndecimals)
+        upper = round(upper, ndecimals)
 
-        if x.size:
-            xmin, xmax = np.min(x), np.max(x)
-            self.limit_lower = np.clip(self.limit_lower, xmin, xmax)
-            self.limit_upper = np.clip(self.limit_upper, xmin, xmax)
-
-        if x.size > 0:
+        if xs.size > 0:
             # TODO: Need correction for lower bounded distribution (counts)
             # Use reflection around 0, but gaussian_kde does not provide
             # sufficient flexibility w.r.t bandwidth selection.
-            self._plot.setData(x, 1000)
-            self._plot.setBoundary(self.limit_lower, self.limit_upper)
 
-        ax = self._plot.getAxis("left")  # type: pg.AxisItem
-        ax.setLabel(axis_label)
-        self._plot.setTitle(title)
+            self._plot.setData(xs, 1000)
+            self._plot.setBoundary(*scale_transform([lower, upper]))
+
+        spinlow.setDecimals(ndecimals)
+        self.limit_lower = lower
+
+        spinhigh.setDecimals(ndecimals)
+        self.limit_upper = upper
+
+        self._state = state
         self._update_info()
 
     def _update_dotplot(self):
@@ -474,6 +622,11 @@ class OWFilter(widget.OWWidget):
         else:
             metric = -1
         self.thresholds[self.selected_filter_type, metric] = (lower, upper)
+
+    def _update_scale(self):
+        self._setup_axes()
+        if self.data is not None:
+            self._setup(self.data, self.filter_type())
 
     @property
     def limit_lower(self):
@@ -510,21 +663,23 @@ class OWFilter(widget.OWWidget):
         upper = stackhigh.widget(filter_).value()
         self.set_current_filter_thesholds(lower, upper)
 
-        if self._counts is not None and self._counts.size:
-            xmin = np.min(self._counts)
-            xmax = np.max(self._counts)
-            self._plot.setBoundary(
-                np.clip(lower, xmin, xmax),
-                np.clip(upper, xmin, xmax)
-            )
+        state = self._state
+        if state is not None and state.x.size:
+            xmin, xmax = state.xmin, state.xmax
+            lower = np.clip(lower, xmin, xmax)
+            upper = np.clip(upper, xmin, xmax)
+            lower, upper = state.transform([lower, upper])
+            self._plot.setBoundary(lower, upper)
             # TODO: Only when the actual selection/filter mask changes
             self._schedule_commit()
             self._update_info()
 
     def _limitchanged_plot(self):
         # Low/high limit changed via the plot
-        if self._counts is not None:
-            newlower, newupper = self._plot.boundary()
+        if self._state is not None:
+            state = self._state
+            newlower_, newupper_ = self._plot.boundary()
+            newlower, newupper = state.transform_inv([newlower_, newupper_])
             filter_ = self.selected_filter_type
             lower, upper = self.current_filter_thresholds()
             stacklow, stackhigh = self.threshold_stacks
@@ -546,7 +701,9 @@ class OWFilter(widget.OWWidget):
             if self.limit_upper_enabled and newupper != upper:
                 self.limit_upper = newupper
 
-            self._plot.setBoundary(newlower, newupper)
+            newlower_, newupper_ = state.transform([newlower, newupper])
+            self._plot.setBoundary(newlower_, newupper_)
+
             # TODO: Only when the actual selection/filter mask changes
             self._schedule_commit()
             self._update_info()
@@ -560,7 +717,9 @@ class OWFilter(widget.OWWidget):
 
         if data is not None and self._is_filter_enabled():
             if self.filter_type() in [Cells, Genes]:
-                counts = self._counts
+                state = self._state
+                assert state is not None
+                counts = state.x
                 cmax = self.limit_upper
                 cmin = self.limit_lower
                 mask = np.ones(counts.shape, dtype=bool)
@@ -648,6 +807,13 @@ def block_signals(qobj):
         qobj.blockSignals(b)
 
 
+class AxisItem(pg.AxisItem):
+    def logTickStrings(self, values, scale, spacing):
+        # reimplemented
+        values = [10 ** v for v in values]
+        return [render_exp(v, 1) for v in values]
+
+
 class ViolinPlot(pg.PlotItem):
     """
     A violin plot item with interactive data boundary selection.
@@ -661,8 +827,14 @@ class ViolinPlot(pg.PlotItem):
     #: Selection Flags
     NoSelection, Low, High = 0, 1, 2
 
-    def __init__(self, *args, enableMenu=False, **kwargs):
-        super().__init__(*args, enableMenu=enableMenu, **kwargs)
+    def __init__(self, *args, enableMenu=False, axisItems=None, **kwargs):
+        if axisItems is None:
+            axisItems = {}
+        for position in ("left", 'right', 'top', 'bottom'):
+            axisItems.setdefault(position, AxisItem(position))
+
+        super().__init__(*args, enableMenu=enableMenu, axisItems=axisItems,
+                         **kwargs)
         self.__data = None
         #: min/max cutoff line positions
         self.__min = 0
@@ -958,15 +1130,49 @@ class SelectionLine(pg.InfiniteLine):
         painter.restore()
 
 
+def render_exp(value, prec=2):
+    # type: (float, int) -> str
+    if not math.isfinite(value):
+        return repr(value)
+    exp = "{:.{prec}G}".format(value, prec=prec)
+    try:
+        frac, exp = exp.split("E", 1)
+    except ValueError:
+        return exp
+
+    frac = float(frac)
+    exp = int(exp)
+    if exp == 0:
+        return str(frac)
+    elif frac == 1.0:
+        return "10{exp}".format(exp=_superscript(str(exp)))
+    else:
+        return "{frac:g}\u00D710{exp}".format(
+            frac=frac, exp=_superscript(str(exp))
+        )
+
+
+def _superscript(string):
+    # type: (str) -> str
+    table = str.maketrans(
+        "0123456789+-",
+        "\u2070\u00B9\u00B2\u00B3\u2074\u2075\u2076\u2077\u2078\u2079"
+        "\u207A\u207B",
+    )
+    return string.translate(table)
+
+
 def main(argv=None):  # pragma: no cover
     app = QApplication(list(argv or sys.argv))
     argv = app.arguments()
     w = OWFilter()
     if len(argv) > 1:
         filename = argv[1]
+        data = Orange.data.Table(filename)
     else:
-        filename = "brown-selected"  # bad example
-    data = Orange.data.Table(filename)
+        X = np.random.exponential(size=(1000, 1050)) - 1
+        X[X < 0] = 0
+        data = Orange.data.Table.from_numpy(None, X)
     w.set_data(data)
     w.show()
     w.raise_()
