@@ -6,6 +6,7 @@ from typing import Dict, Tuple
 import numpy as np
 import pandas as pd
 import scipy.io
+import loompy as lp
 
 from Orange.data import (
     ContinuousVariable, DiscreteVariable, StringVariable, Domain, Table
@@ -41,6 +42,8 @@ def get_data_loader(file_name):
         return PickleLoader(file_name)
     elif ext in (".xls", ".xlsx"):
         return ExcelLoader(file_name)
+    elif ext == ".loom":
+        return LoomLoader(file_name)
     else:
         return Loader(file_name)
 
@@ -574,6 +577,50 @@ class ExcelLoader(Loader):
     @staticmethod
     def df_read_func(*args, **kwargs):
         return pd.read_excel(*args, **kwargs)
+
+
+class LoomLoader(Loader):
+    def __init__(self, file_name):
+        super().__init__(file_name)
+        self.header_rows_count = 0
+        self.header_cols_count = 0
+        self.FIXED_FORMAT = False
+        self.ENABLE_ANNOTATIONS = False
+        self.transposed = True
+        self.row_annotations_enabled = False
+        self.col_annotations_enabled = False
+
+    def _set_file_parameters(self):
+        try:
+            with lp.connect(self._file_name) as ds:
+                self.n_rows, self.n_cols = ds.shape
+                all_el = self.n_rows * self.n_cols
+                self.sparsity = (all_el - ds.sparse().count_nonzero()) / all_el
+        except OSError:
+            pass
+
+    def _load_data(self, skip_row=None, skip_col=None, **kwargs):
+        with lp.connect(self._file_name) as ds:
+            X = ds[:, :].T
+            if skip_row is not None:
+                mask = np.array([not skip_row(i) for i in range(X.shape[1])])
+                self._use_rows_mask = mask
+            else:
+                self._use_rows_mask = np.ones(X.shape[1], dtype=bool)
+            if skip_col is not None:
+                mask = np.array([not skip_col(i) for i in range(X.shape[0])])
+                self._use_cols_mask = mask
+            else:
+                self._use_cols_mask = np.ones(X.shape[0], dtype=bool)
+
+            X = X[self._use_cols_mask, :]
+            X = X[:, self._use_rows_mask]
+            gene_names = ds.ra.Gene[self._use_rows_mask] \
+                if hasattr(ds.ra, "Gene") else []
+            attrs = [ContinuousVariable.make(str(g)) for g in gene_names]
+            meta_df = pd.DataFrame({key: ds.ca[key][self._use_cols_mask]
+                                    for key in ds.ca.keys()})
+        return attrs, X, meta_df, meta_df.index
 
 
 class Concatenate:

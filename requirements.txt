@@ -7,3 +7,4 @@ fastdtw
 sklearn
 numpy
 astropy
+loompy>=2.0.10
