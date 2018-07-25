@@ -100,6 +100,7 @@ class OWAlignDatasets(widget.OWWidget):
     class Error(widget.OWWidget.Error):
         no_features = widget.Msg("At least 1 feature is required")
         no_instances = widget.Msg("At least 2 data instances are required")
+        no_class = widget.Msg("At least 1 Discrete class variable is required")
         sparse_data = widget.Msg("Sparse data is not supported")
 
     def __init__(self):
@@ -219,9 +220,12 @@ class OWAlignDatasets(widget.OWWidget):
         if data:
             self._feature_model.set_domain(data.domain)
             if self._feature_model:
-                # self.openContext(data)
+            # self.openContext(data)
                 if self.source_id is None or self.source_id == '':
                     self.source_id = self._feature_model[0]
+            else:
+                self.Error.no_class()
+                return
             if len(data.domain.attributes) == 0:
                 self.Error.no_features()
                 return
@@ -232,7 +236,7 @@ class OWAlignDatasets(widget.OWWidget):
 
             global MAX_COMPONENTS
             if len(data.domain.attributes) < MAX_COMPONENTS_DEFAULT:
-                MAX_COMPONENTS = len(data.domain.attributes)
+                MAX_COMPONENTS = len(data.domain.attributes) - 1
                 self.ncomponents = MAX_COMPONENTS // 2
             else:
                 MAX_COMPONENTS = MAX_COMPONENTS_DEFAULT
@@ -406,7 +410,7 @@ class OWAlignDatasets(widget.OWWidget):
         axis.setTicks([[(i, str(i + 1)) for i in range(0, p, d)]])
 
     def commit(self):
-        transformed_table = meta_genes = genes_componenets = None
+        transformed_table = meta_genes = None
         if self._mas is not None:
             if self._transformed is None:
                 # Compute the full transform (MAX_COMPONENTS components) only once.
