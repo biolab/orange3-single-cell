@@ -442,7 +442,7 @@ class ScController(Controller):
 
 class OWscPreprocess(Orange.widgets.data.owpreprocess.OWPreprocess):
     name = "Single Cell Preprocess"
-    description = "Load a data set from an online repository"
+    description = "Preprocess Single Cell data set"
     icon = "icons/SingleCellPreprocess.svg"
     priority = 160
 
