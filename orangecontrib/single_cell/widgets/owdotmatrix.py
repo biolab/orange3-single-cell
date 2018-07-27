@@ -33,10 +33,10 @@ class Task:
         concurrent.futures.wait([self.future])
 
 
-class OWClusterAnalysis(widget.OWWidget):
-    name = "Cluster Analysis"
+class OWDotMatrix(widget.OWWidget):
+    name = "Dot Matrix"
     description = "Perform cluster analysis."
-    icon = "icons/ClusterAnalysis.svg"
+    icon = "icons/DotMatrix.svg"
     priority = 2010
 
     class Inputs:
@@ -420,7 +420,7 @@ def test():
     from AnyQt.QtWidgets import QApplication
     app = QApplication([])
 
-    w = OWClusterAnalysis()
+    w = OWDotMatrix()
     data = Table("iris")
     w.set_data(data)
     w.handleNewSignals()

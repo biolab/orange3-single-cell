@@ -5,12 +5,12 @@ from Orange.widgets.tests.base import WidgetTest
 from orangecontrib.bioinformatics.ncbi.gene import NCBI_ID
 from orangecontrib.bioinformatics.widgets.utils.data import GENE_AS_ATTRIBUTE_NAME, GENE_ID_ATTRIBUTE, GENE_ID_COLUMN
 
-from orangecontrib.single_cell.widgets.owclusteranalysis import OWClusterAnalysis
+from orangecontrib.single_cell.widgets.owdotmatrix import OWDotMatrix
 
 
-class TestOWClusterAnalysis(WidgetTest):
+class TestOWDotMatrix(WidgetTest):
     def setUp(self):
-        self.widget = self.create_widget(OWClusterAnalysis)
+        self.widget = self.create_widget(OWDotMatrix)
 
         self.data_table = Table("iris")
         self.data_table.attributes[GENE_AS_ATTRIBUTE_NAME] = True
