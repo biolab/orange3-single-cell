@@ -203,8 +203,9 @@ class ContingencyTable(QTableView):
         headerh : :obj:`str`, optional
             Horizontal top header.
         """
-        self.classesv = classesv
-        self.classesh = classesh
+        # numpy _str objects don't display properly
+        self.classesv = list(map(str, classesv))
+        self.classesh = list(map(str, classesh))
         self.headerv = headerv
         self.headerh = headerh
         self.initialize(**kwargs)

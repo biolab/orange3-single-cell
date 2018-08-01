@@ -1,36 +1,16 @@
-import concurrent.futures
-from functools import partial
-
 import numpy as np
-from AnyQt.QtCore import Qt, Slot, QThread
-from AnyQt.QtWidgets import QGridLayout
+from AnyQt.QtCore import Qt
 from Orange.data import (DiscreteVariable, Table, Domain)
 from Orange.data.filter import Values, FilterDiscrete
 from Orange.widgets import widget, gui
 from Orange.widgets.settings import Setting, ContextSetting, DomainContextHandler
 from Orange.widgets.utils.annotated_data import ANNOTATED_DATA_SIGNAL_NAME, create_annotated_table
-from Orange.widgets.utils.concurrent import ThreadExecutor, FutureWatcher
 from Orange.widgets.utils.itemmodels import DomainModel
 from Orange.widgets.utils.signals import Input, Output
 from Orange.widgets.utils.sql import check_sql_input
-from orangecontrib.bioinformatics.widgets.utils.data import GENE_AS_ATTRIBUTE_NAME, GENE_ID_COLUMN, GENE_ID_ATTRIBUTE
 
 from orangecontrib.single_cell.preprocess.clusteranalysis import ClusterAnalysis
 from orangecontrib.single_cell.widgets.contingency_table import ContingencyTable
-
-
-class Task:
-    future = None
-    watcher = None
-    cancelled = False
-
-    def __init__(self, type):
-        self.type = type
-
-    def cancel(self):
-        self.cancelled = True
-        self.future.cancel()
-        concurrent.futures.wait([self.future])
 
 
 class OWDotMatrix(widget.OWWidget):
@@ -41,27 +21,37 @@ class OWDotMatrix(widget.OWWidget):
 
     class Inputs:
         data = Input("Data", Table, default=True)
-        genes = Input("Genes", Table)
 
     class Outputs:
         selected_data = Output("Selected Data", Table, default=True)
         annotated_data = Output(ANNOTATED_DATA_SIGNAL_NAME, Table)
         contingency = Output("Contingency Table", Table)
 
-    N_GENES_PER_CLUSTER_MAX = 10
-    N_MOST_ENRICHED_MAX = 50
+    GENE_MAXIMUM = 100
     CELL_SIZES = (14, 22, 30)
+    AGGREGATE_F = [
+        lambda x: np.mean(x, axis=0),
+        lambda x: np.median(x, axis=0),
+        lambda x: np.min(x, axis=0),
+        lambda x: np.max(x, axis=0),
+        lambda x: np.mean(x > 0, axis=0),
+    ]
+    AGGREGATE_NAME = [
+        "Mean expression",
+        "Median expression",
+        "Min expression",
+        "Max expression",
+        "Fraction expressing"
+    ]
 
     settingsHandler = DomainContextHandler(metas_in_res=True)
     cluster_var = ContextSetting(None)
-    selection = ContextSetting(set())
-    gene_selection = ContextSetting(0)
-    differential_expression = ContextSetting(0)
-    cell_size_ix = ContextSetting(2)
-    _diff_exprs = ("high", "low", "either")
-    n_genes_per_cluster = ContextSetting(3)
-    n_most_enriched = ContextSetting(20)
+    aggregate_ix = ContextSetting(0)  # type: int
     biclustering = ContextSetting(True)
+    transpose = ContextSetting(False)
+    log_scale = ContextSetting(False)
+    cell_size_ix = ContextSetting(2)  # type: int
+    selection = ContextSetting(set())
     auto_apply = Setting(True)
 
     want_main_area = True
@@ -69,17 +59,14 @@ class OWDotMatrix(widget.OWWidget):
     def __init__(self):
         super().__init__()
 
-        self.ca = None
+        self.data = None  # type: Table
         self.clusters = None
-        self.data = None
+        self.cluster_order = None
+        self.genes = None
+        self.gene_order = None
+        self.rows = None
+        self.columns = None
         self.feature_model = DomainModel(valid_types=DiscreteVariable)
-        self.gene_list = None
-        self.model = None
-        self.pvalues = None
-
-        self._executor = ThreadExecutor()
-        self._gene_selection_history = (self.gene_selection, self.gene_selection)
-        self._task = None
 
         box = gui.vBox(self.controlArea, "Info")
         self.infobox = gui.widgetLabel(box, self._get_info_string())
@@ -88,59 +75,17 @@ class OWDotMatrix(widget.OWWidget):
         gui.comboBox(box, self, "cluster_var", sendSelectedValue=True,
                      model=self.feature_model, callback=self._run_cluster_analysis)
 
-        layout = QGridLayout()
-        self.gene_selection_radio_group = gui.radioButtonsInBox(
-            self.controlArea, self, "gene_selection", orientation=layout,
-            box="Gene Selection", callback=self._gene_selection_changed)
+        box = gui.vBox(self.controlArea, "Aggregation")
+        gui.comboBox(box, self, "aggregate_ix", sendSelectedValue=False,
+                     items=self.AGGREGATE_NAME, callback=self._run_cluster_analysis)
 
-        def conditional_set_gene_selection(id):
-            def f():
-                if self.gene_selection == id:
-                    return self._set_gene_selection()
-
-            return f
-
-        layout.addWidget(gui.appendRadioButton(self.gene_selection_radio_group, "", addToLayout=False), 1, 1)
-        cb = gui.hBox(None, margin=0)
-        gui.widgetLabel(cb, "Top")
-        self.n_genes_per_cluster_spin = gui.spin(
-            cb, self, "n_genes_per_cluster", minv=1, maxv=self.N_GENES_PER_CLUSTER_MAX,
-            controlWidth=60, alignment=Qt.AlignRight, callback=conditional_set_gene_selection(0))
-        gui.widgetLabel(cb, "genes per cluster")
-        gui.rubber(cb)
-        layout.addWidget(cb, 1, 2, Qt.AlignLeft)
-
-        layout.addWidget(gui.appendRadioButton(self.gene_selection_radio_group, "", addToLayout=False), 2, 1)
-        mb = gui.hBox(None, margin=0)
-        gui.widgetLabel(mb, "Top")
-        self.n_most_enriched_spin = gui.spin(
-            mb, self, "n_most_enriched", minv=1, maxv=self.N_MOST_ENRICHED_MAX,
-            controlWidth=60, alignment=Qt.AlignRight, callback=conditional_set_gene_selection(1))
-        gui.widgetLabel(mb, "highest enrichments")
-        gui.rubber(mb)
-        layout.addWidget(mb, 2, 2, Qt.AlignLeft)
-
-        layout.addWidget(gui.appendRadioButton(self.gene_selection_radio_group, "", addToLayout=False, disabled=True),
-                         3, 1)
-        sb = gui.hBox(None, margin=0)
-        gui.widgetLabel(sb, "User-provided list of genes")
-        gui.rubber(sb)
-        layout.addWidget(sb, 3, 2)
-
-        layout = QGridLayout()
-        self.differential_expression_radio_group = gui.radioButtonsInBox(
-            self.controlArea, self, "differential_expression", orientation=layout,
-            box="Differential Expression", callback=self._set_gene_selection)
-
-        layout.addWidget(gui.appendRadioButton(self.differential_expression_radio_group,
-                                               "Overexpressed in cluster", addToLayout=False), 1, 1)
-        layout.addWidget(gui.appendRadioButton(self.differential_expression_radio_group,
-                                               "Underexpressed in cluster", addToLayout=False), 2, 1)
-        layout.addWidget(gui.appendRadioButton(self.differential_expression_radio_group,
-                                               "Either", addToLayout=False), 3, 1)
-
-        box = gui.vBox(self.controlArea, "Sorting and Zoom")
-        gui.checkBox(box, self, "biclustering", "Biclustering of analysis results", callback=self._set_gene_selection)
+        box = gui.vBox(self.controlArea, "Options")
+        gui.checkBox(box, self, "biclustering", "Biclustering of cells and genes",
+                     callback=self._run_cluster_analysis)
+        gui.checkBox(box, self, "transpose", "Transpose",
+                     callback=self._run_cluster_analysis)
+        gui.checkBox(box, self, "log_scale", "Log scale",
+                     callback=self._run_cluster_analysis)
         gui.radioButtons(box, self, "cell_size_ix", btnLabels=("S", "M", "L"),
                          callback=lambda: self.tableview.set_cell_size(self.CELL_SIZES[self.cell_size_ix]),
                          orientation=Qt.Horizontal)
@@ -153,40 +98,31 @@ class OWDotMatrix(widget.OWWidget):
         self.tableview = ContingencyTable(self)
         self.mainArea.layout().addWidget(self.tableview)
 
-    def _get_current_gene_selection(self):
-        return self._gene_selection_history[0]
-
-    def _get_previous_gene_selection(self):
-        return self._gene_selection_history[1]
-
-    def _progress_gene_selection_history(self, new_gene_selection):
-        self._gene_selection_history = (new_gene_selection, self._gene_selection_history[0])
-
     def _get_info_string(self):
-        formatstr = "Cells: {0}\nGenes: {1}\nClusters: {2}"
+        formatstr = "{} genes, {} cells\n{} clusters"
         if self.data:
-            return formatstr.format(len(self.data),
-                                    len(self.data.domain.attributes),
-                                    len(self.cluster_var.values))
+            return formatstr.format(len(self.data.domain.attributes),
+                                    len(self.data),
+                                    len(self.clusters))
         else:
-            return formatstr.format(*["No input data"] * 3)
+            return formatstr.format(*([0] * 3))
 
     @Inputs.data
     @check_sql_input
     def set_data(self, data):
         if self.feature_model:
             self.closeContext()
+
         self.data = data
         self.feature_model.set_domain(None)
-        self.ca = None
         self.cluster_var = None
-        self.columns = None
         self.clusters = None
-        self.gene_list = None
-        self.model = None
-        self.pvalues = None
-        self.n_genes_per_cluster_spin.setMaximum(self.N_GENES_PER_CLUSTER_MAX)
-        self.n_most_enriched_spin.setMaximum(self.N_MOST_ENRICHED_MAX)
+        self.cluster_order = None
+        self.genes = None
+        self.gene_order = None
+        self.rows = None
+        self.columns = None
+
         if self.data:
             self.feature_model.set_domain(self.data.domain)
             if self.feature_model:
@@ -199,188 +135,82 @@ class OWDotMatrix(widget.OWWidget):
         else:
             self.tableview.clear()
 
-    @Inputs.genes
-    def set_genes(self, data):
-        self.Error.clear()
-        gene_list_radio = self.gene_selection_radio_group.group.buttons()[2]
-
-        if (data is None
-                or GENE_AS_ATTRIBUTE_NAME not in data.attributes
-                or not data.attributes[GENE_AS_ATTRIBUTE_NAME] and GENE_ID_COLUMN not in data.attributes
-                or data.attributes[GENE_AS_ATTRIBUTE_NAME] and GENE_ID_ATTRIBUTE not in data.attributes):
-            if data is not None:
-                self.error("Gene annotations missing in the input data. Use Gene Name Matching widget.")
-            self.gene_list = None
-            gene_list_radio.setDisabled(True)
-            if self.gene_selection == 2:
-                self.gene_selection_radio_group.group.buttons()[self._get_previous_gene_selection()].click()
-        else:
-            if data.attributes[GENE_AS_ATTRIBUTE_NAME]:
-                gene_id_attribute = data.attributes.get(GENE_ID_ATTRIBUTE, None)
-
-                self.gene_list = tuple(str(var.attributes[gene_id_attribute]) for var in data.domain.attributes
-                                       if gene_id_attribute in var.attributes
-                                       and var.attributes[gene_id_attribute] != "?")
-            else:
-                gene_id_column = data.attributes.get(GENE_ID_COLUMN, None)
-                self.gene_list = tuple(str(v) for v in data.get_column_view(gene_id_column)[0]
-                                       if v not in ("", "?"))
-            gene_list_radio.setDisabled(False)
-            if self.gene_selection == 2:
-                self._set_gene_selection()
-            else:
-                gene_list_radio.click()
+    @staticmethod
+    def _group_by(table: Table, var: DiscreteVariable):
+        column = table.get_column_view(var)[0]
+        return (table[column == value] for value in np.unique(column))
 
     def _run_cluster_analysis(self):
+        self.clusters = [self.cluster_var.values[int(ix)]
+                         for ix in np.unique(self.data.get_column_view(self.cluster_var)[0])]
+        self.genes = [var.name for var in self.data.domain.attributes]
         self.infobox.setText(self._get_info_string())
-        gene_count = len(self.data.domain.attributes)
-        cluster_count = len(self.cluster_var.values)
-        self.n_genes_per_cluster_spin.setMaximum(min(self.N_GENES_PER_CLUSTER_MAX, gene_count // cluster_count))
-        self.n_most_enriched_spin.setMaximum(min(self.N_MOST_ENRICHED_MAX, gene_count))
-        # TODO: what happens if error occurs? If CA fails, widget should properly handle it.
-        self._start_task_init(partial(ClusterAnalysis, self.data, self.cluster_var.name))
-
-    def _start_task_init(self, f):
-        if self._task is not None:
-            self.cancel()
-        assert self._task is None
-
-        self._task = Task("init")
-
-        def callback(finished):
-            if self._task.cancelled:
-                raise KeyboardInterrupt()
-            self.progressBarSet(finished * 50)
-
-        f = partial(f, callback=callback)
-
-        self.progressBarInit()
-        self._task.future = self._executor.submit(f)
-        self._task.watcher = FutureWatcher(self._task.future)
-        self._task.watcher.done.connect(self._init_task_finished)
-
-    def _start_task_gene_selection(self, f):
-        if self._task is not None:
-            self.cancel()
-        assert self._task is None
-
-        self._task = Task("gene_selection")
-
-        def callback(finished):
-            if self._task.cancelled:
-                raise KeyboardInterrupt()
-            self.progressBarSet(50 + finished * 50)
-
-        f = partial(f, callback=callback)
-
-        self.progressBarInit()
-        self.progressBarSet(50)
-        self._task.future = self._executor.submit(f)
-        self._task.watcher = FutureWatcher(self._task.future)
-        self._task.watcher.done.connect(self._gene_selection_task_finished)
-
-    @Slot(concurrent.futures.Future)
-    def _init_task_finished(self, f):
-        assert self.thread() is QThread.currentThread()
-        assert self._task is not None
-        assert self._task.future is f
-        assert f.done()
-
-        self._task = None
-        self.progressBarFinished()
-
-        self.ca = f.result()
-        self._set_gene_selection()
-
-    @Slot(concurrent.futures.Future)
-    def _gene_selection_task_finished(self, f):
-        assert self.thread() is QThread.currentThread()
-        assert self._task is not None
-        assert self._task.future is f
-        assert f.done()
-
-        self._task = None
-        self.progressBarFinished()
-
-        self.clusters, genes, self.model, self.pvalues = f.result()
-        genes = [str(gene) for gene in genes]
-        self.columns = DiscreteVariable("Gene", genes, ordered=True)
-        self.tableview.set_headers(self.clusters, self.columns.values, circles=True,
-                                   cell_size=self.CELL_SIZES[self.cell_size_ix], bold_headers=False)
-
-        def tooltip(i, j):
-            return ("<b>cluster</b>: {}<br /><b>gene</b>: {}<br /><b>fraction expressing</b>: {:.2f}<br />\
-                                <b>p-value</b>: {:.2e}".format(
-                self.clusters[i],
-                self.columns.values[j],
-                self.model[i, j],
-                self.pvalues[i, j])
-            )
-
-        self.tableview.update_table(self.model, tooltip=tooltip)
-        self._invalidate()
-
-    def cancel(self):
-        """
-        Cancel the current task (if any).
-        """
-        if self._task is not None:
-            self._task.cancel()
-            assert self._task.future.done()
-            # disconnect the `_task_finished` slot
-            if self._task.type == "init":
-                self._task.watcher.done.disconnect(self._init_task_finished)
-            else:
-                self._task.watcher.done.disconnect(self._gene_selection_task_finished)
-            self._task = None
-
-    def onDeleteWidget(self):
-        self.cancel()
-        super().onDeleteWidget()
-
-    def _gene_selection_changed(self):
-        if self.gene_selection != self._get_current_gene_selection():
-            self._progress_gene_selection_history(self.gene_selection)
-            self.differential_expression_radio_group.setDisabled(self.gene_selection == 2)
-            self._set_gene_selection()
-
-    def _set_gene_selection(self):
-        self.Warning.clear()
-        if self.ca is not None and (self._task is None or self._task.type != "init"):
-            if self.gene_selection == 0:
-                f = partial(self.ca.enriched_genes_per_cluster, self.n_genes_per_cluster)
-            elif self.gene_selection == 1:
-                f = partial(self.ca.enriched_genes_data, self.n_most_enriched)
-            else:
-                if self.data is not None and GENE_ID_ATTRIBUTE not in self.data.attributes:
-                    self.error("Gene annotations missing in the input data. Use Gene Name Matching widget.")
-                    if self.gene_selection == 2:
-                        self.gene_selection_radio_group.group.buttons()[self._get_previous_gene_selection()].click()
-                    return
-                relevant_genes = tuple(self.ca.intersection(self.gene_list))
-                if len(relevant_genes) > self.N_MOST_ENRICHED_MAX:
-                    self.warning("Only first {} reference genes shown.".format(self.N_MOST_ENRICHED_MAX))
-                f = partial(self.ca.enriched_genes, relevant_genes[:self.N_MOST_ENRICHED_MAX])
-            f = partial(f, enrichment=self._diff_exprs[self.differential_expression], biclustering=self.biclustering)
-            self._start_task_gene_selection(f)
+        if not self.transpose:
+            self.rows, self.columns = self.clusters, self.genes
         else:
-            self._invalidate()
+            self.rows, self.columns = self.genes, self.clusters
 
-    def handleNewSignals(self):
+        if len(self.genes) > 100:
+            self.warning("Too many genes on input, first {} genes displayed.".format(self.GENE_MAXIMUM))
+        else:
+            self.Warning.clear()
+
+        self.matrix = np.stack((self.AGGREGATE_F[self.aggregate_ix](cluster.X[:self.GENE_MAXIMUM])
+                                for cluster in self._group_by(self.data, self.cluster_var)),
+                               axis=0)
+
+        if self.biclustering:
+            self.cluster_order, self.gene_order = ClusterAnalysis.biclustering(self.matrix,
+                                                                               ClusterAnalysis.neighbor_distance)
+        else:
+            self.cluster_order, self.gene_order = np.arange(len(self.clusters)), np.arange(len(self.genes))
+        self.matrix = self.matrix[self.cluster_order][:,self.gene_order]
+
+        self._reset_table()
         self._invalidate()
+
+    def _reset_table(self):
+        if not self.transpose:
+            row_order, column_order = self.cluster_order, self.gene_order
+        else:
+            row_order, column_order = self.gene_order, self.cluster_order
+        self.tableview.set_headers(np.array(self.rows)[row_order], np.array(self.columns)[column_order], circles=True,
+                                   cell_size=self.CELL_SIZES[self.cell_size_ix], bold_headers=False)
+        if self.matrix.size > 0:
+            matrix = self.matrix
+            if self.log_scale:
+                matrix = np.log(matrix + 1 - matrix.min())
+            matrix = matrix / matrix.max()
+            if self.transpose:
+                matrix = matrix.T
+
+            def tooltip(i,j):
+                if not self.transpose:
+                    cluster, gene, value = self.clusters[i], self.genes[j], self.matrix[i,j]
+                else:
+                    cluster, gene, value = self.clusters[j], self.genes[i], self.matrix[j,i]
+                return "Cluster: {}\nGene: {}\n{}: {}".format(
+                    cluster, gene, self.AGGREGATE_NAME[self.aggregate_ix], value)
+
+            self.tableview.update_table(matrix, tooltip=tooltip)
 
     def commit(self):
         if len(self.selection):
             cluster_ids = set()
-            column_ids = set()
+            gene_ids = set()
             for (ir, ic) in self.selection:
-                cluster_ids.add(ir)
-                column_ids.add(ic)
-            new_domain = Domain([self.data.domain[self.columns.values[col]] for col in column_ids],
+                if not self.transpose:
+                    cluster_ids.add(ir)
+                    gene_ids.add(ic)
+                else:
+                    cluster_ids.add(ic)
+                    gene_ids.add(ir)
+
+            new_domain = Domain([self.data.domain[self.genes[i]] for i in gene_ids],
                                 self.data.domain.class_vars,
                                 self.data.domain.metas)
-            selected_data = Values([FilterDiscrete(self.cluster_var, [self.clusters[ir]])
-                                    for ir in cluster_ids],
+            selected_data = Values([FilterDiscrete(self.cluster_var, [self.clusters[i]])
+                                    for i in cluster_ids],
                                    conjunction=False)(self.data)
             selected_data = selected_data.transform(new_domain)
             annotated_data = create_annotated_table(self.data.transform(new_domain),
@@ -388,8 +218,12 @@ class OWDotMatrix(widget.OWWidget):
         else:
             selected_data = None
             annotated_data = create_annotated_table(self.data, [])
-        if self.ca is not None and self._task is None:
-            table = self.ca.create_contingency_table()
+        if self.matrix is not None:
+            table = ClusterAnalysis.contingency_table(self.matrix,
+                                                      DiscreteVariable(self.cluster_var.name,
+                                                                       np.array(self.clusters)[self.cluster_order]),
+                                                      np.array(self.genes)[self.gene_order],
+                                                      self.cluster_order[...,np.newaxis])
         else:
             table = None
         self.Outputs.selected_data.send(selected_data)
