@@ -52,7 +52,7 @@ class LinkMethod(IntEnum):
 class OWBatchNorm(OWWidget):
     name = "Batch Effect Removal"
     description = "Batch effect normalization on Single Cell data set."
-    icon = "icons/Normalization.svg"
+    icon = "icons/BatchEffectRemoval.svg"
     priority = 170
 
     class Inputs:
