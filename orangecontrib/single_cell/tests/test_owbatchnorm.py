@@ -11,7 +11,7 @@ from orangecontrib.single_cell.widgets.owbatchnorm import (
 )
 
 
-class TestOWBatchEffectRemoval(WidgetTest):
+class TestOWBatchNorm(WidgetTest):
     def setUp(self):
         self.widget = self.create_widget(OWBatchNorm)
 
@@ -46,18 +46,37 @@ class TestOWBatchEffectRemoval(WidgetTest):
         self.assertFalse(self.widget.Warning.missing_values.is_shown())
         self.assertIsNone(self.get_output(self.widget.Outputs.data))
 
-    def test_negative_values_input(self):
+    def test_negative_values_input_log_link(self):
         """Check batch normalization for data set with negative values"""
         data = Table("iris")
         data[0, 3] = -1
         self.send_signal(self.widget.Inputs.data, data)
-        link_combo = self.widget.controls.link_method
-        simulate.combobox_activate_index(link_combo, LinkMethod.LOG_LINK)
         self.widget.model.item(0).setCheckState(Qt.Checked)
+        link_method = self.widget.controls.link_method
+        simulate.combobox_activate_index(link_method, LinkMethod.LOG_LINK)
+
+        self.assertTrue(self.widget.Warning.negative_values.is_shown())
         output = self.get_output(self.widget.Outputs.data)
         np.testing.assert_array_equal(output.X, data.X)
+
+        self.send_signal(self.widget.Inputs.data, None)
+        self.assertFalse(self.widget.Warning.negative_values.is_shown())
+
+    def test_negative_values_input_id_link(self):
+        """Check batch normalization for data set with negative values"""
+        data = Table("iris")
+        data[0, 3] = -1
+        self.send_signal(self.widget.Inputs.data, data)
+        self.widget.model.item(0).setCheckState(Qt.Checked)
+        link_method = self.widget.controls.link_method
+        simulate.combobox_activate_index(link_method, LinkMethod.IDENTITY_LINK)
+
+        self.widget.skip_zeros_check.setChecked(True)
         self.assertTrue(self.widget.Warning.negative_values.is_shown())
-        simulate.combobox_activate_index(link_combo, LinkMethod.IDENTITY_LINK)
+        output = self.get_output(self.widget.Outputs.data)
+        np.testing.assert_array_equal(output.X, data.X)
+
+        self.widget.skip_zeros_check.setChecked(False)
         self.assertFalse(self.widget.Warning.negative_values.is_shown())
         output = self.get_output(self.widget.Outputs.data)
         self.assertFalse((output.X == data.X).any())
