@@ -13,7 +13,7 @@ class ScBatchNormalize(unittest.TestCase):
         np.random.seed(42)
         n = 100
         m = 200
-        bias = 1
+        bias = 10
         self.noise = 0.1 * np.random.randn(n, 1)
         Z = np.hstack([np.random.randn(n, 1),
                        np.random.choice([0, 1], size=n).reshape(n, 1)])
@@ -21,6 +21,7 @@ class ScBatchNormalize(unittest.TestCase):
         W = np.random.randn(2, m)
         X_log = INV_LINKS[LINK_LOG](bias + Z.dot(W) + self.noise)
         X_lin = INV_LINKS[LINK_IDENTITY](bias + Z.dot(W) + self.noise)
+        X_lin_neg = INV_LINKS[LINK_IDENTITY](Z.dot(W))
 
         self.zeros = (np.random.choice(range(n), size=100, replace=True),
                       np.random.choice(range(m), size=100, replace=True))
@@ -44,6 +45,15 @@ class ScBatchNormalize(unittest.TestCase):
                                              attributes=[ContinuousVariable("X%d" % i) for i in range(m)],
                                              metas=[ContinuousVariable("Z0"),
                                                     DiscreteVariable("Z1", values=["a", "b"])]))
+
+        self.data_lin_neg = Table.from_numpy(X=X_lin_neg,
+                                             metas=Z,
+                                             Y=Y,
+                                             domain=Domain(
+                                                 class_vars=[DiscreteVariable("class", values=["c1", "c2"])],
+                                                 attributes=[ContinuousVariable("X%d" % i) for i in range(m)],
+                                                 metas=[ContinuousVariable("Z0"),
+                                                        DiscreteVariable("Z1", values=["a", "b"])]))
 
     def test_multivariate_lin(self):
         """ Assert batch variables are decorrelated and the remaining factors (noise) become correlated. """
@@ -145,3 +155,12 @@ class ScBatchNormalize(unittest.TestCase):
             c, p = pearsonr(A[:, i], B[:, j])
             assert abs(C[i, j] - c) < 1e-3
             assert abs(P[i, j] - p) < 1e-3
+
+    def test_negative_lin(self):
+        """ Assert batch variables are decorrelated and the remaining factors (noise) become correlated. """
+        def dummy_call():
+            model = ScBatchNormalizeModel(batch_vars=["Z0", "Z1"],
+                                          nonzero_only=True,
+                                          link=LINK_IDENTITY)
+            model.fit(self.data_lin_neg)
+        self.assertRaises(ValueError, dummy_call)

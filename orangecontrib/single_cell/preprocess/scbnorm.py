@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.stats import pearsonr
 from scipy.special import betainc as betai
 from sklearn.preprocessing import OneHotEncoder
 
@@ -21,6 +20,9 @@ INV_LINKS = {
     LINK_IDENTITY: lambda x: x,
     LINK_LOG: np.exp
 }
+
+# Percentage standard deviation
+PERC_SD = 0.01
 
 
 class ScBatchScorer(Scorer):
@@ -148,6 +150,9 @@ class ScBatchNormalizeModel:
         Z = self._design_matrix(data)
         k = Z.shape[1]
         if self.nonzero_only:
+            if self.link == LINK_IDENTITY and self.nonzero_only and np.any(data.X < 0):
+                raise ValueError("Data contains negative values. "
+                                 "Remove 'nonzero_true' option.")
             for i, a in enumerate(atts):
                 nz = np.where(data.X[:, i])[0]
                 Y = LINKS[self.link](data.X[:, i][nz])
@@ -163,7 +168,14 @@ class ScBatchNormalizeModel:
             self.models = dict(((a.name, w.reshape((k, 1))) for a, w in zip(atts, W.T)))
 
     def transform(self, data):
-        """ Apply transformation. Genes in new data must have had been available to fit. """
+        """ Apply transformation. Genes in new data must have had been available to fit.
+
+        In case of linear regression (identity link), with nonzero_only=True,
+        make sure zeros remains zeros and the original non-zeros are all larger than zero.
+
+        This combination must not be used if the original data contains negative
+        values.
+        """
         if len(self.batch_vars) == 0:
             return data
         else:
@@ -175,8 +187,11 @@ class ScBatchNormalizeModel:
             Xc = data.X.copy()
             if self.nonzero_only:
                 nz = np.where(Xc)
-                Xn = INV_LINKS[self.link](LINKS[self.link](Xc[nz]) - Z.dot(W)[nz])
-                Xc[nz] = Xn
+                Xc[nz] = INV_LINKS[self.link](LINKS[self.link](Xc[nz]) - Z.dot(W)[nz])
+                if self.link == LINK_IDENTITY:
+                    mask = Xc != 0
+                    sd = Xc.std() * PERC_SD
+                    Xc = Xc - (Xc.min(axis=0) * mask) + (sd * mask)
             else:
                 Xc = INV_LINKS[self.link](LINKS[self.link](Xc) - Z.dot(W))
             new_data = data.copy()
