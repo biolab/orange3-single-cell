@@ -150,9 +150,12 @@ class ScBatchNormalizeModel:
         Z = self._design_matrix(data)
         k = Z.shape[1]
         if self.nonzero_only:
-            if self.link == LINK_IDENTITY and self.nonzero_only and np.any(data.X < 0):
-                raise ValueError("Data contains negative values. "
-                                 "Remove 'nonzero_true' option.")
+            if np.any(data.X < 0):
+                if self.link == LINK_IDENTITY:
+                    raise ValueError("Data contains negative values. "
+                                     "Remove 'nonzero_true' option.")
+                else:
+                    raise ValueError("Data contains negative values.")
             for i, a in enumerate(atts):
                 nz = np.where(data.X[:, i])[0]
                 Y = LINKS[self.link](data.X[:, i][nz])
