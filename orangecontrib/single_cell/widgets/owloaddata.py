@@ -121,8 +121,7 @@ class OWLoadData(widget.OWWidget):
             "Expected {} rows got {}"
         )
         inadequate_headers = widget.Msg(
-            "Not enough headers or row labels\n"
-            "Got {} header row(s) and {} row label(s)"
+            "Headers and Row Labels error"
         )
         reading_error = widget.Msg(
             "Cannot read data using given parameters."
