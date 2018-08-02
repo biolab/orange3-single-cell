@@ -237,9 +237,7 @@ class OWBatchNorm(OWWidget):
         self.Error.general_error.clear()
         self.Warning.negative_values.clear()
         if self.data is not None:
-            is_log = self.link_method == LinkMethod.LOG_LINK
-            is_lin_nonzero = self.link_method == LinkMethod.IDENTITY_LINK and self.skip_zeros
-            if (self.data.X < 0).any() and (is_log or is_lin_nonzero):
+            if (self.data.X < 0).any() and self.skip_zeros:
                 self.Warning.negative_values()
                 data = self.data
             else:
