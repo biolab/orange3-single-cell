@@ -30,14 +30,14 @@ Formats = [
     "10x gene-barcode matrix (matrix.mtx)",
     "Microsoft Excel spreadsheet (*.xls *.xlsx)",
     "Pickled Python object file (*.pkl *.pickle)",
-    "Any tab separated file (*.*)"
+    "All files (*.*)"
 ]
 
 AnnotationFormats = [
     "Meta file (*.meta)",
     "Tab separated file (*.tsv *.tab)",
     "Comma separated file (*.csv)",
-    "Any tab separated file (*.*)",
+    "All files (*.*)",
 ]
 
 
@@ -121,8 +121,7 @@ class OWLoadData(widget.OWWidget):
             "Expected {} rows got {}"
         )
         inadequate_headers = widget.Msg(
-            "Not enough headers or row labels\n"
-            "Got {} header row(s) and {} row label(s)"
+            "Headers and Row Labels error"
         )
         reading_error = widget.Msg(
             "Cannot read data using given parameters."
