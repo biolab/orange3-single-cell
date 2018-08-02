@@ -73,19 +73,21 @@ class OWDotMatrix(widget.OWWidget):
 
         box = gui.vBox(self.controlArea, "Cluster Variable")
         gui.comboBox(box, self, "cluster_var", sendSelectedValue=True,
-                     model=self.feature_model, callback=self._run_cluster_analysis)
+                     model=self.feature_model, callback=self._calculate_table_values)
 
         box = gui.vBox(self.controlArea, "Aggregation")
         gui.comboBox(box, self, "aggregate_ix", sendSelectedValue=False,
-                     items=self.AGGREGATE_NAME, callback=self._run_cluster_analysis)
+                     items=self.AGGREGATE_NAME, callback=self._calculate_table_values)
 
         box = gui.vBox(self.controlArea, "Options")
         gui.checkBox(box, self, "biclustering", "Biclustering of cells and genes",
-                     callback=self._run_cluster_analysis)
+                     callback=self._calculate_table_values)
         gui.checkBox(box, self, "transpose", "Transpose",
-                     callback=self._run_cluster_analysis)
+                     callback=self._refresh_table)
         gui.checkBox(box, self, "log_scale", "Log scale",
-                     callback=self._run_cluster_analysis)
+                     callback=self._refresh_table)
+
+        box = gui.vBox(self.controlArea, "Plot Size")
         gui.radioButtons(box, self, "cell_size_ix", btnLabels=("S", "M", "L"),
                          callback=lambda: self.tableview.set_cell_size(self.CELL_SIZES[self.cell_size_ix]),
                          orientation=Qt.Horizontal)
@@ -129,7 +131,7 @@ class OWDotMatrix(widget.OWWidget):
                 self.openContext(self.data)
                 if self.cluster_var is None:
                     self.cluster_var = self.feature_model[0]
-                self._run_cluster_analysis()
+                self._calculate_table_values()
             else:
                 self.tableview.clear()
         else:
@@ -140,15 +142,11 @@ class OWDotMatrix(widget.OWWidget):
         column = table.get_column_view(var)[0]
         return (table[column == value] for value in np.unique(column))
 
-    def _run_cluster_analysis(self):
+    def _calculate_table_values(self):
         self.clusters = [self.cluster_var.values[int(ix)]
                          for ix in np.unique(self.data.get_column_view(self.cluster_var)[0])]
         self.genes = [var.name for var in self.data.domain.attributes]
         self.infobox.setText(self._get_info_string())
-        if not self.transpose:
-            self.rows, self.columns = self.clusters, self.genes
-        else:
-            self.rows, self.columns = self.genes, self.clusters
 
         if len(self.genes) > 100:
             self.warning("Too many genes on input, first {} genes displayed.".format(self.GENE_MAXIMUM))
@@ -166,13 +164,15 @@ class OWDotMatrix(widget.OWWidget):
             self.cluster_order, self.gene_order = np.arange(len(self.clusters)), np.arange(len(self.genes))
         self.matrix = self.matrix[self.cluster_order][:,self.gene_order]
 
-        self._reset_table()
+        self._refresh_table()
         self._invalidate()
 
-    def _reset_table(self):
+    def _refresh_table(self):
         if not self.transpose:
+            self.rows, self.columns = self.clusters, self.genes
             row_order, column_order = self.cluster_order, self.gene_order
         else:
+            self.rows, self.columns = self.genes, self.clusters
             row_order, column_order = self.gene_order, self.cluster_order
         self.tableview.set_headers(np.array(self.rows)[row_order], np.array(self.columns)[column_order], circles=True,
                                    cell_size=self.CELL_SIZES[self.cell_size_ix], bold_headers=False)
@@ -189,7 +189,7 @@ class OWDotMatrix(widget.OWWidget):
                     cluster, gene, value = self.clusters[i], self.genes[j], self.matrix[i,j]
                 else:
                     cluster, gene, value = self.clusters[j], self.genes[i], self.matrix[j,i]
-                return "Cluster: {}\nGene: {}\n{}: {}".format(
+                return "Cluster: {}\nGene: {}\n{}: {:.1f}".format(
                     cluster, gene, self.AGGREGATE_NAME[self.aggregate_ix], value)
 
             self.tableview.update_table(matrix, tooltip=tooltip)
@@ -221,7 +221,7 @@ class OWDotMatrix(widget.OWWidget):
         if self.matrix is not None:
             table = ClusterAnalysis.contingency_table(self.matrix,
                                                       DiscreteVariable(self.cluster_var.name,
-                                                                       np.array(self.clusters)[self.cluster_order]),
+                                                                       np.array(self.clusters)),
                                                       np.array(self.genes)[self.gene_order],
                                                       self.cluster_order[...,np.newaxis])
         else:

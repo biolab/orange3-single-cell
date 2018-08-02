@@ -280,11 +280,10 @@ class ClusterAnalysis:
 
     @staticmethod
     def biclustering(matrix, distance, callback=None):
-        if matrix.shape[1] <= 2:
+        if min(matrix.shape) <= 2:
             return np.arange(matrix.shape[0]), np.arange(matrix.shape[1])
 
         best_score = np.iinfo(np.dtype('uint16')).max
-        best_fit = None
         best_model = None
 
         # find the best biclusters (needs revision)
@@ -304,7 +303,6 @@ class ClusterAnalysis:
             score = distance(fit_data)
             if score < best_score:
                 best_score = score
-                best_fit = fit_data
                 best_model = model
 
         return np.argsort(best_model.row_labels_), np.argsort(best_model.column_labels_)
