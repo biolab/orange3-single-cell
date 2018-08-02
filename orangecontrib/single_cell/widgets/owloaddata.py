@@ -30,14 +30,14 @@ Formats = [
     "10x gene-barcode matrix (matrix.mtx)",
     "Microsoft Excel spreadsheet (*.xls *.xlsx)",
     "Pickled Python object file (*.pkl *.pickle)",
-    "Any tab separated file (*.*)"
+    "All files (*.*)"
 ]
 
 AnnotationFormats = [
     "Meta file (*.meta)",
     "Tab separated file (*.tsv *.tab)",
     "Comma separated file (*.csv)",
-    "Any tab separated file (*.*)",
+    "All files (*.*)",
 ]
 
 
