@@ -68,7 +68,7 @@ class OWBatchNorm(OWWidget):
 
     class Warning(OWWidget.Warning):
         missing_values = Msg("Missing values have been replaced with 0.")
-        negative_values = Msg("Unable to use Log Link due "
+        negative_values = Msg("Unable to use current settings due "
                               "to negative values in data.")
 
     resizing_enabled = False
@@ -237,7 +237,9 @@ class OWBatchNorm(OWWidget):
         self.Error.general_error.clear()
         self.Warning.negative_values.clear()
         if self.data is not None:
-            if (self.data.X < 0).any() and self.link_method == LinkMethod.LOG_LINK:
+            is_log = self.link_method == LinkMethod.LOG_LINK
+            is_lin_nonzero = self.link_method == LinkMethod.IDENTITY_LINK and self.skip_zeros
+            if (self.data.X < 0).any() and (is_log or is_lin_nonzero):
                 self.Warning.negative_values()
                 data = self.data
             else:
