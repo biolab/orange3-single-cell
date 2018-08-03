@@ -52,7 +52,7 @@ class LinkMethod(IntEnum):
 class OWBatchNorm(OWWidget):
     name = "Batch Effect Removal"
     description = "Batch effect normalization on Single Cell data set."
-    icon = "icons/Normalization.svg"
+    icon = "icons/BatchEffectRemoval.svg"
     priority = 170
 
     class Inputs:
@@ -68,7 +68,7 @@ class OWBatchNorm(OWWidget):
 
     class Warning(OWWidget.Warning):
         missing_values = Msg("Missing values have been replaced with 0.")
-        negative_values = Msg("Unable to use Log Link due "
+        negative_values = Msg("Unable to use current settings due "
                               "to negative values in data.")
 
     resizing_enabled = False
@@ -237,7 +237,7 @@ class OWBatchNorm(OWWidget):
         self.Error.general_error.clear()
         self.Warning.negative_values.clear()
         if self.data is not None:
-            if (self.data.X < 0).any() and self.link_method == LinkMethod.LOG_LINK:
+            if (self.data.X < 0).any() and self.skip_zeros:
                 self.Warning.negative_values()
                 data = self.data
             else:
