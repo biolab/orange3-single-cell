@@ -278,24 +278,16 @@ class ClusterAnalysis:
         self.model = np.array(res)
         self.pvalues = np.array(pvalues)
 
-
-    def _sort_fraction_expressing(self, callback=None):
-        """
-        Sort rows and columns based on expressed percentages.
-        """
-
-        # if there are less than 3 genes, there is no need to sort
-        if len(self.genes) <= 2:
-            self.column_order_ = range(len(self.genes))
-            self.row_order_ = range(len(self.clusters_names))
-            return
+    @staticmethod
+    def biclustering(matrix, distance, callback=None):
+        if min(matrix.shape) <= 2:
+            return np.arange(matrix.shape[0]), np.arange(matrix.shape[1])
 
         best_score = np.iinfo(np.dtype('uint16')).max
-        best_fit = None
         best_model = None
 
         # find the best biclusters (needs revision)
-        limit = int(min(len(self.genes), len(self.clusters_names)) / 2) - 1
+        limit = int(min(matrix.shape) / 2) - 1
         limit = 3 if limit < 3 else limit
         for i in range(2, limit):
             if callback is not None:
@@ -303,25 +295,37 @@ class ClusterAnalysis:
             # perform biclustering
             model = SpectralBiclustering(
                 n_clusters=i, method='log', random_state=0)
-            model.fit(self.model)
-            fit_data = self.model[np.argsort(model.row_labels_)]
+            model.fit(matrix)
+            fit_data = matrix[np.argsort(model.row_labels_)]
             fit_data = fit_data[:, np.argsort(model.column_labels_)]
 
             # calculate score and save the lowest one
-            score = self._neighbor_distance(fit_data)
+            score = distance(fit_data)
             if score < best_score:
                 best_score = score
-                best_fit = fit_data
                 best_model = model
 
-        self.model = best_fit
-        self.row_order_ = np.argsort(best_model.row_labels_)
-        self.column_order_ = np.argsort(best_model.column_labels_)
+        return np.argsort(best_model.row_labels_), np.argsort(best_model.column_labels_)
+
+    @staticmethod
+    def reorder(matrix, row_order, column_order):
+        return
+
+    def _sort_fraction_expressing(self, callback=None):
+        """
+        Sort rows and columns based on expressed percentages.
+        """
+
+        self.row_order_, self.column_order_ = self.biclustering(self.model,
+                                                                self.neighbor_distance,
+                                                                callback)
+
+        self.model = self.model[self.row_order_]
+        self.model = self.model[:, self.column_order_]
 
         # order p-values matrix too
-        self.pvalues = self.pvalues[np.argsort(model.row_labels_)]
-        self.pvalues = self.pvalues[:, np.argsort(model.column_labels_)]
-
+        self.pvalues = self.pvalues[self.row_order_]
+        self.pvalues = self.pvalues[:, self.column_order_]
 
     def _create_model(self, enrichment, biclustering, callback):
         """
@@ -351,7 +355,8 @@ class ClusterAnalysis:
         res_rows = [self.clusters_names[i] for i in self.row_order_]
         return res_rows, res_genes, self.model, self.pvalues
 
-    def _neighbor_distance(self, X):
+    @staticmethod
+    def neighbor_distance(X):
         """
         Calculate euclicean distance between neighbors in rows and columns
 
@@ -408,6 +413,11 @@ class ClusterAnalysis:
         plt.show()
         return plt
 
+    @staticmethod
+    def contingency_table(data: np.array, rows: DiscreteVariable, columns: list, metas) -> Table:
+        return Table.from_numpy(Domain([ContinuousVariable.make(column) for column in columns], metas=[rows]),
+                                data, metas=metas)
+
     def create_contingency_table(self):
         """
         Create Orange.table from results
@@ -417,10 +427,9 @@ class ClusterAnalysis:
         o_model : Orange.Table
         """
         # create Orange.Table for calculated model
-        dmn = np.ravel(list([self.columns[self.genes[i]].name for i in self.column_order_]))
+        dmn = [self.columns[self.genes[i]].name for i in self.column_order_]
         mts = DiscreteVariable.make(self.class_var.name, values=self.clusters_names)
-        self.o_model = Table.from_numpy(Domain([ContinuousVariable.make(column) for column in dmn], metas=[mts]),
-                                        self.model, metas=np.array([self.row_order_]).T)
+        self.o_model = self.contingency_table(self.model, mts, dmn, np.array([self.row_order_]).T)
         return self.o_model
 
 
