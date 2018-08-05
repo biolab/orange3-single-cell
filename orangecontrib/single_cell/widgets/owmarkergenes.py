@@ -323,8 +323,9 @@ class OWMarkerGenes(widget.OWWidget):
         output.attributes[GENE_AS_ATTRIBUTE_NAME] = False
         # set taxonomy id in data.attributes
         output.attributes[TAX_ID] = self.map_group_to_taxid.get(self.selected_group, '')
-        # set columnd id flag
+        # set column id flag
         output.attributes[GENE_ID_COLUMN] = HeaderLabels.GENE
+        output.name = "Gene Markers"
 
         self.Outputs.genes.send(output)
 
