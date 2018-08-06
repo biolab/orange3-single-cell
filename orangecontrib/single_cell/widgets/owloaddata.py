@@ -97,7 +97,7 @@ class RunaroundSettingsHandler(settings.SettingsHandler):
 
 
 class OWLoadData(widget.OWWidget):
-    name = "Load Data"
+    name = ""
     icon = "icons/LoadData.svg"
     priority = 110
 
