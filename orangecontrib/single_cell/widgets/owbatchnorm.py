@@ -53,7 +53,7 @@ class OWBatchNorm(OWWidget):
     name = "Batch Effect Removal"
     description = "Batch effect normalization on Single Cell data set."
     icon = "icons/BatchEffectRemoval.svg"
-    priority = 170
+    priority = 230
 
     class Inputs:
         data = Input("Data", Table)

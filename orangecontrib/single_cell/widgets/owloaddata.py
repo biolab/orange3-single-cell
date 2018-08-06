@@ -97,8 +97,9 @@ class RunaroundSettingsHandler(settings.SettingsHandler):
 
 
 class OWLoadData(widget.OWWidget):
-    name = ""
+    name = "Load Data"
     icon = "icons/LoadData.svg"
+    priority = 110
 
     class Outputs:
         data = widget.Output("Data", Table)

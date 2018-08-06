@@ -138,7 +138,7 @@ class OWtSNE(OWWidget):
     name = "t-SNE"
     description = "Two-dimensional data projection with t-SNE."
     icon = "icons/TSNE.svg"
-    priority = 3055
+    priority = 920
 
     class Inputs:
         data = Input("Data", Orange.data.Table, default=True)

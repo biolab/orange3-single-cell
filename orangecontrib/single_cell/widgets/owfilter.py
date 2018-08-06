@@ -114,6 +114,7 @@ class OWFilter(widget.OWWidget):
     name = "Filter"
     icon = 'icons/Filter.svg'
     description = "Filter cells/genes"
+    priority = 210
 
     class Inputs:
         data = widget.Input("Data", Orange.data.Table)

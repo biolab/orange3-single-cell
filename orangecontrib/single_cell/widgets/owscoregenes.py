@@ -266,7 +266,7 @@ class OWRank(OWWidget):
     name = "Score Genes"
     description = "Score and filter genes by their relevance."
     icon = "icons/ScoreGenes.svg"
-    priority = 170
+    priority = 310
 
     buttons_area_orientation = Qt.Vertical
 

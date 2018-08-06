@@ -444,7 +444,7 @@ class OWscPreprocess(Orange.widgets.data.owpreprocess.OWPreprocess):
     name = "Single Cell Preprocess"
     description = "Preprocess Single Cell data set"
     icon = "icons/SingleCellPreprocess.svg"
-    priority = 160
+    priority = 220
 
     class Inputs:
         data = Input("Data", Orange.data.Table)
