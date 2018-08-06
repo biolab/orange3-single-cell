@@ -131,7 +131,7 @@ class OWMultiSample(owloaddata.OWLoadData):
     name = "Load Data"
     description = "Load samples for multi-sample analysis"
     icon = "icons/LoadData.svg"
-    priority = 155
+    priority = 110
 
     class Information(owloaddata.OWLoadData.Information):
         file_in_list = Msg("File {} already in the list.")
