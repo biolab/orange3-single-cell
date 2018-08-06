@@ -1,6 +1,18 @@
 Change Log
 ==========
 
+Version 0.8 (2018-08-07)
+------------------------
+##### New Features and Widgets
+* Single Cell Preprocess: takes raw input data and does normalization, gene expression scaling, standardization, or binarization.
+* Batch Effect Removal: uses model-based removal of batch effects, where batches are identified through possible combinations of continuous or discrete variables. Note that the widget transforms the input data.
+* Align Datasets: uses canonical correlation analysis to embed cells within space possibly absent of batch effects. A faithful reimplementation of original batch effect removal as implemented in Seurat. Note that the widget performs embedding, not data transformation.
+* Cluster Analysis: this widget is from Bioinformatics add-on. Provided the data clusters, it lists differentially expressed genes and associated pathways.
+* Dot Matrix: plots subset of genes and their cluster-based expressions.
+
+##### Notes
+This is a major update of Single Cell Orange. Widgets can now mimic the pipeline from Seurat while retaining unique features such as combination with machine learning, gene selection, visualization, and differential expression analysis. Future releases will improve on documentation and example workflows.
+
 Version 0.7 (2018-07-11)
 ------------------------
 ##### New Features and Widgets
