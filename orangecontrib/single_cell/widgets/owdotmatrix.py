@@ -17,7 +17,7 @@ class OWDotMatrix(widget.OWWidget):
     name = "Dot Matrix"
     description = "Perform cluster analysis."
     icon = "icons/DotMatrix.svg"
-    priority = 2010
+    priority = 410
 
     class Inputs:
         data = Input("Data", Table, default=True)

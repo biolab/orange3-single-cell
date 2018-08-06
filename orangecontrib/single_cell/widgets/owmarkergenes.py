@@ -116,7 +116,7 @@ class MarkerGroupContextHandler(settings.ContextHandler):
 class OWMarkerGenes(widget.OWWidget):
     name = "Marker Genes"
     icon = 'icons/MarkerGenes.svg'
-    priority = 158
+    priority = 170
 
     URL = "https://docs.google.com/spreadsheets/d/1ik-Ju5F-" \
           "wcsFhjszM7pRZXTTfSJl_EQOn3uNIzYfAY4/edit#gid=0"

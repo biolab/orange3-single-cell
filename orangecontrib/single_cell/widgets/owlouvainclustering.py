@@ -137,7 +137,7 @@ class OWLouvainClustering(widget.OWWidget):
     name = 'Louvain Clustering'
     description = 'Detects communities in a network of nearest neighbours.'
     icon = 'icons/LouvainClustering.svg'
-    priority = 2150
+    priority = 910
 
     want_main_area = False
 

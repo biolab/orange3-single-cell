@@ -74,7 +74,7 @@ class OWAlignDatasets(widget.OWWidget):
     name = "Align Datasets"
     description = "Alignment of multiple datasets with a diagram of correlation visualization."
     icon = "icons/AlignDatasets.svg"
-    priority = 3050
+    priority = 240
 
     class Inputs:
         data = Input("Data", Table)

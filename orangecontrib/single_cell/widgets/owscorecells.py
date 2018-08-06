@@ -27,7 +27,7 @@ class OWScoreCells(widget.OWWidget):
     name = "Score Cells"
     description = "Add a cell score based on the given set of genes"
     icon = "icons/ScoreCells.svg"
-    priority = 180
+    priority = 320
 
     auto_apply = Setting(True)
     aggregation = Setting('Mean expression')
