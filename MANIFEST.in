@@ -1,9 +1,12 @@
-include orangecontrib/single_cell/launcher/icons/*
-include orangecontrib/single_cell/tutorials/*
-include orangecontrib/single_cell/widgets/icons/*
-include orangecontrib/single_cell/widgets/data/*
-include orangecontrib/single_cell/datasets/*
+# include tutorial referenced files
+recursive-include orangecontrib/single_cell/tutorials *.ows *.tsv *.mtx *.tab.gz *.tab
 
+# include icons
+recursive-include orangecontrib/single_cell/widgets/icons *.svg
+recursive-include orangecontrib/single_cell/widgets/icons *.svg
+
+# include meta data
 include requirements.txt
 include README.md
 include LICENSE
+include CHANGELOG.md

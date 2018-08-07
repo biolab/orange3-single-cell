@@ -27,9 +27,9 @@ KEYWORDS = (
 PACKAGES = find_packages()
 
 PACKAGE_DATA = {
-    'orangecontrib.single_cell': ['tutorials/*'],
-    'orangecontrib.single_cell.launcher': ['icons/*'],
-    'orangecontrib.single_cell.widgets': ['icons/*', 'data/*']
+    'orangecontrib.single_cell.tutorials': ['*.ows', '*.tsv', '*.mtx', '*.tab.gz', '*.tab'],
+    'orangecontrib.single_cell.launcher.icons': ['*.ows'],
+    'orangecontrib.single_cell.widgets.icons': ['*.ows']
 }
 
 DATA_FILES = [
