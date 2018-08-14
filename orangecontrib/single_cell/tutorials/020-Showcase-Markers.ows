@@ -2,7 +2,7 @@
 <scheme description="Load data and a list of marker genes from our database. Select marker genes of choice. Score cells according to the expression of selected markers, and reveal marker-specific cells in the t-SNE cell landscape. Simultaneously open both Data Table (marker selection) and t-SNE visualization to turn scOrange into an interactive gene marker browser." title="Markers and subpopulations" version="2.0">
 	<nodes>
 		<node id="0" name="Score Cells" position="(357.0, 205.0)" project_name="Orange3-SingleCell" qualified_name="orangecontrib.single_cell.widgets.owscorecells.OWScoreCells" title="Score Cells" version="" />
-		<node id="1" name="t-SNE" position="(464.0, 205.0)" project_name="Orange3-SingleCell" qualified_name="orangecontrib.single_cell.widgets.owtsne.OWtSNE" title="t-SNE" version="" />
+		<node id="1" name="t-SNE" position="(465.0, 205.0)" project_name="Orange3-SingleCell" qualified_name="orangecontrib.single_cell.widgets.owtsne.OWtSNE" title="t-SNE" version="" />
 		<node id="2" name="Single Cell Datasets" position="(234.0, 113.0)" project_name="Orange3-SingleCell" qualified_name="orangecontrib.single_cell.widgets.owscdatasets.OWscDataSets" title="Single Cell Datasets (Expression Data)" version="" />
 		<node id="3" name="Marker Genes" position="(210.0, 303.0)" project_name="Orange3-SingleCell" qualified_name="orangecontrib.single_cell.widgets.owmarkergenes.OWMarkerGenes" title="Marker Genes" version="" />
 	</nodes>
@@ -14,12 +14,14 @@
 	<annotations>
 		<text font-family="Helvetica" font-size="20" id="0" rect="(22.0, 18.0, 150.0, 32.0)" type="text/plain">(1)</text>
 		<text font-family="Helvetica" font-size="14" id="1" rect="(52.0, 17.0, 150.0, 124.0)" type="text/plain">Load the data on bone marrow mononuclear cells with AML (Zheng et. al. 2017). Data come pre-normalized and contains a variety of cell types.</text>
-		<text font-family="Helvetica" font-size="14" id="2" rect="(162.0, 360.0, 150.0, 96.0)" type="text/plain">Open Marker Genes widget (double click) and select one or more marker genes (rows).</text>
-		<text font-family="Helvetica" font-size="20" id="3" rect="(135.0, 361.0, 150.0, 32.0)" type="text/plain">(2)</text>
+		<text font-family="Helvetica" font-size="14" id="2" rect="(162.0, 360.0, 150.0, 96.0)" type="text/html">Open &lt;i&gt;Marker Genes&lt;/i&gt; widget (double click) and select one or more marker genes (rows).
+
+For example, select NK47 and/or GNLY to find Natural Killer cells.</text>
+		<text font-family="Helvetica" font-size="20" id="3" rect="(133.0, 360.0, 150.0, 32.0)" type="text/plain">(2)</text>
 		<text font-family="Helvetica" font-size="20" id="4" rect="(381.0, 44.0, 150.0, 32.0)" type="text/plain">(3)</text>
 		<text font-family="Helvetica" font-size="20" id="5" rect="(331.0, 299.0, 150.0, 52.0)" type="text/plain">(4)</text>
-		<text font-family="Helvetica" font-size="14" id="6" rect="(410.0, 43.0, 151.0, 123.0)" type="text/plain">Visualize the cell landscape in the t-SNE plot. Notice distinct clusters of cells! Set color and size to highlight cells with expressed marker genes.</text>
-		<text font-family="Helvetica" font-size="14" id="7" rect="(361.0, 298.0, 167.0, 87.0)" type="text/plain">Keep both Marker Genes and t-SNE widgets open to interactively select the marker genes and see changes in t-SNE plot.</text>
+		<text font-family="Helvetica" font-size="14" id="6" rect="(410.0, 43.0, 168.0, 140.0)" type="text/html">Visualize the cell landscape in the &lt;i&gt;t-SNE&lt;/i&gt; plot. Notice distinct clusters of cells! Set color and size to highlight cells with expressed marker genes.</text>
+		<text font-family="Helvetica" font-size="14" id="7" rect="(361.0, 298.0, 167.0, 87.0)" type="text/html">Keep both &lt;i&gt;Marker Genes&lt;/i&gt; and &lt;i&gt;t-SNE&lt;/i&gt; widgets open to interactively select the marker genes and see changes in t-SNE plot.</text>
 		<arrow end="(256.0, 320.0)" fill="#C1272D" id="8" start="(353.0, 349.0)" />
 		<arrow end="(433.99999999999994, 243.0)" fill="#C1272D" id="9" start="(415.99999999999994, 295.0)" />
 	</annotations>
@@ -29,14 +31,14 @@
 		<properties format="pickle" node_id="1">gAN9cQAoWAsAAABhdXRvX2NvbW1pdHEBiFgSAAAAY29udHJvbEFyZWFWaXNpYmxlcQKIWA0AAABs
 ZWdlbmRfYW5jaG9ycQNLAUsAhnEESwFLAIZxBYZxBlgIAAAAbWF4X2l0ZXJxB030AVgOAAAAcGNh
 X2NvbXBvbmVudHNxCEsdWAoAAABwZXJwbGV4aXR5cQlLHlgTAAAAc2F2ZWRXaWRnZXRHZW9tZXRy
-eXEKQzIB2dDLAAIAAAAABToAAABJAAAImAAAAyoAAAU6AAAAXwAACJgAAAMqAAAAAAAAAAAKAHEL
+eXEKQzIB2dDLAAIAAAAAAlsAAABOAAAFXgAAAykAAAJbAAAAZAAABV4AAAMpAAAAAAAAAAAFoHEL
 WBEAAABzZWxlY3Rpb25faW5kaWNlc3EMTlgFAAAAZ3JhcGhxDX1xDihYCwAAAGFscGhhX3ZhbHVl
 cQ9LelgNAAAAY2xhc3NfZGVuc2l0eXEQiVgRAAAAaml0dGVyX2NvbnRpbnVvdXNxEYhYCwAAAGpp
 dHRlcl9zaXplcRJLAFgTAAAAbGFiZWxfb25seV9zZWxlY3RlZHETiVgLAAAAcG9pbnRfd2lkdGhx
 FEsPWAkAAABzaG93X2dyaWRxFYlYCwAAAHNob3dfbGVnZW5kcRaIWA0AAABzaG93X3JlZ19saW5l
 cReJWBEAAAB0b29sdGlwX3Nob3dzX2FsbHEYiXVYCwAAAF9fdmVyc2lvbl9fcRlLAlgQAAAAY29u
 dGV4dF9zZXR0aW5nc3EaXXEbY09yYW5nZS53aWRnZXRzLnNldHRpbmdzCkNvbnRleHQKcRwpgXEd
-fXEeKFgEAAAAdGltZXEfR0HW0TJ5HuJpWAYAAAB2YWx1ZXNxIH1xIShoDX1xIihYCgAAAGF0dHJf
+fXEeKFgEAAAAdGltZXEfR0HW3aah4YmlWAYAAAB2YWx1ZXNxIH1xIShoDX1xIihYCgAAAGF0dHJf
 Y29sb3JxI1gFAAAAU2NvcmVxJEtmhnElWAoAAABhdHRyX2xhYmVscSZOSv7///+GcSdYCgAAAGF0
 dHJfc2hhcGVxKE5K/v///4ZxKVgJAAAAYXR0cl9zaXplcSpoJEtmhnErdWgZSwJ1WAoAAABhdHRy
 aWJ1dGVzcSx9cS0oWAQAAABIQkcxcS5LAlgEAAAASEJHMnEvSwJYBgAAAFMxMDBBOXEwSwJYBgAA
@@ -353,11 +355,11 @@ WAUAAABTY29yZXIcBAAASwJ1dWJhdS4=
 AAAAAAAAAAEAAAAAAAAAAgEAAAAAAAAAAAAAAAAAAAAAAAAC/AAAAAQBAQABAAAAAAAAAAAAAAAA
 ZP////8AAACBAAAAAAAAAAQAAABkAAAAAQAAAAAAAABkAAAAAQAAAAAAAABkAAAAAQAAAAAAAAEa
 AAAAAQAAAAAAAAPoAAAAAJxxA1gTAAAAc2F2ZWRXaWRnZXRHZW9tZXRyeXEEQzIB2dDLAAIAAAAA
-BmoAAALmAAAIwQAABO8AAAZqAAAC/AAACMEAAATvAAAAAAAAAAAKAHEFWA4AAABzZWxlY3RlZF9n
+ACkAAAA2AAACgAAAAj8AAAApAAAATAAAAoAAAAI/AAAAAAAAAAAFoHEFWA4AAABzZWxlY3RlZF9n
 cm91cHEGWAUAAABIdW1hbnEHWAsAAABfX3ZlcnNpb25fX3EISwFYEAAAAGNvbnRleHRfc2V0dGlu
 Z3NxCV1xCmNPcmFuZ2Uud2lkZ2V0cy5zZXR0aW5ncwpDb250ZXh0CnELKYFxDH1xDShYBAAAAHRp
-bWVxDkdB1tEyeRbhO1gGAAAAdmFsdWVzcQ99cRAoWA0AAABzZWxlY3RlZF9yb3dzcRFdcRJoCEsB
-dVgFAAAAZ3JvdXBxE2gHdWJhdS4=
+bWVxDkdB1t2modPIjlgGAAAAdmFsdWVzcQ99cRAoWA0AAABzZWxlY3RlZF9yb3dzcRFdcRJLAWFo
+CEsBdVgFAAAAZ3JvdXBxE1gFAAAASHVtYW5xFHViYXUu
 </properties>
 	</node_properties>
 	<session_state>
