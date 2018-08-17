@@ -190,8 +190,9 @@ class OWBatchNorm(OWWidget):
 
     def _setup_model(self):
         estimator = ScBatchScorer()
-        metas, class_vars = self.data.domain.class_vars, self.data.domain.metas
-        for var in [var for var in class_vars + metas if var.is_primitive]:
+        for var in self.data.domain.class_vars + self.data.domain.metas:
+            if not var.is_primitive():
+                continue
             try:
                 score = float(estimator.score_data(self.data, var))
             except Exception:
