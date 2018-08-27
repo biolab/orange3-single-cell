@@ -227,7 +227,8 @@ class OWAlignDatasets(widget.OWWidget):
                 if self.source_id is None or self.source_id == '':
                     for model in self._feature_model:
                         y = np.array(data.get_column_view(model)[0], dtype=np.float64)
-                        if np.isfinite(y).all():
+                        _, counts = np.unique(y, return_counts=True)
+                        if np.isfinite(y).all() and min(counts) > 1:
                             self.source_id = model
                             break
             else:
@@ -255,6 +256,7 @@ class OWAlignDatasets(widget.OWWidget):
                 self.ncomponents = MAX_COMPONENTS // 2
             else:
                 MAX_COMPONENTS = MAX_COMPONENTS_DEFAULT
+                self.ncomponents = 20
 
         self.fit()
 
@@ -286,7 +288,11 @@ class OWAlignDatasets(widget.OWWidget):
         self._use_genes = None
         self._shared_correlations = None
         self._line = False
-        # self._legend = None
+        try:
+            self._legend.scene().removeItem(self._legend)
+            self._legend = None
+        except Exception as e:
+            pass
         self._feature_model.set_domain(None)
         self.plot_horlabels = []
         self.plot_horlines = []
