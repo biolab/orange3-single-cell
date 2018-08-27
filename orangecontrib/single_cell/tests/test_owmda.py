@@ -17,8 +17,8 @@ class TestOWMDA(WidgetTest):
         cluster_std = 2.5
         f = lambda x, i: .5 * x * i + 2 * i
 
-        X, Y = datasets.make_blobs(n_samples=samples, n_features=cols, centers=1, cluster_std=cluster_std,
-                                   random_state=10)
+        X, Y = datasets.make_blobs(n_samples=samples, n_features=cols, centers=1,
+                                   cluster_std=cluster_std, random_state=10)
         for i in range(samples):
             y = i % n
             Y[i] = y

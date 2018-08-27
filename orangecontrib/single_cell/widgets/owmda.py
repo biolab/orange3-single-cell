@@ -69,7 +69,6 @@ def interpolate_nans(A):
     return A
 
 
-
 class OWAlignDatasets(widget.OWWidget):
     name = "Align Datasets"
     description = "Alignment of multiple datasets with a diagram of correlation visualization."
@@ -101,7 +100,11 @@ class OWAlignDatasets(widget.OWWidget):
         no_features = widget.Msg("At least 1 feature is required")
         no_instances = widget.Msg("At least 2 data instances are required")
         no_class = widget.Msg("At least 1 Discrete class variable is required")
+        nan_class = widget.Msg(
+            "Data contains undefined instances for the selected Data source indicator")
+        nan_input = widget.Msg("Input data contains non numeric values")
         sparse_data = widget.Msg("Sparse data is not supported")
+
 
     def __init__(self):
         super().__init__()
@@ -115,7 +118,7 @@ class OWAlignDatasets(widget.OWWidget):
         self._shared_correlations = None
         self._transformed_table = None
         self._line = False
-        self._feature_model = DomainModel(valid_types=DiscreteVariable)
+        self._feature_model = DomainModel(valid_types=DiscreteVariable, separators=False)
         self._feature_model.set_domain(None)
         self._init_mas()
         self._legend = None
@@ -220,11 +223,18 @@ class OWAlignDatasets(widget.OWWidget):
         if data:
             self._feature_model.set_domain(data.domain)
             if self._feature_model:
-            # self.openContext(data)
+                # self.openContext(data)
                 if self.source_id is None or self.source_id == '':
-                    self.source_id = self._feature_model[0]
+                    for model in self._feature_model:
+                        y = np.array(data.get_column_view(model)[0], dtype=np.float64)
+                        if np.isfinite(y).all():
+                            self.source_id = model
+                            break
             else:
                 self.Error.no_class()
+                return
+            if not self.source_id:
+                self.Error.nan_class()
                 return
             if len(data.domain.attributes) == 0:
                 self.Error.no_features()
@@ -232,11 +242,16 @@ class OWAlignDatasets(widget.OWWidget):
             if len(data) == 0:
                 self.Error.no_instances()
                 return
+            if np.isnan(data.X).any():
+                self.Error.nan_input()
+                return
             self.data = data
 
             global MAX_COMPONENTS
-            if len(data.domain.attributes) < MAX_COMPONENTS_DEFAULT:
-                MAX_COMPONENTS = len(data.domain.attributes) - 1
+            _, counts = np.unique(y, return_counts=True)
+            if min(counts) < MAX_COMPONENTS_DEFAULT or len(
+                    data.domain.attributes) < MAX_COMPONENTS_DEFAULT:
+                MAX_COMPONENTS = min(min(counts), len(data.domain.attributes)) - 1
                 self.ncomponents = MAX_COMPONENTS // 2
             else:
                 MAX_COMPONENTS = MAX_COMPONENTS_DEFAULT
@@ -305,21 +320,28 @@ class OWAlignDatasets(widget.OWWidget):
         p = MAX_COMPONENTS
 
         # Colors chosen based on: http://colorbrewer2.org/?type=qualitative&scheme=Set1&n=9
-        colors = ['#e41a1c', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00', '#ffff33', '#a65628', '#f781bf', '#999999']
+        colors = ['#e41a1c', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00', '#ffff33', '#a65628',
+                  '#f781bf', '#999999']
 
         if self._legend is not None:
             self._legend.scene().removeItem(self._legend)
         self._legend = self.plot.addLegend(offset=(-1, 1))
         # correlation lines
-        smoothed_correlations = smooth_correlations(shared_correlations, offset=2)
+        offset = 2
+        if MAX_COMPONENTS > 2 * offset + 1:
+            smoothed_correlations = smooth_correlations(shared_correlations, offset=offset)
+        else:
+            smoothed_correlations = shared_correlations
         plotitem = dict()
         for i, corr in enumerate(smoothed_correlations):
-            plotitem[i] = self.plot.plot(np.arange(p), corr, pen=pg.mkPen(QColor(colors[i]), width=2),
-                                            antialias=True) # name=self.source_id.values[i]
-        #self.plot.plotItem.legend.addItem(3, "maximum value")
+            plotitem[i] = self.plot.plot(np.arange(p), corr,
+                                         pen=pg.mkPen(QColor(colors[i]), width=2),
+                                         antialias=True)  # name=self.source_id.values[i]
+        # self.plot.plotItem.legend.addItem(3, "maximum value")
 
         for i in range(len(plotitem)):
-            self._legend.addItem(MyItemSample(pg.ScatterPlotItem(pen=colors[i])), self.source_id.values[i])
+            self._legend.addItem(MyItemSample(pg.ScatterPlotItem(pen=colors[i])),
+                                 self.source_id.values[i])
 
         # vertical movable line
         cutpos = self.ncomponents - 1
@@ -343,7 +365,7 @@ class OWAlignDatasets(widget.OWWidget):
             self.plot.addItem(item)
         self._set_horline_pos()
 
-        #self.plot.setRange(xRange=(0.0, p - 1), yRange=(0.0, 1.0))
+        # self.plot.setRange(xRange=(0.0, p - 1), yRange=(0.0, 1.0))
         self.plot.setXRange(0.0, p - 1, padding=0)
         self.plot.setYRange(0.0, 1.0, padding=0)
         self._update_axis()
@@ -386,6 +408,12 @@ class OWAlignDatasets(widget.OWWidget):
             self.commit()
 
     def _update_ngenes_spin(self):
+        y = np.array(self.data.get_column_view(self.source_id)[0], dtype=np.float64)
+        if not np.isfinite(y).all():
+            self.Error.nan_class()
+            return
+        else:
+            self.clear_messages()
         self.fit()
         self._invalidate_selection()
 
@@ -400,6 +428,12 @@ class OWAlignDatasets(widget.OWWidget):
         self._invalidate_selection()
 
     def _update_combo_source_id(self):
+        y = np.array(self.data.get_column_view(self.source_id)[0], dtype=np.float64)
+        if not np.isfinite(y).all():
+            self.Error.nan_class()
+            return
+        else:
+            self.clear_messages()
         self.fit()
         self._invalidate_selection()
 
@@ -446,12 +480,12 @@ class OWAlignDatasets(widget.OWWidget):
                 self.transformed_table = Table.from_table(dom, transformed_table_temp)
 
             ncomponents_attributes = tuple(ContinuousVariable.make("CCA{}".format(x + 1)) for x in
-                      range(self.ncomponents))
+                                           range(self.ncomponents))
             ncomponents_domain = Domain(
-                    ncomponents_attributes,
-                    self.data.domain.class_vars,
-                    self.data.domain.metas
-                )
+                ncomponents_attributes,
+                self.data.domain.class_vars,
+                self.data.domain.metas
+            )
 
             meta_genes = self.meta_genes.transform(Domain(ncomponents_attributes))
             transformed_table = self.transformed_table.transform(ncomponents_domain)
@@ -497,9 +531,9 @@ def main():
     from AnyQt.QtWidgets import QApplication
     app = QApplication([])
     w = OWAlignDatasets()
-    in_file = "../tutorials/Showcase-SampleAlignment-data/data_kang2018.tab.gz"
-    data = Table(in_file)
-    w.set_data(data)
+    #in_file = "input\data.pkl"
+    #data = Table(in_file)
+    #w.set_data(data)
     w.show()
     w.raise_()
     rval = w.exec()
