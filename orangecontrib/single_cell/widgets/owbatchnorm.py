@@ -161,6 +161,7 @@ class OWBatchNorm(OWWidget):
         self._check_data()
         self.openContext(data)
         if self.data is not None:
+            self.batch_vars = [data.domain[v.name] for v in self.batch_vars]
             self._setup_model()
         self.commit()
 
