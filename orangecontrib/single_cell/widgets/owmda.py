@@ -5,6 +5,7 @@ from AnyQt.QtGui import QColor
 from AnyQt.QtCore import Qt
 
 import numpy as np
+from collections import OrderedDict
 import pyqtgraph as pg
 from pyqtgraph.graphicsItems import LegendItem
 from pyqtgraph import functions as fn
@@ -20,24 +21,17 @@ from Orange.widgets.utils.annotated_data import add_columns
 
 from orangecontrib.single_cell.preprocess.alignment import SeuratAlignmentModel
 
-# Maximum number of components and metagenes
 MAX_COMPONENTS = 50
 MAX_COMPONENTS_DEFAULT = 50
 MAX_GENES = 100
 
-SCORINGS = {
-    "Pearson correlation": "pearson",
-    "Spearman correlation": "spearman",
-    "Biweights midcorrelation": "bicor",
-}
-SCORINGS_NAMES = (
-    "Pearson correlation",
-    "Spearman correlation",
-    "Biweights midcorrelation",
-)
+SCORINGS = OrderedDict([
+    ("Pearson correlation", "pearson"),
+    ("Spearman correlation", "spearman"),
+    ("Biweights midcorrelation", "bicor"),
+])
 
-
-class MyItemSample(LegendItem.ItemSample):
+class MyLegendItem(LegendItem.ItemSample):
     def paint(self, p, *args):
         opts = self.item.opts
         opts['pen'].setWidth(2)
@@ -89,7 +83,7 @@ class OWAlignDatasets(widget.OWWidget):
     source_id = ContextSetting(None)
     ncomponents = ContextSetting(20)
     ngenes = ContextSetting(30)
-    scoring = ContextSetting(SCORINGS_NAMES[0])
+    scoring = ContextSetting(list(SCORINGS.keys())[0])
     quantile_normalization = ContextSetting(False)
     quantile_normalization_perc = ContextSetting(2.5)
     dynamic_time_warping = ContextSetting(False)
@@ -98,7 +92,7 @@ class OWAlignDatasets(widget.OWWidget):
 
     class Error(widget.OWWidget.Error):
         no_features = widget.Msg("At least 1 feature is required")
-        no_instances = widget.Msg("At least 2 data instances are required")
+        no_instances = widget.Msg("At least 2 data instances are required for each class")
         no_class = widget.Msg("At least 1 Discrete class variable is required")
         nan_class = widget.Msg(
             "Data contains undefined instances for the selected Data source indicator")
@@ -161,7 +155,7 @@ class OWAlignDatasets(widget.OWWidget):
         gui.comboBox(
             box, self, "scoring",
             callback=self._update_scoring_combo,
-            items=SCORINGS_NAMES, sendSelectedValue=True,
+            items=list(SCORINGS.keys()), sendSelectedValue=True,
             editable=False,
         )
         form.addRow(
@@ -246,23 +240,20 @@ class OWAlignDatasets(widget.OWWidget):
             if np.isnan(data.X).any():
                 self.Error.nan_input()
                 return
-            self.data = data
-
-            global MAX_COMPONENTS
             _, counts = np.unique(y, return_counts=True)
-            if min(counts) < MAX_COMPONENTS_DEFAULT or len(
-                    data.domain.attributes) < MAX_COMPONENTS_DEFAULT:
-                MAX_COMPONENTS = min(min(counts), len(data.domain.attributes)) - 1
-                self.ncomponents = MAX_COMPONENTS // 2
-            else:
-                MAX_COMPONENTS = MAX_COMPONENTS_DEFAULT
-                self.ncomponents = 20
-
-        self.fit()
+            if min(counts) < 2:
+                self.Error.no_instances()
+                return
+            self.data = data
+            self._reset_max_components()
+            self.fit()
 
     def fit(self):
         if self.data is None:
             return
+        global MAX_COMPONENTS
+        if self.ncomponents > MAX_COMPONENTS:
+            self.ncomponents = MAX_COMPONENTS
 
         self._init_mas()
         X = self.data.X
@@ -287,20 +278,39 @@ class OWAlignDatasets(widget.OWWidget):
         self._components = None
         self._use_genes = None
         self._shared_correlations = None
-        self._line = False
+        self._feature_model.set_domain(None)
+        self.clear_plot()
+
+
+    def clear_plot(self):
         try:
             self._legend.scene().removeItem(self._legend)
             self._legend = None
         except Exception as e:
             pass
-        self._feature_model.set_domain(None)
+        self._line = False
         self.plot_horlabels = []
         self.plot_horlines = []
-        self.plot.clear()
+        self._mas = None
+        self._setup_plot()
 
     def clear_outputs(self):
         self.Outputs.transformed_data.send(None)
         self.Outputs.genes_components.send(None)
+
+    def _reset_max_components(self):
+        y = np.array(self.data.get_column_view(self.source_id)[0], dtype=np.float64)
+        _, counts = np.unique(y, return_counts=True)
+        global MAX_COMPONENTS
+        if min(counts) < MAX_COMPONENTS_DEFAULT or len(
+                self.data.domain.attributes) < MAX_COMPONENTS_DEFAULT:
+            MAX_COMPONENTS = min(min(counts), len(self.data.domain.attributes)) - 1
+            self.ncomponents = MAX_COMPONENTS // 2
+            self.controls.ncomponents.setMaximum(MAX_COMPONENTS)
+        else:
+            MAX_COMPONENTS = MAX_COMPONENTS_DEFAULT
+            self.ncomponents = 20
+            self.controls.ncomponents.setMaximum(MAX_COMPONENTS)
 
     def _init_mas(self):
         self._mas = SeuratAlignmentModel(
@@ -346,7 +356,7 @@ class OWAlignDatasets(widget.OWWidget):
         # self.plot.plotItem.legend.addItem(3, "maximum value")
 
         for i in range(len(plotitem)):
-            self._legend.addItem(MyItemSample(pg.ScatterPlotItem(pen=colors[i])),
+            self._legend.addItem(MyLegendItem(pg.ScatterPlotItem(pen=colors[i])),
                                  self.source_id.values[i])
 
         # vertical movable line
@@ -402,6 +412,7 @@ class OWAlignDatasets(widget.OWWidget):
         # cut changed by "ncomponents" spin.
         if self._mas is None:
             self._invalidate_selection()
+            return
 
         if np.floor(self._line.value()) + 1 != self.ncomponents:
             self._line.setValue(self.ncomponents - 1)
@@ -413,16 +424,6 @@ class OWAlignDatasets(widget.OWWidget):
             self._transformed = None
             self.commit()
 
-    def _update_ngenes_spin(self):
-        y = np.array(self.data.get_column_view(self.source_id)[0], dtype=np.float64)
-        if not np.isfinite(y).all():
-            self.Error.nan_class()
-            return
-        else:
-            self.clear_messages()
-        self.fit()
-        self._invalidate_selection()
-
     def _update_scoring_combo(self):
         self.fit()
         self._invalidate_selection()
@@ -433,13 +434,31 @@ class OWAlignDatasets(widget.OWWidget):
     def _update_quantile_normalization(self):
         self._invalidate_selection()
 
-    def _update_combo_source_id(self):
-        y = np.array(self.data.get_column_view(self.source_id)[0], dtype=np.float64)
-        if not np.isfinite(y).all():
+    def _update_ngenes_spin(self):
+        self.clear_plot()
+        if self.data is None:
+            return
+        if self._has_nan_classes():
             self.Error.nan_class()
             return
-        else:
-            self.clear_messages()
+        self.clear_messages()
+        self.fit()
+        self._invalidate_selection()
+
+    def _update_combo_source_id(self):
+        self.clear_plot()
+        if self.data is None:
+            return
+        y = np.array(self.data.get_column_view(self.source_id)[0], dtype=np.float64)
+        _, counts = np.unique(y, return_counts=True)
+        if min(counts) < 2:
+            self.Error.no_instances()
+            return
+        self._reset_max_components()
+        if self._has_nan_classes():
+            self.Error.nan_class()
+            return
+        self.clear_messages()
         self.fit()
         self._invalidate_selection()
 
@@ -449,11 +468,15 @@ class OWAlignDatasets(widget.OWWidget):
         d = max((p - 1) // (self.axis_labels - 1), 1)
         axis.setTicks([[(i, str(i + 1)) for i in range(0, p, d)]])
 
+    def _has_nan_classes(self):
+        y = np.array(self.data.get_column_view(self.source_id)[0], dtype=np.float64)
+        return not np.isfinite(y).all()
+
     def commit(self):
         transformed_table = meta_genes = None
         if self._mas is not None:
+            # Compute the full transform (MAX_COMPONENTS components) only once.
             if self._transformed is None:
-                # Compute the full transform (MAX_COMPONENTS components) only once.
                 X = self.data.X
                 y = self.data.get_column_view(self.source_id)[0]
                 self._transformed = self._mas.transform(X, y, normalize=self.quantile_normalization,
@@ -537,9 +560,9 @@ def main():
     from AnyQt.QtWidgets import QApplication
     app = QApplication([])
     w = OWAlignDatasets()
-    #in_file = "input\data.pkl"
-    #data = Table(in_file)
-    #w.set_data(data)
+    in_file = "../tests/data/data.pkl"
+    data = Table(in_file)
+    w.set_data(data)
     w.show()
     w.raise_()
     rval = w.exec()
