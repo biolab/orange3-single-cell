@@ -31,6 +31,7 @@ SCORINGS = OrderedDict([
     ("Biweights midcorrelation", "bicor"),
 ])
 
+
 class MyLegendItem(LegendItem.ItemSample):
     def paint(self, p, *args):
         opts = self.item.opts
@@ -98,7 +99,6 @@ class OWAlignDatasets(widget.OWWidget):
             "Data contains undefined instances for the selected Data source indicator")
         nan_input = widget.Msg("Input data contains non numeric values")
         sparse_data = widget.Msg("Sparse data is not supported")
-
 
     def __init__(self):
         super().__init__()
@@ -280,7 +280,6 @@ class OWAlignDatasets(widget.OWWidget):
         self._shared_correlations = None
         self._feature_model.set_domain(None)
         self.clear_plot()
-
 
     def clear_plot(self):
         try:
