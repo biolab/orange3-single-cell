@@ -28,7 +28,7 @@ PACKAGES = find_packages()
 
 PACKAGE_DATA = {
     'orangecontrib.single_cell.tutorials': ['*.ows', '*.tsv', '*.mtx', '*.tab.gz', '*.tab'],
-    'orangecontrib.single_cell.launcher.icons': ['*.ows'],
+    'orangecontrib.single_cell.launcher.icons': ['*.ows', '*.png'],
     'orangecontrib.single_cell.widgets.icons': ['*.ows']
 }
 

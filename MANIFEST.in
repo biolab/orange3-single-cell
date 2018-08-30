@@ -2,7 +2,7 @@
 recursive-include orangecontrib/single_cell/tutorials *.ows *.tsv *.mtx *.tab.gz *.tab
 
 # include icons
-recursive-include orangecontrib/single_cell/widgets/icons *.svg
+recursive-include orangecontrib/single_cell/launcher/icons *.svg *.png
 recursive-include orangecontrib/single_cell/widgets/icons *.svg
 
 # include meta data
