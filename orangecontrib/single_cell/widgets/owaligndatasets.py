@@ -78,8 +78,6 @@ class OWAlignDatasets(widget.OWWidget):
         genes_components = Output("Genes per n. Components", Table)
 
     settingsHandler = DomainContextHandler()
-    auto_update = ContextSetting(True)
-    auto_commit = Setting(True)
     axis_labels = ContextSetting(10)
     source_id = ContextSetting(None)
     ncomponents = ContextSetting(20)
@@ -88,6 +86,10 @@ class OWAlignDatasets(widget.OWWidget):
     quantile_normalization = ContextSetting(False)
     quantile_normalization_perc = ContextSetting(2.5)
     dynamic_time_warping = ContextSetting(False)
+
+
+    auto_update = Setting(True)
+    auto_commit = Setting(True)
 
     graph_name = "plot.plotItem"
 
@@ -203,50 +205,68 @@ class OWAlignDatasets(widget.OWWidget):
 
         self.mainArea.layout().addWidget(self.plot)
 
+    def init_default_options(self):
+        self.axis_labels = 10
+        self.ncomponents = 20
+        self.ngenes = 30
+        self.scoring = ContextSetting(list(SCORINGS.keys())[0])
+        self.quantile_normalization = False
+        self.quantile_normalization_perc = 2.5
+        self.dynamic_time_warping = False
+
     @Inputs.data
     @check_sql_input
     def set_data(self, data):
-        # if self._feature_model:
-        #    self.closeContext()
+        self.closeContext()
         self.clear_messages()
+
+        #self.auto_commit = True
+        #self.auto_update = True
+
         self.clear()
         self.information()
         self.clear_outputs()
         self._feature_model.set_domain(None)
+        self.data = data
 
-        if data:
-            self._feature_model.set_domain(data.domain)
+        if self.data:
+            self._feature_model.set_domain(self.data.domain)
             if self._feature_model:
                 # self.openContext(data)
+                self.openContext(self.data.domain)
                 if self.source_id is None or self.source_id == '':
                     for model in self._feature_model:
-                        y = np.array(data.get_column_view(model)[0], dtype=np.float64)
+                        y = np.array(self.data.get_column_view(model)[0], dtype=np.float64)
                         _, counts = np.unique(y, return_counts=True)
                         if np.isfinite(y).all() and min(counts) > 1:
                             self.source_id = model
+                            self._reset_max_components()
                             break
+
+                if not self.source_id:
+                    self.Error.nan_class()
+                    return
+                if len(self.data.domain.attributes) == 0:
+                    self.Error.no_features()
+                    return
+                if len(self.data) == 0:
+                    self.Error.no_instances()
+                    return
+                if np.isnan(self.data.X).any():
+                    self.Error.nan_input()
+                    return
+                y = np.array(self.data.get_column_view(self.source_id)[0], dtype=np.float64)
+                _, counts = np.unique(y, return_counts=True)
+                if min(counts) < 2:
+                    self.Error.no_instances()
+                    return
+
+                self.fit()
+
             else:
                 self.Error.no_class()
+                self.clear()
                 return
-            if not self.source_id:
-                self.Error.nan_class()
-                return
-            if len(data.domain.attributes) == 0:
-                self.Error.no_features()
-                return
-            if len(data) == 0:
-                self.Error.no_instances()
-                return
-            if np.isnan(data.X).any():
-                self.Error.nan_input()
-                return
-            _, counts = np.unique(y, return_counts=True)
-            if min(counts) < 2:
-                self.Error.no_instances()
-                return
-            self.data = data
-            self._reset_max_components()
-            self.fit()
 
     def fit(self):
         if self.data is None:
@@ -296,6 +316,8 @@ class OWAlignDatasets(widget.OWWidget):
     def clear_outputs(self):
         self.Outputs.transformed_data.send(None)
         self.Outputs.genes_components.send(None)
+
+
 
     def _reset_max_components(self):
         y = np.array(self.data.get_column_view(self.source_id)[0], dtype=np.float64)
@@ -556,10 +578,11 @@ class OWAlignDatasets(widget.OWWidget):
 
 def main():
     import gc
+    import Orange
     from AnyQt.QtWidgets import QApplication
     app = QApplication([])
     w = OWAlignDatasets()
-    in_file = "../tests/data/data.pkl"
+    in_file = Orange.data.Table("iris")
     data = Table(in_file)
     w.set_data(data)
     w.show()
