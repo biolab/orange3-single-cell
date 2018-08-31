@@ -87,7 +87,6 @@ class OWAlignDatasets(widget.OWWidget):
     quantile_normalization_perc = ContextSetting(2.5)
     dynamic_time_warping = ContextSetting(False)
 
-
     auto_update = Setting(True)
     auto_commit = Setting(True)
 
@@ -205,24 +204,11 @@ class OWAlignDatasets(widget.OWWidget):
 
         self.mainArea.layout().addWidget(self.plot)
 
-    def init_default_options(self):
-        self.axis_labels = 10
-        self.ncomponents = 20
-        self.ngenes = 30
-        self.scoring = ContextSetting(list(SCORINGS.keys())[0])
-        self.quantile_normalization = False
-        self.quantile_normalization_perc = 2.5
-        self.dynamic_time_warping = False
-
     @Inputs.data
     @check_sql_input
     def set_data(self, data):
         self.closeContext()
         self.clear_messages()
-
-        #self.auto_commit = True
-        #self.auto_update = True
-
         self.clear()
         self.information()
         self.clear_outputs()
@@ -316,8 +302,6 @@ class OWAlignDatasets(widget.OWWidget):
     def clear_outputs(self):
         self.Outputs.transformed_data.send(None)
         self.Outputs.genes_components.send(None)
-
-
 
     def _reset_max_components(self):
         y = np.array(self.data.get_column_view(self.source_id)[0], dtype=np.float64)

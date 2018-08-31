@@ -8,7 +8,7 @@ from Orange.data import Table, Domain
 from Orange.widgets.data.owtranspose import OWTranspose
 from Orange.widgets.tests.base import WidgetTest
 
-from orangecontrib.single_cell.widgets.owmda import OWAlignDatasets
+from orangecontrib.single_cell.widgets.owaligndatasets import OWAlignDatasets
 
 
 class TestOWMDA(WidgetTest):
