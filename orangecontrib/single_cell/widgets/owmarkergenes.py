@@ -1,10 +1,12 @@
 import sys
 import os
+
+
+from typing import List
 from enum import EnumMeta
 from collections import defaultdict
 from functools import partial
 
-import Orange.data
 
 from AnyQt.QtCore import (
     Qt, QSize, QSortFilterProxyModel, QModelIndex,
@@ -13,7 +15,7 @@ from AnyQt.QtCore import (
 from AnyQt.QtGui import QFont, QColor
 from AnyQt.QtWidgets import QTreeView, QLineEdit
 
-from Orange.data import MISSING_VALUES
+from Orange.data import MISSING_VALUES, Table
 from Orange.data.io import UrlReader
 from Orange.misc.environ import data_dir
 from Orange.widgets import widget, gui, settings
@@ -47,10 +49,18 @@ class FilterProxyModel(QSortFilterProxyModel):
             return True
 
 
-class HeaderLabels(EnumMeta):
-    GENE = "Entrez ID"
-    REFERENCE = "Reference"
-    URL = "URL"
+class HeaderIndex(EnumMeta):
+    NAME = 0
+    GENE = 1
+    CELL_TYPE = 2
+    FUNCTION = 3
+    REFERENCE = 4
+    URL = 5
+
+
+HeaderLabels = {HeaderIndex.GENE: 'Entrez ID',
+                HeaderIndex.REFERENCE: 'Reference',
+                HeaderIndex.URL: 'URL'}
 
 
 class LinkedTableModel(TableModel):
@@ -75,12 +85,12 @@ class LinkedTableModel(TableModel):
 
     def set_column_links(self):
         domain = self._data.domain
-        ref_col = domain.metas.index(domain[HeaderLabels.REFERENCE])
+        ref_col = domain.metas.index(domain[HeaderLabels[HeaderIndex.REFERENCE]])
         font = QFont()
         font.setUnderline(True)
         color = QColor(Qt.blue)
         for i, row in enumerate(self._data):
-            link = row[HeaderLabels.URL].value
+            link = row[HeaderLabels[HeaderIndex.URL]].value
             if len(link):
                 self._roleData[gui.LinkRole][i][ref_col] = link
                 self._roleData[Qt.FontRole][i][ref_col] = font
@@ -124,15 +134,16 @@ class OWMarkerGenes(widget.OWWidget):
     FILE_NAME = DIR_NAME + "markers.tab"
 
     class Outputs:
-        genes = widget.Output("Genes", Orange.data.Table)
+        genes = widget.Output("Genes", Table)
 
     want_main_area = False
 
     selected_group = settings.Setting("")  # type: str
+    filter_text = settings.Setting('')     # type: str
     header_state = settings.Setting(b'')   # type: bytes
 
     settingsHandler = MarkerGroupContextHandler()
-    selected_rows = settings.ContextSetting([])
+    selected_genes = settings.ContextSetting([])  # type: List[tuple]
 
     class Error(widget.OWWidget.Error):
         file_not_found = widget.Msg("File not found.")
@@ -144,7 +155,6 @@ class OWMarkerGenes(widget.OWWidget):
         super().__init__()
         self.source = None
         self.group_index = -1
-        self.filter_text = ""
         self.group_cb = gui.comboBox(self.controlArea, self, "group_index")
         self.group_cb.activated[int].connect(self.set_group_index)
 
@@ -154,11 +164,12 @@ class OWMarkerGenes(widget.OWWidget):
             'Mouse': '10090'
         }
 
-        filter = gui.lineEdit(
+        filter_line_edit = gui.lineEdit(
             self.controlArea, self, "filter_text"
         )  # type: QLineEdit
-        filter.setPlaceholderText("Filter...")
-        filter.textEdited.connect(self.set_filter_str)
+        filter_line_edit.setPlaceholderText("Filter...")
+        filter_line_edit.textEdited.connect(self.set_filter_str)
+
         self.view = view = QTreeView(
             rootIsDecorated=False,
             uniformRowHeights=True,
@@ -198,7 +209,7 @@ class OWMarkerGenes(widget.OWWidget):
     def _read_cached_data(self):
         data = None
         try:
-            data = Orange.data.Table(local_cache_path(self.FILE_NAME))
+            data = Table(local_cache_path(self.FILE_NAME))
         except OSError:
             self.Error.file_not_found()
         else:
@@ -206,15 +217,17 @@ class OWMarkerGenes(widget.OWWidget):
         return data
 
     def set_selection(self):
-        if len(self.selected_rows):
+        selected = self.selected_rows()
+
+        if len(selected):
             header_count = self.view.header().count() - 1
 
-            if self.view.model().rowCount() <= self.selected_rows[-1]:
+            if self.view.model().rowCount() <= selected[-1]:
                 return
 
             selection = QItemSelection()
 
-            for row_index in self.selected_rows:
+            for row_index in selected:
                 selection.append(
                     QItemSelectionRange(
                         self.view.model().index(row_index, 0),
@@ -226,7 +239,7 @@ class OWMarkerGenes(widget.OWWidget):
                 selection, QItemSelectionModel.ClearAndSelect)
 
     def set_source(self, data):
-        # type: (Orange.data.Table) -> None
+        # type: (Table) -> None
         """
         Set the source data from which to fetch the output
 
@@ -289,7 +302,7 @@ class OWMarkerGenes(widget.OWWidget):
         data = data[mask]
         rest = data[:, data.domain.metas[1:]]
         model = LinkedTableModel(rest, parent=self)
-        ref_col = rest.domain.metas.index(rest.domain[HeaderLabels.REFERENCE])
+        ref_col = rest.domain.metas.index(rest.domain[HeaderLabels[HeaderIndex.REFERENCE]])
         self.view.setItemDelegateForColumn(
             ref_col, gui.LinkStyledItemDelegate(self.view))
 
@@ -298,12 +311,25 @@ class OWMarkerGenes(widget.OWWidget):
         self.proxy_model.setSourceModel(model)
 
         self.openContext(self.selected_group)
+        self.set_filter_str(self.filter_text)
         self.set_selection()
 
         self.commit()
 
     def _on_selection_changed(self):
         self.commit()
+
+    def selected_rows(self):
+        """ Return row index for selected genes
+        """
+        if not self.selected_genes:
+            return []
+
+        model = self.view.model()
+        return [row_index for row_index in range(model.rowCount())
+                if (model.index(row_index, HeaderIndex.GENE).data(),
+                    model.index(row_index, HeaderIndex.CELL_TYPE).data())
+                in self.selected_genes]
 
     def commit(self):
         model = self.view.model()
@@ -319,14 +345,17 @@ class OWMarkerGenes(widget.OWWidget):
         else:
             output = table.source
 
-        self.selected_rows = [mi.row() for mi in self.view.selectionModel().selectedRows(0)]
+        gene_id = self.view.selectionModel().selectedRows(HeaderIndex.GENE)
+        cell_type = self.view.selectionModel().selectedRows(HeaderIndex.CELL_TYPE)
+
+        self.selected_genes = [(entrez.data(), cell.data()) for entrez, cell in zip(gene_id, cell_type)]
 
         # always false for marker genes data tables in single cell
         output.attributes[GENE_AS_ATTRIBUTE_NAME] = False
         # set taxonomy id in data.attributes
         output.attributes[TAX_ID] = self.map_group_to_taxid.get(self.selected_group, '')
-        # set columnd id flag
-        output.attributes[GENE_ID_COLUMN] = HeaderLabels.GENE
+        # set column id flag
+        output.attributes[GENE_ID_COLUMN] = HeaderLabels[HeaderIndex.GENE]
         output.name = "Marker Genes"
 
         self.Outputs.genes.send(output)
