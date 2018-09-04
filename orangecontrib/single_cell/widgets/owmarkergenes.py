@@ -258,6 +258,8 @@ class OWMarkerGenes(widget.OWWidget):
             elif group_values:
                 self.group_index = min(max(self.group_index, 0),
                                        len(group_values) - 1)
+
+            self.set_group_index(self.group_index)
             self._setup()
 
     def set_group_index(self, group_index):
