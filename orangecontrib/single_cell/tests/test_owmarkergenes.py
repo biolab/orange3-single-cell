@@ -31,7 +31,7 @@ class TestOWMarkerGenes(WidgetTest):
         w = self.widget
 
         w.selected_group = w.group_cb.itemText(w.group_index)
-        w.selected_rows = [0, 1, 2]
+        w.selected_genes = [('9246', 'Dendritic cell'), ('9246', 'CD4')]
         w.set_selection()
 
         out = self.get_output(self.widget.Outputs.genes)
@@ -40,7 +40,7 @@ class TestOWMarkerGenes(WidgetTest):
         self.assertIsInstance(out, Table)
 
         # check if rows were selected
-        self.assertTrue(len(out) == len(w.selected_rows))
+        self.assertTrue(len(out) == len(w.selected_genes))
 
         # change group
         w.set_group_index(w.group_index + 1)
