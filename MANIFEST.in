@@ -5,6 +5,9 @@ recursive-include orangecontrib/single_cell/tutorials *.ows *.tsv *.mtx *.tab.gz
 recursive-include orangecontrib/single_cell/launcher/icons *.svg *.png
 recursive-include orangecontrib/single_cell/widgets/icons *.svg
 
+# include test files
+recursive-include orangecontrib/single_cell/tests/ *
+
 # include meta data
 include requirements.txt
 include README.md
