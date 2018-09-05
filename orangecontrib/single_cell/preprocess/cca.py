@@ -1,12 +1,14 @@
-import numpy as np
 import itertools as it
-from sklearn.decomposition.truncated_svd import TruncatedSVD
+import numpy as np
 from scipy.stats import pearsonr
+from sklearn.decomposition.truncated_svd import TruncatedSVD
+
+import Orange.statistics.util as ut
 
 
 def _standardize(X, tol=1e-8):
     """ Standardize matrix X avoiding NaNs and small values. """
-    s = X.std(axis=0)
+    s = ut.std(X, axis=0)
     m = np.zeros(*s.shape)
     valid = s > tol
     m[np.logical_not(valid)] = 0
