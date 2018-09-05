@@ -60,7 +60,8 @@ def interpolate_nans(A):
     xp = ok.ravel().nonzero()[0]
     fp = A[ok]
     x = np.isnan(A).ravel().nonzero()[0]
-    A[np.isnan(A)] = np.interp(x, xp, fp)
+    if len(xp) > 0:
+        A[np.isnan(A)] = np.interp(x, xp, fp)
     return A
 
 
@@ -246,7 +247,7 @@ class OWAlignDatasets(widget.OWWidget):
                 if min(counts) < 2:
                     self.Error.no_instances()
                     return
-
+                self._reset_max_components()
                 self.fit()
 
             else:
@@ -266,8 +267,9 @@ class OWAlignDatasets(widget.OWWidget):
         y = self.data.get_column_view(self.source_id)[0]
 
         self._Ws = self._mas.fit(X, y)
-        shared_correlations = self._mas.shared_correlations
-        self._shared_correlations = np.array([interpolate_nans(x) for x in shared_correlations])
+        self._shared_correlations = self._mas.shared_correlations
+        if np.isnan(np.sum(self._shared_correlations)):
+            self._shared_correlations = np.array([interpolate_nans(x) for x in self._shared_correlations])
         self._use_genes = self._mas.use_genes
 
         self._setup_plot()
@@ -310,7 +312,8 @@ class OWAlignDatasets(widget.OWWidget):
         if min(counts) < MAX_COMPONENTS_DEFAULT or len(
                 self.data.domain.attributes) < MAX_COMPONENTS_DEFAULT:
             MAX_COMPONENTS = min(min(counts), len(self.data.domain.attributes)) - 1
-            self.ncomponents = MAX_COMPONENTS // 2
+            if self.ncomponents > MAX_COMPONENTS:
+                self.ncomponents = MAX_COMPONENTS // 2
             self.controls.ncomponents.setMaximum(MAX_COMPONENTS)
         else:
             MAX_COMPONENTS = MAX_COMPONENTS_DEFAULT
