@@ -6,10 +6,8 @@ channels:
   - defaults
 
 dependencies:
-  - orange3>=3.14.0
   - orange3-bioinformatics==3.2.0
   - pandas>=0.23
   - fastdtw
-  - astropy>=2.0.10
   - loompy
   - networkx
