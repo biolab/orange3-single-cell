@@ -328,7 +328,8 @@ class OWMarkerGenes(widget.OWWidget):
         model = self.view.model()
         return [row_index for row_index in range(model.rowCount())
                 if (model.index(row_index, HeaderIndex.GENE).data(),
-                    model.index(row_index, HeaderIndex.CELL_TYPE).data())
+                    model.index(row_index, HeaderIndex.CELL_TYPE).data(),
+                    model.index(row_index, HeaderIndex.REFERENCE).data())
                 in self.selected_genes]
 
     def commit(self):
@@ -347,8 +348,10 @@ class OWMarkerGenes(widget.OWWidget):
 
         gene_id = self.view.selectionModel().selectedRows(HeaderIndex.GENE)
         cell_type = self.view.selectionModel().selectedRows(HeaderIndex.CELL_TYPE)
+        ref = self.view.selectionModel().selectedRows(HeaderIndex.REFERENCE)
 
-        self.selected_genes = [(entrez.data(), cell.data()) for entrez, cell in zip(gene_id, cell_type)]
+        self.selected_genes = [(entrez.data(), cell.data(), ref.data())
+                               for entrez, cell, ref in zip(gene_id, cell_type, ref)]
 
         # always false for marker genes data tables in single cell
         output.attributes[GENE_AS_ATTRIBUTE_NAME] = False

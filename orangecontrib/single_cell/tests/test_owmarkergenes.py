@@ -31,7 +31,7 @@ class TestOWMarkerGenes(WidgetTest):
         w = self.widget
 
         w.selected_group = w.group_cb.itemText(w.group_index)
-        w.selected_genes = [('9246', 'Dendritic cell'), ('9246', 'CD4')]
+        w.selected_genes = [('9246', 'Dendritic cell', 'Butler et al. (2018)'), ('9246', 'CD4', 'Butler et al. (2018)')]
         w.set_selection()
 
         out = self.get_output(self.widget.Outputs.genes)
