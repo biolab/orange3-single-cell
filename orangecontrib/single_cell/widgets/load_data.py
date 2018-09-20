@@ -12,6 +12,7 @@ from Orange.data import (
     ContinuousVariable, DiscreteVariable, StringVariable, Domain, Table
 )
 from Orange.data.io import Compression, open_compressed, PickleReader
+from Orange.widgets.utils.filedialogs import RecentPath
 
 
 def separator_from_filename(file_name):
@@ -57,6 +58,7 @@ class Loader:
     def __init__(self, file_name=""):
         # file parameters
         self._file_name = file_name
+        self._recent_path = RecentPath.create(file_name, [])
         self.file_size = None
         self.n_rows = None
         self.n_cols = None
@@ -85,13 +87,22 @@ class Loader:
         self.sample_rows_p = None
         self.sample_cols_p = None
         self.row_annotations_enabled = True
-        self.row_annotation_file = None
+        self.row_annotation_file = None  # type: RecentPath
         self.col_annotations_enabled = True
-        self.col_annotation_file = None
+        self.col_annotation_file = None  # type: RecentPath
 
         # errors
         self.errors = {}  # type: Dict[str, Tuple]
         self.__reset_error_messages()
+
+    @property
+    def recent_path(self):
+        return self._recent_path
+
+    @recent_path.setter
+    def recent_path(self, path):
+        self._recent_path = path
+        self._file_name = path.abspath
 
     @property
     def n_genes(self):
@@ -310,9 +321,9 @@ class Loader:
         return usecols, skip_col, skip_row, header_cols, header_rows
 
     def __update_metas(self, meta_df, meta_df_index, X):
+        file_name = self.row_annotation_file.abspath
         row_annot_df = pd.read_csv(
-            self.row_annotation_file,
-            sep=separator_from_filename(self.row_annotation_file),
+            file_name, sep=separator_from_filename(file_name),
             header=self._row_annot_header, names=self._row_annot_columns
         )
         if self._use_rows_mask is not None:
@@ -359,9 +370,9 @@ class Loader:
         return meta_df, row_annot_df
 
     def __update_attributes(self, attrs, X):
+        file_name = self.col_annotation_file.abspath
         col_annot_df = pd.read_csv(
-            self.col_annotation_file,
-            sep=separator_from_filename(self.col_annotation_file),
+            file_name, sep=separator_from_filename(file_name),
             header=self._col_annot_header, names=self._col_annot_columns
         )
         if self._use_cols_mask is not None:
@@ -456,10 +467,10 @@ class MtxLoader(Loader):
         dir_name, _ = os.path.split(self._file_name)
         genes_path = os.path.join(dir_name, "genes.tsv")
         if os.path.isfile(genes_path):
-            self.col_annotation_file = genes_path
+            self.col_annotation_file = RecentPath.create(genes_path, [])
         barcodes_path = os.path.join(dir_name, "barcodes.tsv")
         if os.path.isfile(barcodes_path):
-            self.row_annotation_file = barcodes_path
+            self.row_annotation_file = RecentPath.create(barcodes_path, [])
 
     def _set_enable_annotations(self):
         # 10x gene-barcode matrix
@@ -469,8 +480,10 @@ class MtxLoader(Loader):
         # the corresponding comboboxes and made uneditable.
         if self.row_annotation_file is not None \
                 and self.col_annotation_file is not None \
-                and os.path.basename(self.col_annotation_file) == "genes.tsv" \
-                and os.path.basename(self.row_annotation_file) == "barcodes.tsv":
+                and os.path.basename(
+                self.col_annotation_file.abspath) == "genes.tsv" \
+                and os.path.basename(
+                self.row_annotation_file.abspath) == "barcodes.tsv":
             self.ENABLE_ANNOTATIONS = False
 
     def _set_file_parameters(self):
@@ -521,7 +534,7 @@ class CountLoader(Loader):
         basename_no_ext, _ = os.path.splitext(basename)
         meta_path = os.path.join(dir_name, basename_no_ext + ".meta")
         if os.path.isfile(meta_path):
-            self.row_annotation_file = meta_path
+            self.row_annotation_file = RecentPath.create(meta_path, [])
 
 
 class CsvLoader(Loader):

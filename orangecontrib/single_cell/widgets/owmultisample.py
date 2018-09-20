@@ -458,6 +458,11 @@ class OWMultiSample(owloaddata.OWLoadData):
             path = model.item(i, self._Header.name).text()
             source_name = model.item(i, self._Header.source).text()
             self.samples.append((path, checked, source_name))
+            loader.recent_path = self.relocate_path(loader.recent_path)
+            loader.row_annotation_file = self.relocate_path(
+                loader.row_annotation_file)
+            loader.col_annotation_file = self.relocate_path(
+                loader.col_annotation_file)
             self.loaders[path] = loader
 
     def saveSettings(self):
@@ -472,7 +477,14 @@ class OWMultiSample(owloaddata.OWLoadData):
             loader = loaders.get(path)
             if loader is not None:
                 loader = loader.copy()
-                self.set_current_loader(loader, path)
+                resolved_path = self.resolve_path(loader.recent_path)
+                loader.recent_path = resolved_path
+                loader.row_annotation_file = self.resolve_path(
+                    loader.row_annotation_file)
+                loader.col_annotation_file = self.resolve_path(
+                    loader.col_annotation_file)
+                self._current_path = resolved_path.abspath
+                self.set_current_loader(loader, resolved_path.abspath)
                 self.add_item(checked, source_name)
         self.select_last_item()
         self.recent_combo.setCurrentText("Recent files")
