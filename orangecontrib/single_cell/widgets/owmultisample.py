@@ -469,6 +469,10 @@ class OWMultiSample(owloaddata.OWLoadData):
         self.write_settings()
         super().saveSettings()
 
+    def _saveState(self):
+        super()._saveState()
+        self.write_settings()
+
     def read_settings(self):
         samples = self.samples.copy()
         loaders = self.loaders.copy()
