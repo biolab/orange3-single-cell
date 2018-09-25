@@ -128,9 +128,9 @@ class OWLoadData(widget.OWWidget):
             "Cannot read data using given parameters."
         )
 
-    _recent = settings.Setting([])  # type: List[str]
-    _recent_row_annotations = settings.Setting([])  # type: List[str]
-    _recent_col_annotations = settings.Setting([])  # type: List[str]
+    _recent = settings.Setting([])  # type: List[RecentPath]
+    _recent_row_annotations = settings.Setting([])  # type: List[RecentPath]
+    _recent_col_annotations = settings.Setting([])  # type: List[RecentPath]
     _cells_in_rows = settings.Setting(False)
     _col_annotations_enabled = settings.Setting(False)
     _row_annotations_enabled = settings.Setting(False)
@@ -329,15 +329,15 @@ class OWLoadData(widget.OWWidget):
 
         init_recent_paths_model(
             self.recent_model,
-            [RecentPath.create(p, []) for p in self._recent],
+            [self.resolve_path(p) for p in self._recent],
         )
         init_recent_paths_model(
             self.row_annotations_combo.model(),
-            [RecentPath.create(p, []) for p in self._recent_row_annotations]
+            [self.resolve_path(p) for p in self._recent_row_annotations]
         )
         init_recent_paths_model(
             self.col_annotations_combo.model(),
-            [RecentPath.create(p, []) for p in self._recent_col_annotations]
+            [self.resolve_path(p) for p in self._recent_col_annotations]
         )
         self._update_summary()
         self._update_warning()
@@ -349,6 +349,12 @@ class OWLoadData(widget.OWWidget):
         else:
             self.recent_combo.setCurrentIndex(-1)
 
+    def resolve_path(self, path):
+        basedir = self.workflowEnv().get("basedir", None)
+        if not basedir or not path:
+            return path
+        return path.resolve([("basedir", basedir)]) or path
+
     def _cells_in_rows_changed(self):
         self._data_loader.transposed = not self._cells_in_rows
         self._invalidate()
@@ -357,7 +363,7 @@ class OWLoadData(widget.OWWidget):
     def _row_annotations_combo_changed(self):
         path = self.row_annotations_combo.currentData(Qt.UserRole)
         if isinstance(path, RecentPath) and os.path.exists(path.abspath):
-            self._data_loader.row_annotation_file = path.abspath  # type: str
+            self._data_loader.row_annotation_file = path  # type: RecentPath
         else:
             self._data_loader.row_annotation_file = None
         self._invalidate()
@@ -365,7 +371,7 @@ class OWLoadData(widget.OWWidget):
     def _col_annotations_combo_changed(self):
         path = self.col_annotations_combo.currentData(Qt.UserRole)
         if isinstance(path, RecentPath) and os.path.exists(path.abspath):
-            self._data_loader.col_annotation_file = path.abspath  # type: str
+            self._data_loader.col_annotation_file = path  # type: RecentPath
         else:
             self._data_loader.col_annotation_file = None
         self._invalidate()
@@ -522,7 +528,7 @@ class OWLoadData(widget.OWWidget):
         if loader.row_annotation_file is not None:
             index = insert_recent_path(
                 self.row_annotations_combo.model(),
-                RecentPath.create(loader.row_annotation_file, [])
+                self.resolve_path(loader.row_annotation_file)
             )
             self.row_annotations_combo.setCurrentIndex(index)
             self.set_row_annotations_enabled(
@@ -535,7 +541,7 @@ class OWLoadData(widget.OWWidget):
         if loader.col_annotation_file is not None:
             index = insert_recent_path(
                 self.col_annotations_combo.model(),
-                RecentPath.create(loader.col_annotation_file, [])
+                self.resolve_path(loader.col_annotation_file)
             )
             self.col_annotations_combo.setCurrentIndex(index)
             self.set_col_annotations_enabled(
@@ -677,7 +683,7 @@ class OWLoadData(widget.OWWidget):
                     for i in range(model.rowCount()))
 
         def recent_paths(model):
-            return [el.abspath for el in dataiter(model)
+            return [self.relocate_path(el) for el in dataiter(model)
                     if isinstance(el, RecentPath)][:maxitems]
 
         self._recent = recent_paths(self.recent_model)
@@ -686,6 +692,12 @@ class OWLoadData(widget.OWWidget):
         self._recent_col_annotations = recent_paths(
             self.col_annotations_combo.model())
         self._last_path = self._current_path
+
+    def relocate_path(self, path):
+        basedir = self.workflowEnv().get("basedir", None)
+        if not basedir or not path:
+            return path
+        return RecentPath.create(path.abspath, [("basedir", basedir)])
 
     def saveSettings(self):
         self._saveState()
