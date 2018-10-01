@@ -2,11 +2,14 @@ import numpy as np
 import itertools as it
 from fastdtw import fastdtw
 from scipy.stats import spearmanr, scoreatpercentile
-from astropy.stats import biweight_midcorrelation
+from orangecontrib.single_cell.preprocess.biweight import biweight_midcorrelation
 from orangecontrib.single_cell.preprocess.cca import MultiCCA, SVDCCA
 
 
-def score_genes(Xs, Ws, n_metagenes=30, method="bicor"):
+GENE_SCORING_METHODS = ("pearson", "spearman", "bicor")
+
+
+def score_genes(Xs, Ws, n_metagenes=30, method=GENE_SCORING_METHODS[0]):
     """ Score genes To construct a metagene.
         Each CC component gets its own set of characteristic genes. """
     n_datasets = len(Xs)
@@ -135,14 +138,14 @@ class SeuratAlignmentModel:
     and Dynamic Time Warping (DTW).
     """
 
-    def __init__(self, n_components=20, n_metagenes=30, gene_scoring="pearson", random_state=None):
+    def __init__(self, n_components=20, n_metagenes=30, gene_scoring=GENE_SCORING_METHODS[0], random_state=None):
         """
         :param n_components: Number of components of final projection.
         :param n_metagenes: Number of characteristic genes for each CCA vector.
         :param gene_scoring: Correlation method to select metagenes. One of {'pearson', 'spearman'}.
         :param random_state: Random seed.
         """
-        if gene_scoring not in {"pearson", "spearman", "bicor"}:
+        if gene_scoring not in GENE_SCORING_METHODS:
             raise ValueError("Parameter gene_scoring must be in {pearson, spearman}.")
         self.gene_scoring = gene_scoring
         self.n_components = n_components
@@ -269,23 +272,3 @@ class SeuratAlignmentModel:
             Z[index_map[yi]] = U
 
         return Z
-
-
-def test_seurat_alignment():
-    """ Test with included data. """
-    from Orange.data import Table
-    in_file = "../tutorials/Showcase-SampleAlignment-data/data_kang2018.tab.gz"
-    data = Table(in_file)
-    print("Read %d cells and %d genes." % data.X.shape)
-
-    model = SeuratAlignmentModel(n_components=20,
-                                 n_metagenes=30,
-                                 gene_scoring="bicor",
-                                 random_state=42)
-    Z = model.fit_transform(data.X, data.Y)
-    assert Z.shape == (data.X.shape[0], model.n_components)
-    assert np.isnan(Z).sum() == 0
-
-
-if __name__ == "__main__":
-    test_seurat_alignment()

@@ -6,5 +6,4 @@ orange3-bioinformatics==3.2.0
 fastdtw
 scikit-learn
 numpy
-astropy
 loompy>=2.0.10
