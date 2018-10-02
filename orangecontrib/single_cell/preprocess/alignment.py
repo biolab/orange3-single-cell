@@ -146,7 +146,7 @@ class SeuratAlignmentModel:
         :param random_state: Random seed.
         """
         if gene_scoring not in GENE_SCORING_METHODS:
-            raise ValueError("Parameter gene_scoring must be in {pearson, spearman}.")
+            raise ValueError("Parameter gene_scoring must be in %s." % str(GENE_SCORING_METHODS))
         self.gene_scoring = gene_scoring
         self.n_components = n_components
         self.n_metagenes = n_metagenes
