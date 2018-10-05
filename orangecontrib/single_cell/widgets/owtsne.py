@@ -2,10 +2,10 @@ import os.path
 import sys
 
 import numpy as np
-from AnyQt.QtCore import Qt, QTimer
-from AnyQt.QtGui import QPainter
-from AnyQt.QtWidgets import QFormLayout, QApplication
 from joblib.memory import Memory
+
+from AnyQt.QtCore import Qt, QTimer
+from AnyQt.QtWidgets import QFormLayout, QApplication
 
 try:
     from MulticoreTSNE import MulticoreTSNE
@@ -13,21 +13,15 @@ except ImportError:
     MulticoreTSNE = None
 
 import Orange.data
-from Orange.data import Domain, Table, ContinuousVariable
-import Orange.projection
 import Orange.distance
 import Orange.misc
+import Orange.projection
 from Orange.misc.environ import cache_dir
-from Orange.widgets import gui, settings
-from Orange.widgets.settings import SettingProvider
-from Orange.widgets.utils.sql import check_sql_input
-from Orange.canvas import report
-from Orange.widgets.visualize.owscatterplotgraph import OWScatterPlotGraph, InteractiveViewBox
-from Orange.widgets.widget import Msg, OWWidget, Input, Output
-from Orange.widgets.utils.annotated_data import (
-    create_annotated_table, create_groups_table, ANNOTATED_DATA_SIGNAL_NAME,
-    get_unique_names,
-)
+from Orange.widgets import gui
+from Orange.widgets.settings import Setting, SettingProvider
+from Orange.widgets.visualize.owscatterplotgraph import OWScatterPlotBase
+from Orange.widgets.visualize.utils.widget import OWDataProjectionWidget
+from Orange.widgets.widget import Msg
 
 
 tsne_cache = os.path.join(cache_dir(), "tsne")
@@ -46,114 +40,44 @@ def compute_tsne_embedding(X, perplexity, iter, init):
     return np.asarray(tsne_model, dtype=np.float32)
 
 
-class MDSInteractiveViewBox(InteractiveViewBox):
-    def _dragtip_pos(self):
-        return 10, 10
+class OWtSNEGraph(OWScatterPlotBase):
+    def update_coordinates(self):
+        super().update_coordinates()
+        if self.scatterplot_item is not None:
+            self.view_box.setAspectLocked(True, 1)
 
 
-class OWMDSGraph(OWScatterPlotGraph):
-    jitter_size = settings.Setting(0)
-
-    def __init__(self, scatter_widget, parent=None, name="None", view_box=None):
-        super().__init__(scatter_widget, parent=parent, _=name,
-                         view_box=view_box)
-        for axis_loc in ["left", "bottom"]:
-            self.plot_widget.hideAxis(axis_loc)
-
-    def update_data(self, attr_x, attr_y, reset_view=True):
-        super().update_data(attr_x, attr_y, reset_view=reset_view)
-        for axis in ["left", "bottom"]:
-            self.plot_widget.hideAxis(axis)
-        self.plot_widget.setAspectLocked(True, 1)
-
-    def compute_sizes(self):
-        def scale(a):
-            dmin, dmax = np.nanmin(a), np.nanmax(a)
-            if dmax - dmin > 0:
-                return (a - dmin) / (dmax - dmin)
-            else:
-                return np.zeros_like(a)
-
-        self.master.Information.missing_size.clear()
-        if self.attr_size is None:
-            size_data = np.full((self.n_points,), self.point_width,
-                                dtype=float)
-        else:
-            size_data = \
-                self.MinShapeSize + \
-                self.scaled_data.get_column_view(self.attr_size)[0][self.valid_data] * \
-                self.point_width
-        nans = np.isnan(size_data)
-        if np.any(nans):
-            size_data[nans] = self.MinShapeSize - 2
-            self.master.Information.missing_size(self.attr_size)
-        return size_data
-
-
-class OWtSNE(OWWidget):
+class OWtSNE(OWDataProjectionWidget):
     name = "t-SNE"
     description = "Two-dimensional data projection with t-SNE."
     icon = "icons/TSNE.svg"
     priority = 920
 
-    class Inputs:
-        data = Input("Data", Orange.data.Table, default=True)
-        data_subset = Input("Data Subset", Orange.data.Table)
+    settings_version = 3
+    max_iter = Setting(300)
+    perplexity = Setting(30)
+    pca_components = Setting(20)
 
-    class Outputs:
-        selected_data = Output("Selected Data", Orange.data.Table, default=True)
-        annotated_data = Output(ANNOTATED_DATA_SIGNAL_NAME, Orange.data.Table)
-
-    settings_version = 2
+    GRAPH_CLASS = OWtSNEGraph
+    graph = SettingProvider(OWtSNEGraph)
+    embedding_variables_names = ("tsne-x", "tsne-y")
 
     #: Runtime state
     Running, Finished, Waiting = 1, 2, 3
 
-    settingsHandler = settings.DomainContextHandler()
-
-    max_iter = settings.Setting(300)
-    perplexity = settings.Setting(30)
-    pca_components = settings.Setting(20)
-
-    # output embedding role.
-    NoRole, AttrRole, AddAttrRole, MetaRole = 0, 1, 2, 3
-
-    auto_commit = settings.Setting(True)
-
-    selection_indices = settings.Setting(None, schema_only=True)
-
-    legend_anchor = settings.Setting(((1, 0), (1, 0)))
-
-    graph = SettingProvider(OWMDSGraph)
-
-    jitter_sizes = [0, 0.1, 0.5, 1, 2, 3, 4, 5, 7, 10]
-
-    graph_name = "graph.plot_widget.plotItem"
-
-    class Error(OWWidget.Error):
+    class Error(OWDataProjectionWidget.Error):
         not_enough_rows = Msg("Input data needs at least 2 rows")
         constant_data = Msg("Input data is constant")
         no_attributes = Msg("Data has no attributes")
         out_of_memory = Msg("Out of memory")
         optimization_error = Msg("Error during optimization\n{}")
+        no_valid_data = Msg("No projection due to no valid data")
 
     def __init__(self):
         super().__init__()
-        #: Effective data used for plot styling/annotations.
-        self.data = None  # type: Optional[Orange.data.Table]
-        #: Input subset data table
-        self.subset_data = None  # type: Optional[Orange.data.Table]
-        #: Input data table
-        self.signal_data = None
-
-        self._subset_mask = None  # type: Optional[np.ndarray]
         self.pca_data = None
-        self._curve = None
-        self._data_metas = None
-
-        self.variable_x = ContinuousVariable("tsne-x")
-        self.variable_y = ContinuousVariable("tsne-y")
-
+        self.embedding = None
+        self.__invalidated = True
         self.__update_loop = None
         # timer for scheduling updates
         self.__timer = QTimer(self, singleShot=True, interval=1,
@@ -162,7 +86,19 @@ class OWtSNE(OWWidget):
         self.__in_next_step = False
         self.__draw_similar_pairs = False
 
-        box = gui.vBox(self.controlArea, "t-SNE")
+    def _add_controls(self):
+        self._add_controls_start_box()
+        super()._add_controls()
+        # Because sc data frequently has many genes,
+        # showing all attributes in combo boxes can cause problems
+        # QUICKFIX: Remove a separator and attributes from order
+        # (leaving just the class and metas)
+        self.models = self.graph.gui.points_models
+        for model in self.models:
+            model.order = model.order[:-2]
+
+    def _add_controls_start_box(self):
+        box = gui.vBox(self.controlArea, True)
         form = QFormLayout(
             labelAlignment=Qt.AlignLeft,
             formAlignment=Qt.AlignLeft,
@@ -183,155 +119,48 @@ class OWtSNE(OWWidget):
         gui.separator(box, 10)
         self.runbutton = gui.button(box, self, "Run", callback=self._toggle_run)
 
-        box = gui.vBox(self.controlArea, "PCA Preprocessing")
-        gui.hSlider(box, self, 'pca_components', label="Components: ",
-                    minValue=2, maxValue=50, step=1) #, callback=self._initialize)
+        gui.separator(box, 10)
+        gui.hSlider(box, self, "pca_components", label="PCA components:",
+                    minValue=2, maxValue=50, step=1)
 
-        box = gui.vBox(self.mainArea, True, margin=0)
-        self.graph = OWMDSGraph(self, box, "MDSGraph", view_box=MDSInteractiveViewBox)
-        box.layout().addWidget(self.graph.plot_widget)
-        self.plot = self.graph.plot_widget
-
-        g = self.graph.gui
-        box = g.point_properties_box(self.controlArea)
-        self.models = g.points_models
-        # Because sc data frequently has many genes,
-        # showing all attributes in combo boxes can cause problems
-        # QUICKFIX: Remove a separator and attributes from order
-        # (leaving just the class and metas)
-        for model in self.models:
-            model.order = model.order[:-2]
-
-        g.add_widgets(ids=[g.JitterSizeSlider], widget=box)
-
-        box = gui.vBox(self.controlArea, "Plot Properties")
-        g.add_widgets([g.ShowLegend,
-                       g.ToolTipShowsAll,
-                       g.ClassDensity,
-                       g.LabelOnlySelected], box)
-
-        self.controlArea.layout().addStretch(100)
-        self.icons = gui.attributeIconDict
-
-        palette = self.graph.plot_widget.palette()
-        self.graph.set_palette(palette)
-
-        gui.rubber(self.controlArea)
-
-        self.graph.box_zoom_select(self.controlArea)
-
-        gui.auto_commit(self.controlArea, self, "auto_commit", "Send Selection",
-                        "Send Automatically")
-
-        self.plot.getPlotItem().hideButtons()
-        self.plot.setRenderHint(QPainter.Antialiasing)
-
-        self.graph.jitter_continuous = True
-        self._initialize()
-
-    def reset_graph_data(self, *_):
-        if self.data is not None:
-            self.graph.rescale_data()
-            self.update_graph()
-
-    def update_colors(self):
-        pass
-
-    def update_density(self):
-        self.update_graph(reset_view=False)
-
-    def update_regression_line(self):
-        self.update_graph(reset_view=False)
-
-    def init_attr_values(self):
-        domain = self.data and len(self.data) and self.data.domain or None
-        for model in self.models:
-            model.set_domain(domain)
-        self.graph.attr_color = self.data.domain.class_var if domain else None
-        self.graph.attr_shape = None
-        self.graph.attr_size = None
-        self.graph.attr_label = None
-
-    def prepare_data(self):
-        pass
-
-    def update_graph(self, reset_view=True, **_):
-        self.graph.zoomStack = []
-        if self.graph.data is None:
-            return
-        self.graph.update_data(self.variable_x, self.variable_y, True)
-
-    def selection_changed(self):
-        self.commit()
-
-    @Inputs.data
-    @check_sql_input
     def set_data(self, data):
-        """Set the input data set.
+        self.__invalidated = not (self.data and data and
+                                  np.array_equal(self.data.X, data.X))
+        super().set_data(data)
 
-        Parameters
-        ----------
-        data : Optional[Orange.data.Table]
-        """
-        self.signal_data = data
+    def check_data(self):
+        def error(err):
+            err()
+            self.data = None
 
-    @Inputs.data_subset
-    def set_subset_data(self, subset_data):
-        """Set a subset of `data` input to highlight in the plot.
+        super().check_data()
+        if self.data is not None:
+            if len(self.data) < 2:
+                error(self.Error.not_enough_rows)
+            elif not self.data.domain.attributes:
+                error(self.Error.no_attributes)
+            elif not self.data.is_sparse() and \
+                    np.allclose(self.data.X - self.data.X[0], 0):
+                error(self.Error.constant_data)
+            elif not self.data.is_sparse() and \
+                    np.all(~np.isfinite(self.data.X)):
+                error(self.Error.no_valid_data)
 
-        Parameters
-        ----------
-        subset_data: Optional[Orange.data.Table]
-        """
-        self.subset_data = subset_data
-        # invalidate the pen/brush when the subset is changed
-        self._subset_mask = None  # type: Optional[np.ndarray]
-        self.controls.graph.alpha_value.setEnabled(subset_data is None)
-
-    def _clear(self):
-        self.__set_update_loop(None)
-        self.__state = OWtSNE.Waiting
-
-    def _clear_plot(self):
-        self.graph.plot_widget.clear()
-
-    def _initialize(self):
-        # clear everything
-        self.closeContext()
-        self._clear()
-        self.Error.clear()
-        self.data = None
-        self.pca_data = None
-        self.embedding = None
-        self.init_attr_values()
-
-        # if no data, reset plot
-        if self.signal_data is None:
-            return
-
-        if len(self.signal_data) < 2:
-            self.Error.not_enough_rows()
-        elif not self.signal_data.domain.attributes:
-            self.Error.no_attributes()
-        elif np.allclose(self.signal_data.X - self.signal_data.X[0], 0):
-            self.Error.constant_data()
-        else:
-            self.data = self.signal_data
-            self.init_attr_values()
-
-        self.openContext(self.data)
+    def get_embedding(self):
+        self.valid_data = np.ones(len(self.embedding), dtype=bool) \
+            if self.embedding is not None else None
+        return self.embedding
 
     def _toggle_run(self):
         if self.__state == OWtSNE.Running:
             self.stop()
-            self._invalidate_output()
+            self.commit()
         else:
             self.start()
 
     def start(self):
         if not self.data or self.__state == OWtSNE.Running:
-            self._update_plot()
-            return
+            self.graph.update_coordinates()
         elif self.__state in (OWtSNE.Finished, OWtSNE.Waiting):
             self.__start()
 
@@ -437,122 +266,49 @@ class OWtSNE(OWWidget):
         else:
             self.progressBarSet(100.0 * progress, processEvents=None)
             self.embedding = embedding
-            self._update_plot()
+            self.graph.update_coordinates()
+            self.graph.update_density()
             # schedule next update
             self.__timer.start()
 
         self.__in_next_step = False
 
-    def __invalidate_refresh(self):
-        state = self.__state
-
-        if self.__update_loop is not None:
-            self.__set_update_loop(None)
-
-        # restart the optimization if it was interrupted.
-        # TODO: decrease the max iteration count by the already
-        # completed iterations count.
-        if state == OWtSNE.Running:
-            self.__start()
+    def __invalidate_embedding(self):
+        if self.data is not None:
+            self.embedding = np.random.normal(size=(len(self.data), 2))
 
     def handleNewSignals(self):
-        if self.data and self.signal_data and np.array_equal(
-                self.data.X, self.signal_data.X):
-            invalidated = False
-            self.closeContext()
-            self.data = self.signal_data
-            self.init_attr_values()
-            self.openContext(self.data)
-        else:
-            invalidated = True
-            self._initialize()
-
-        if self._subset_mask is None and self.subset_data is not None and \
-                self.data is not None:
-            self._subset_mask = np.in1d(self.data.ids, self.subset_data.ids)
-
-        if invalidated:
+        if self.__invalidated:
+            self.__invalidated = False
+            self.__invalidate_embedding()
+            self.setup_plot()
+            self.embedding = None
             self.start()
         else:
-            self._update_plot(new=True)
-        self.unconditional_commit()
-
-    def _invalidate_output(self):
+            self.graph.update_coordinates()
         self.commit()
 
-    def _update_plot(self, new=False):
-        self._clear_plot()
+    def clear(self):
+        super().clear()
+        self.__set_update_loop(None)
+        self.__state = OWtSNE.Waiting
+        self.pca_data = None
+        self.embedding = None
 
-        if self.embedding is not None:
-            self._setup_plot(new=new)
-        else:
-            self.graph.new_data(None)
+    @classmethod
+    def migrate_settings(cls, settings, version):
+        if version < 3:
+            if "selection_indices" in settings:
+                settings["selection"] = settings["selection_indices"]
 
-    def _setup_plot(self, new=False):
-        emb_x, emb_y = self.embedding[:, 0], self.embedding[:, 1]
-        coords = np.vstack((emb_x, emb_y)).T
-        domain = Domain(
-            attributes=self.data.domain.attributes + (self.variable_x, self.variable_y),
-            class_vars=self.data.domain.class_vars,
-            metas=self.data.domain.metas)
-        data = Table.from_numpy(
-            domain, X=np.hstack((self.data.X, coords)), Y=self.data.Y, metas=self.data.metas)
-        subset_data = data[self._subset_mask] if self._subset_mask is not None else None
-        self.graph.new_data(data, subset_data=subset_data, new=new)
-        self.graph.update_data(self.variable_x, self.variable_y, True)
-
-    def commit(self):
-        if self.embedding is not None:
-            names = get_unique_names(
-                [v.name for v in self.data.domain.variables], ["tsne-x", "tsne-y"])
-            output = embedding = Orange.data.Table.from_numpy(
-                Orange.data.Domain([ContinuousVariable(names[0]), ContinuousVariable(names[1])]),
-                self.embedding
-            )
-        else:
-            output = embedding = None
-
-        if self.embedding is not None and self.data is not None:
-            domain = self.data.domain
-            domain = Orange.data.Domain(domain.attributes,
-                                        domain.class_vars,
-                                        domain.metas + embedding.domain.attributes)
-            output = self.data.transform(domain)
-            output.metas[:, -2:] = embedding.X
-
-        selection = self.graph.get_selection()
-        if output is not None and len(selection) > 0:
-            selected = create_groups_table(output, self.graph.selection, False, "Group")
-        else:
-            selected = None
-        if self.graph.selection is not None and np.max(self.graph.selection) > 1:
-            annotated = create_groups_table(output, self.graph.selection)
-        else:
-            annotated = create_annotated_table(output, selection)
-        self.Outputs.selected_data.send(selected)
-        self.Outputs.annotated_data.send(annotated)
-
-    def onDeleteWidget(self):
-        super().onDeleteWidget()
-        self._clear_plot()
-        self._clear()
-
-    def send_report(self):
-        if self.data is None:
-            return
-
-        def name(var):
-            return var and var.name
-
-        caption = report.render_items_vert((
-            ("Color", name(self.graph.attr_color)),
-            ("Label", name(self.graph.attr_label)),
-            ("Shape", name(self.graph.attr_shape)),
-            ("Size", name(self.graph.attr_size)),
-            ("Jittering", self.graph.jitter_size != 0 and "{} %".format(self.graph.jitter_size))))
-        self.report_plot()
-        if caption:
-            self.report_caption(caption)
+    @classmethod
+    def migrate_context(cls, context, version):
+        if version < 3:
+            values = context.values
+            values["attr_color"] = values["graph"]["attr_color"]
+            values["attr_size"] = values["graph"]["attr_size"]
+            values["attr_shape"] = values["graph"]["attr_shape"]
+            values["attr_label"] = values["graph"]["attr_label"]
 
 
 def main(argv=None):
@@ -587,6 +343,7 @@ def main(argv=None):
     gc.collect()
     app.processEvents()
     return rval
+
 
 if __name__ == "__main__":
     sys.exit(main())

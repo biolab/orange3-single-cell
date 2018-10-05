@@ -1,11 +1,22 @@
 import unittest
 
-from orangecontrib.single_cell.widgets.owtsne import OWtSNE
-from Orange.widgets.tests.base import WidgetTest
 from Orange.data import DiscreteVariable, ContinuousVariable, Domain, Table
+from Orange.widgets.tests.base import (
+    WidgetTest, WidgetOutputsTestMixin, ProjectionWidgetTestMixin
+)
+from orangecontrib.single_cell.widgets.owtsne import OWtSNE
 
 
-class TestOWtSNE(WidgetTest):
+class TestOWtSNE(WidgetTest, ProjectionWidgetTestMixin,
+                 WidgetOutputsTestMixin):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        WidgetOutputsTestMixin.init(cls)
+        cls.same_input_output_domain = False
+
+        cls.signal_name = "Data"
+        cls.signal_data = cls.data
 
     def setUp(self):
         self.widget = self.create_widget(OWtSNE)
@@ -15,10 +26,9 @@ class TestOWtSNE(WidgetTest):
         self.domain = Domain(self.attributes, class_vars=self.class_var)
         self.empty_domain = Domain([], class_vars=self.class_var)
 
-        self.data = None
-
     def test_wrong_input(self):
         # no data
+        self.data = None
         self.send_signal(self.widget.Inputs.data, self.data)
         self.assertIsNone(self.widget.data)
 
@@ -49,7 +59,6 @@ class TestOWtSNE(WidgetTest):
         self.assertFalse(self.widget.Error.no_attributes.is_shown())
         self.assertFalse(self.widget.Error.constant_data.is_shown())
 
-
     def test_input(self):
         self.data = Table(self.domain, [[1, 1, 1, 1, 1, 'STG1'],
                                         [2, 2, 2, 2, 2, 'STG1'],
@@ -57,6 +66,20 @@ class TestOWtSNE(WidgetTest):
                                         [5, 5, 5, 5, 5, 'STG2']])
 
         self.send_signal(self.widget.Inputs.data, self.data)
+
+    def test_attr_models(self):
+        """Check possible values for 'Color', 'Shape', 'Size' and 'Label'"""
+        self.send_signal(self.widget.Inputs.data, self.data)
+        controls = self.widget.controls
+        for var in self.data.domain.class_vars + self.data.domain.metas:
+            self.assertIn(var, controls.attr_color.model())
+            self.assertIn(var, controls.attr_label.model())
+            if var.is_continuous:
+                self.assertIn(var, controls.attr_size.model())
+                self.assertNotIn(var, controls.attr_shape.model())
+            if var.is_discrete:
+                self.assertNotIn(var, controls.attr_size.model())
+                self.assertIn(var, controls.attr_shape.model())
 
 
 if __name__ == '__main__':
