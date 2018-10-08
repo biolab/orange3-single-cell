@@ -60,6 +60,7 @@ class OWDotMatrix(widget.OWWidget):
         super().__init__()
 
         self.data = None  # type: Table
+        self.matrix = None
         self.clusters = None
         self.cluster_order = None
         self.genes = None
@@ -116,6 +117,7 @@ class OWDotMatrix(widget.OWWidget):
             self.closeContext()
 
         self.data = data
+        self.matrix = None
         self.feature_model.set_domain(None)
         self.cluster_var = None
         self.clusters = None
@@ -143,56 +145,60 @@ class OWDotMatrix(widget.OWWidget):
         return (table[column == value] for value in np.unique(column))
 
     def _calculate_table_values(self):
-        self.clusters = [self.cluster_var.values[int(ix)]
-                         for ix in np.unique(self.data.get_column_view(self.cluster_var)[0])]
-        self.genes = [var.name for var in self.data.domain.attributes]
-        self.infobox.setText(self._get_info_string())
-
-        if len(self.genes) > 100:
-            self.warning("Too many genes on input, first {} genes displayed.".format(self.GENE_MAXIMUM))
-        else:
+        if self.data is None:
             self.Warning.clear()
-
-        self.matrix = np.stack((self.AGGREGATE_F[self.aggregate_ix](cluster.X[:self.GENE_MAXIMUM])
-                                for cluster in self._group_by(self.data, self.cluster_var)),
-                               axis=0)
-
-        if self.biclustering:
-            self.cluster_order, self.gene_order = ClusterAnalysis.biclustering(self.matrix,
-                                                                               ClusterAnalysis.neighbor_distance)
         else:
-            self.cluster_order, self.gene_order = np.arange(len(self.clusters)), np.arange(len(self.genes))
-        self.matrix = self.matrix[self.cluster_order][:,self.gene_order]
+            self.clusters = [self.cluster_var.values[int(ix)]
+                             for ix in np.unique(self.data.get_column_view(self.cluster_var)[0])]
+            self.genes = [var.name for var in self.data.domain.attributes]
+            self.infobox.setText(self._get_info_string())
 
-        self._refresh_table()
-        self._invalidate()
+            if len(self.genes) > 100:
+                self.warning("Too many genes on input, first {} genes displayed.".format(self.GENE_MAXIMUM))
+            else:
+                self.Warning.clear()
+
+            self.matrix = np.stack((self.AGGREGATE_F[self.aggregate_ix](cluster.X[:self.GENE_MAXIMUM])
+                                    for cluster in self._group_by(self.data, self.cluster_var)),
+                                   axis=0)
+
+            if self.biclustering:
+                self.cluster_order, self.gene_order = ClusterAnalysis.biclustering(self.matrix,
+                                                                                   ClusterAnalysis.neighbor_distance)
+            else:
+                self.cluster_order, self.gene_order = np.arange(len(self.clusters)), np.arange(len(self.genes))
+            self.matrix = self.matrix[self.cluster_order][:,self.gene_order]
+
+            self._refresh_table()
+            self._invalidate()
 
     def _refresh_table(self):
-        if not self.transpose:
-            self.rows, self.columns = self.clusters, self.genes
-            row_order, column_order = self.cluster_order, self.gene_order
-        else:
-            self.rows, self.columns = self.genes, self.clusters
-            row_order, column_order = self.gene_order, self.cluster_order
-        self.tableview.set_headers(np.array(self.rows)[row_order], np.array(self.columns)[column_order], circles=True,
-                                   cell_size=self.CELL_SIZES[self.cell_size_ix], bold_headers=False)
-        if self.matrix.size > 0:
-            matrix = self.matrix
-            if self.log_scale:
-                matrix = np.log(matrix + 1 - matrix.min())
-            matrix = matrix / matrix.max()
-            if self.transpose:
-                matrix = matrix.T
+        if self.matrix is not None:
+            if not self.transpose:
+                self.rows, self.columns = self.clusters, self.genes
+                row_order, column_order = self.cluster_order, self.gene_order
+            else:
+                self.rows, self.columns = self.genes, self.clusters
+                row_order, column_order = self.gene_order, self.cluster_order
+            self.tableview.set_headers(np.array(self.rows)[row_order], np.array(self.columns)[column_order], circles=True,
+                                       cell_size=self.CELL_SIZES[self.cell_size_ix], bold_headers=False)
+            if self.matrix.size > 0:
+                matrix = self.matrix
+                if self.log_scale:
+                    matrix = np.log(matrix + 1 - matrix.min())
+                matrix = matrix / matrix.max()
+                if self.transpose:
+                    matrix = matrix.T
 
-            def tooltip(i,j):
-                if not self.transpose:
-                    cluster, gene, value = self.clusters[i], self.genes[j], self.matrix[i,j]
-                else:
-                    cluster, gene, value = self.clusters[j], self.genes[i], self.matrix[j,i]
-                return "Cluster: {}\nGene: {}\n{}: {:.1f}".format(
-                    cluster, gene, self.AGGREGATE_NAME[self.aggregate_ix], value)
+                def tooltip(i,j):
+                    if not self.transpose:
+                        cluster, gene, value = self.clusters[i], self.genes[j], self.matrix[i,j]
+                    else:
+                        cluster, gene, value = self.clusters[j], self.genes[i], self.matrix[j,i]
+                    return "Cluster: {}\nGene: {}\n{}: {:.1f}".format(
+                        cluster, gene, self.AGGREGATE_NAME[self.aggregate_ix], value)
 
-            self.tableview.update_table(matrix, tooltip=tooltip)
+                self.tableview.update_table(matrix, tooltip=tooltip)
 
     def commit(self):
         if len(self.selection):

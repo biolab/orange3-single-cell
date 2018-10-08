@@ -124,6 +124,7 @@ class ContingencyTable(QTableView):
         self.classesh = None
         self.headerv = None
         self.headerh = None
+        self.cleared = True
         self.parent = parent
 
         self.corner_string = unicodedata.lookup("N-ARY SUMMATION")
@@ -241,19 +242,19 @@ class ContingencyTable(QTableView):
 
     def set_cell_size(self, cell_size):
         """
-        Sets the size of table cells. Valid only if the table is in circles
-        display mode.
+        Sets the size of table cells. The setting has an effect only if the the
+        table is in circles display mode.
 
         Parameters
         ----------
         cell_size : int
             Size of a single table cell in pixels.
         """
-        assert self.circles
 
         self.cell_size = cell_size
-        self.setItemDelegate(CircleItemDelegate(ceil(.9 * self.cell_size), Qt.white))
-        self._resize()
+        if self.circles and not self.cleared:
+            self.setItemDelegate(CircleItemDelegate(ceil(.9 * self.cell_size), Qt.white))
+            self._resize()
 
     def _initialize_headers(self):
         """
@@ -442,6 +443,7 @@ class ContingencyTable(QTableView):
             Function which takes vertical index and horizontal index as arguments and returns
             desired tooltip as a string. Defaults to no tooltips.
         """
+        self.cleared = False
         selected_indexes = self.get_selection()
 
         self._set_values(matrix, colors, formatstr, tooltip)
@@ -459,3 +461,4 @@ class ContingencyTable(QTableView):
         Clears the table.
         """
         self.tablemodel.clear()
+        self.cleared = True
