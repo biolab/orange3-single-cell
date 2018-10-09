@@ -28,7 +28,7 @@ from Orange.widgets.utils.annotated_data import (
 )
 from Orange.widgets.utils.itemmodels import DomainModel
 from Orange.widgets.visualize.owscatterplotgraph import (
-    OWScatterPlotGraph, OWScatterPlotBase, OWProjectionWidget
+    OWScatterPlotGraph, OWScatterPlotBase, OWProjectionWidget, ScatterPlotItem
 )
 from Orange.widgets.visualize.utils.plotutils import AnchorItem
 from Orange.widgets.visualize.utils import VizRankDialogAttrPair
@@ -73,11 +73,21 @@ class OWPseudotimeGraph(OWScatterPlotBase):
             self._mst_line.setPen(pen)
             self.plot_widget.addItem(self._mst_line)
         """
+        for x,_ in self._mst:
+            centroid = ScatterPlotItem([x[0]], [x[1]])
+            self.plot_widget.addItem(centroid)
         for a, b in self._mst:
             self._mst_line = QGraphicsLineItem()
-            self._mst_line.setLine(a[0], a[1], b[0], b[1])
+            self._mst_line.setLine(*a, *b)
             self._mst_line.setPen(pen)
             self.plot_widget.addItem(self._mst_line)
+
+            """
+            axitem = AnchorItem(line=QLineF(*a, *b), text=None)
+            #axitem.setVisible(np.linalg.norm(point) > r)
+            axitem.setPen(pg.mkPen((100, 100, 100)))
+            self.plot_widget.addItem(axitem)
+            """
 
     def get_proj_lines(self):
         if self.master.get_proj_lines_data() is not None:
@@ -94,7 +104,7 @@ class OWPseudotimeGraph(OWScatterPlotBase):
         pen = pg.mkPen(QColor(Qt.black), width=.5, cosmetic=True)
         for a, b in proj_lines:
             self._mst_line = QGraphicsLineItem()
-            self._mst_line.setLine(a[0], a[1], b[0], b[1])
+            self._mst_line.setLine(*a, *b)
             self._mst_line.setPen(pen)
             self.plot_widget.addItem(self._mst_line)
 
@@ -245,7 +255,6 @@ class OWTrajectory(OWProjectionWidget):
     @Inputs.data
     def set_data(self, data):
         # self.Information.sampled_sql.clear()
-
         if isinstance(data, SqlTable):
             if data.approx_len() < 5000:
                 data = Table(data)
@@ -339,6 +348,14 @@ class OWTrajectory(OWProjectionWidget):
 
     def send_pseudotimes(self):
         pt = self.p.pseudotime
+        Y = self.data.Y
+        metas = self.data.metas
+        if len(self.graph.get_selection()):
+            selection = self.graph.get_selection()
+            pt = pt[selection]
+            Y = Y[selection]
+            metas = metas[selection]
+
         table = Table.from_numpy(
             Domain(
                 [ContinuousVariable.make("pseudotime")],
@@ -346,8 +363,8 @@ class OWTrajectory(OWProjectionWidget):
                 self.data.domain.metas
             ),
             np.array([pt]).T,
-            self.data.Y,
-            self.data.metas
+            Y,
+            metas
         )
         self.Outputs.pseudotimes.send(table)
 
@@ -355,7 +372,7 @@ class OWTrajectory(OWProjectionWidget):
         self.send_pseudotimes()
 
     def selection_changed(self):
-        pass
+        self.commit()
 
 
 if __name__ == '__main__':
