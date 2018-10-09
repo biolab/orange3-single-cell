@@ -8,7 +8,8 @@ from sklearn.metrics import r2_score
 
 from AnyQt.QtCore import Qt, QTimer, QPointF, QLineF
 from AnyQt.QtGui import QColor, QPainterPath
-from AnyQt.QtWidgets import QApplication, QFormLayout, QGraphicsPathItem, QGraphicsLineItem
+from AnyQt.QtWidgets import QApplication, QFormLayout, QGraphicsPathItem, QGraphicsLineItem, \
+    QGraphicsTextItem, QLabel
 
 import pyqtgraph as pg
 
@@ -39,8 +40,12 @@ MAX_COMPONENTS = 20
 MAX_CLUSTERS = 20
 DIM_REDUCTIONS = [
     ("PCA", Orange.projection.PCA),
-    #("UMAP", Orange.projection.UMAP),
+    # ("UMAP", Orange.projection.UMAP),
 ]
+"""
+PULL REQUEST ZA PRVO VERZIJO
+"""
+
 
 class OWPseudotimeGraph(OWScatterPlotBase):
     jitter_size = Setting(0)
@@ -59,23 +64,34 @@ class OWPseudotimeGraph(OWScatterPlotBase):
     def update_mst(self):
         pen = pg.mkPen(QColor(Qt.black), width=1, cosmetic=True)
         self._mst = self.get_mst()
+        """
+        proj = self.master.p.proj
+        proj = proj[self.master.p.pseudotime.argsort()]
+        for a,b in zip(proj, proj[1:]):
+            self._mst_line = QGraphicsLineItem()
+            self._mst_line.setLine(a[0], a[1], b[0], b[1])
+            self._mst_line.setPen(pen)
+            self.plot_widget.addItem(self._mst_line)
+        """
         for a, b in self._mst:
             self._mst_line = QGraphicsLineItem()
-            self._mst_line.setLine(a[0],a[1],b[0],b[1])
+            self._mst_line.setLine(a[0], a[1], b[0], b[1])
             self._mst_line.setPen(pen)
             self.plot_widget.addItem(self._mst_line)
 
     def get_proj_lines(self):
-        dest, [x, y] = self.master.get_proj_lines_data()
-        res = list()
-        for i in range(len(dest)):
-            res.append([dest[i], [x[i], y[i]]])
-        return res
+        if self.master.get_proj_lines_data() is not None:
+            dest, x, y = self.master.get_proj_lines_data()
+            res = list()
+            for i in range(len(dest)):
+                res.append([dest[i], [x[i], y[i]]])
+            return res
 
     def update_proj_lines(self):
-        pen = pg.mkPen(QColor(Qt.black), width=.5, cosmetic=True)
         proj_lines = self.get_proj_lines()
-
+        if proj_lines is None:
+            return
+        pen = pg.mkPen(QColor(Qt.black), width=.5, cosmetic=True)
         for a, b in proj_lines:
             self._mst_line = QGraphicsLineItem()
             self._mst_line.setLine(a[0], a[1], b[0], b[1])
@@ -107,7 +123,6 @@ class OWPseudotimeGraph(OWScatterPlotBase):
         super().update_coordinates()
 
 
-
 class OWTrajectory(OWProjectionWidget):
     name = "Trajectory"
     description = "Placeholder"
@@ -119,7 +134,7 @@ class OWTrajectory(OWProjectionWidget):
         data_subset = Input("Data Subset", Orange.data.Table)
 
     class Outputs:
-        pseudotimes = Output("Pseudotimes for Cells", Orange.data.Table, default=True)
+        pseudotimes = Output("Pseudotimes", Orange.data.Table, default=True)
 
     settingsHandler = DomainContextHandler()
 
@@ -129,8 +144,9 @@ class OWTrajectory(OWProjectionWidget):
 
     n_components = Setting(2)
     n_clusters = Setting(10)
+    show_pseudotime_labels = Setting(False)
+    draw_proj_lines = Setting(True)
     dim_reduction = Setting("PCA")
-
 
     graph = SettingProvider(OWPseudotimeGraph)
     graph_name = "graph.plot_widget.plotItem"
@@ -144,7 +160,6 @@ class OWTrajectory(OWProjectionWidget):
         missing_shape = Msg(
             "Points with undefined '{}' are shown as crossed circles")
 
-
     def __init__(self):
         super().__init__()
 
@@ -156,7 +171,8 @@ class OWTrajectory(OWProjectionWidget):
         self.subset_indices = None
         self.sql_data = None
         self.xy = None
-        #self.data = None  # neaded?
+        self.p = None
+        # self.data = None  # needed?
         self.__timer = QTimer(self, interval=1200)
         self.__timer.timeout.connect(self.add_data)
 
@@ -202,16 +218,24 @@ class OWTrajectory(OWProjectionWidget):
         g.add_widgets([
             g.PointSize,
             g.AlphaValue,
-            #g.JitterSizeSlider,
-            ], box
+            # g.JitterSizeSlider,
+        ], box
         )
-        #g.add_widget(g.JitterNumericValues, box)
+        # g.add_widget(g.JitterNumericValues, box)
 
         box_plot_prop = g.plot_properties_box(self.controlArea)
         g.add_widgets([
             g.ShowGridLines,
-            g.ToolTipShowsAll],
+            g.ToolTipShowsAll, ],
             box_plot_prop)
+        gui.checkBox(
+            box_plot_prop, self, "show_pseudotime_labels", "Show pseudotime labels",
+            callback=self.graph.update_labels
+        )
+        gui.checkBox(
+            box_plot_prop, self, "draw_proj_lines", "Draw projection lines",
+            callback=self.graph.reset_graph
+        )
 
         self.controlArea.layout().addStretch(100)
         self.graph.box_zoom_select(self.controlArea)
@@ -220,7 +244,7 @@ class OWTrajectory(OWProjectionWidget):
 
     @Inputs.data
     def set_data(self, data):
-        #self.Information.sampled_sql.clear()
+        # self.Information.sampled_sql.clear()
 
         if isinstance(data, SqlTable):
             if data.approx_len() < 5000:
@@ -249,38 +273,51 @@ class OWTrajectory(OWProjectionWidget):
         self.openContext(self.data)
         self.attr_changed()
 
-
     def fit_transform(self):
         if self.data is None:
             return
         p = Pseudotimemst(n_components=self.n_components, n_clusters=self.n_clusters,
-                          projection=[ext for name, ext in DIM_REDUCTIONS if name == self.dim_reduction][0])
+                          projection=
+                          [ext for name, ext in DIM_REDUCTIONS if name == self.dim_reduction][0])
         p.fit_transform(self.data)
         self.p = p
-        self.xy = [np.array([row[0] for row in p.transformed_data]), np.array([row[1] for row in p.transformed_data])]
+        self.xy = [np.array([row[0] for row in p.transformed_data]),
+                   np.array([row[1] for row in p.transformed_data])]
 
     def attr_changed(self):
         self.fit_transform()
         self.graph.reset_graph()
         self.commit()
 
-        for axis, var in (("bottom", "PCA component1"), ("left", "PCA component 2")):
-            self.graph.set_axis_title(axis, None)
+        for axis, title in (("bottom", "PCA component 1"), ("left", "PCA component 2")):
+            self.graph.set_axis_title(axis, title)
             self.graph.set_axis_labels(axis, None)
 
+    def get_label_data(self, formatter=None):
+        labels1 = labels2 = None
+        if self.attr_label:
+            label_data = self.get_column(self.attr_label)
+            labels1 = map(self.attr_label.str_val, label_data)
+        """Return the column corresponding to label data"""
+        if self.show_pseudotime_labels:
+            labels2 = np.char.mod('%.2f', self.p.pseudotime)
+        if (labels1 and labels2) is not None:
+            return ['{} {}'.format(a, b) for a, b in zip(labels1, labels2)]
+        else:
+            return labels1 or labels2
 
     def get_mst_data(self):
         return self.p.mst_coordinates
 
     def get_proj_lines_data(self):
-        return self.p.proj, self.xy
+        if self.draw_proj_lines:
+            return self.p.proj, self.xy[0], self.xy[1]
 
     def get_coordinates_data(self):
         return self.xy[0], self.xy[1]
 
     @Inputs.data_subset
     def set_subset_data(self, subset_data):
-        self.warning()
         pass
 
     def add_data(self, time=0.4):
@@ -293,15 +330,12 @@ class OWTrajectory(OWProjectionWidget):
             self.data = Table.concatenate((self.data, data), axis=0)
             self.handleNewSignals()
 
-
     def handle_new_signals(self):
         if self.data is None:
             return
         self.attr_changed()
-        self.graph.set_
         self.cb_class_density.setEnabled(self.can_draw_density())
         self.commit()
-
 
     def send_pseudotimes(self):
         pt = self.p.pseudotime
@@ -319,6 +353,9 @@ class OWTrajectory(OWProjectionWidget):
 
     def commit(self):
         self.send_pseudotimes()
+
+    def selection_changed(self):
+        pass
 
 
 if __name__ == '__main__':
