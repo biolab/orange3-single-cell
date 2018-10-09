@@ -16,7 +16,6 @@ import pyqtgraph as pg
 import Orange
 from Orange.data import Table, Domain, ContinuousVariable, DiscreteVariable
 from Orange.data.sql.table import SqlTable, AUTO_DL_LIMIT
-from Orange.preprocess.score import ReliefF, RReliefF
 
 from Orange.widgets import gui, report, widget
 from Orange.widgets.settings import (
@@ -28,7 +27,7 @@ from Orange.widgets.utils.annotated_data import (
 )
 from Orange.widgets.utils.itemmodels import DomainModel
 from Orange.widgets.visualize.owscatterplotgraph import (
-    OWScatterPlotGraph, OWScatterPlotBase, OWProjectionWidget, ScatterPlotItem
+    OWScatterPlotBase, OWProjectionWidget, ScatterPlotItem
 )
 from Orange.widgets.visualize.utils.plotutils import AnchorItem
 from Orange.widgets.visualize.utils import VizRankDialogAttrPair
@@ -42,9 +41,6 @@ DIM_REDUCTIONS = [
     ("PCA", Orange.projection.PCA),
     # ("UMAP", Orange.projection.UMAP),
 ]
-"""
-PULL REQUEST ZA PRVO VERZIJO
-"""
 
 
 class OWPseudotimeGraph(OWScatterPlotBase):
@@ -56,6 +52,7 @@ class OWPseudotimeGraph(OWScatterPlotBase):
         self.reg_line_item = None
         self.mst_coord = None
         self.proj_lines = None
+        self._mst = None
 
     def get_mst(self):
         self.mst_coord = self.master.get_mst_data()
@@ -73,15 +70,14 @@ class OWPseudotimeGraph(OWScatterPlotBase):
             self._mst_line.setPen(pen)
             self.plot_widget.addItem(self._mst_line)
         """
-        for x,_ in self._mst:
+        for x, _ in self._mst:
             centroid = ScatterPlotItem([x[0]], [x[1]])
             self.plot_widget.addItem(centroid)
         for a, b in self._mst:
-            self._mst_line = QGraphicsLineItem()
-            self._mst_line.setLine(*a, *b)
-            self._mst_line.setPen(pen)
-            self.plot_widget.addItem(self._mst_line)
-
+            mst_line = QGraphicsLineItem()
+            mst_line.setLine(*a, *b)
+            mst_line.setPen(pen)
+            self.plot_widget.addItem(mst_line)
             """
             axitem = AnchorItem(line=QLineF(*a, *b), text=None)
             #axitem.setVisible(np.linalg.norm(point) > r)
@@ -118,6 +114,7 @@ class OWPseudotimeGraph(OWScatterPlotBase):
         self.reg_line_item = None
         self.mst_coord = None
         self.proj_lines = None
+        self._mst = None
 
     def set_axis_labels(self, axis, labels):
         axis = self.plot_widget.getAxis(axis)
@@ -141,7 +138,6 @@ class OWTrajectory(OWProjectionWidget):
 
     class Inputs:
         data = Input("Data", Orange.data.Table, default=True)
-        data_subset = Input("Data Subset", Orange.data.Table)
 
     class Outputs:
         pseudotimes = Output("Pseudotimes", Orange.data.Table, default=True)
@@ -177,19 +173,11 @@ class OWTrajectory(OWProjectionWidget):
         self.graph = OWPseudotimeGraph(self, box)
         box.layout().addWidget(self.graph.plot_widget)
 
-        self.subset_data = None
-        self.subset_indices = None
         self.sql_data = None
         self.xy = None
         self.p = None
-        # self.data = None  # needed?
         self.__timer = QTimer(self, interval=1200)
         self.__timer.timeout.connect(self.add_data)
-
-        common_options = dict(
-            labelWidth=50, orientation=Qt.Horizontal, sendSelectedValue=True,
-            valueType=str, contentsLength=14
-        )
 
         box = gui.vBox(self.controlArea, "Controls")
         dmod = DomainModel
@@ -324,10 +312,6 @@ class OWTrajectory(OWProjectionWidget):
 
     def get_coordinates_data(self):
         return self.xy[0], self.xy[1]
-
-    @Inputs.data_subset
-    def set_subset_data(self, subset_data):
-        pass
 
     def add_data(self, time=0.4):
         if self.data and len(self.data) > 2000:
