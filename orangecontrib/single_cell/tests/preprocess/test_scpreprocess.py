@@ -117,7 +117,7 @@ class TestSelectMostVariableGenes(unittest.TestCase):
         pp_table = SelectMostVariableGenes(n_genes=2, n_groups=2)(table)
         self.assertIsInstance(pp_table, Table)
         self.assertNotEqual(pp_table, table)
-        npt.assert_array_equal(pp_table, table[:, [0, 2]])
+        npt.assert_array_equal(pp_table, table[:, :2])
 
     def test_options_dispersion(self):
         attrs, cls = self.data.domain.attributes, self.data.domain.class_vars
