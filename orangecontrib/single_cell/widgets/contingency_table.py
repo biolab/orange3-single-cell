@@ -126,6 +126,7 @@ class ContingencyTable(QTableView):
         self.headerh = None
         self.cleared = True
         self.parent = parent
+        self.default_cell_width = None
 
         self.corner_string = unicodedata.lookup("N-ARY SUMMATION")
 
@@ -288,8 +289,11 @@ class ContingencyTable(QTableView):
         """
         if self.circles:
             self.verticalHeader().setDefaultSectionSize(self.cell_size)
+            if self.default_cell_width is None:
+                self.default_cell_width = self.horizontalHeader().defaultSectionSize()
+            self.horizontalHeader().setDefaultSectionSize(self.default_cell_width)
             self.resizeRowToContents(1)
-            self.horizontalHeader().setDefaultSectionSize(self.rowHeight(2))
+            self.horizontalHeader().setDefaultSectionSize(self.cell_size)
             self.resizeColumnToContents(1)
             self.tablemodel.setRowCount(len(self.classesv) + 2)
             self.tablemodel.setColumnCount(len(self.classesh) + 2)
