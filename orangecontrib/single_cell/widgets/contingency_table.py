@@ -126,7 +126,6 @@ class ContingencyTable(QTableView):
         self.headerh = None
         self.cleared = True
         self.parent = parent
-        self.default_cell_width = None
 
         self.corner_string = unicodedata.lookup("N-ARY SUMMATION")
 
@@ -289,9 +288,10 @@ class ContingencyTable(QTableView):
         """
         if self.circles:
             self.verticalHeader().setDefaultSectionSize(self.cell_size)
-            if self.default_cell_width is None:
-                self.default_cell_width = self.horizontalHeader().defaultSectionSize()
-            self.horizontalHeader().setDefaultSectionSize(self.default_cell_width)
+            # If the following line is removed, VerticalItemDelegate.sizeHint()
+            # of the headers returns sizes which are too short and the
+            # headers are cut off.
+            self.horizontalHeader().setDefaultSectionSize(100)
             self.resizeRowToContents(1)
             self.horizontalHeader().setDefaultSectionSize(self.cell_size)
             self.resizeColumnToContents(1)
