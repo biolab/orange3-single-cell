@@ -240,21 +240,6 @@ class OWDotMatrix(widget.OWWidget):
         self.selection = self.tableview.get_selection()
         self.commit()
 
-    def send_report(self):
-        rows = None
-        columns = None
-        if self.data is not None:
-            rows = self.cluster_var
-            if rows in self.data.domain:
-                rows = self.data.domain[rows]
-            columns = self.columns
-            if columns in self.data.domain:
-                columns = self.data.domain[columns]
-        self.report_items((
-            ("Rows", rows),
-            ("Columns", columns),
-        ))
-
 
 def test():
     from AnyQt.QtWidgets import QApplication
