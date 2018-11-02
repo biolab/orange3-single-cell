@@ -8,7 +8,7 @@ import subprocess
 
 NAME = "Orange3-SingleCell"
 
-VERSION = "0.8.2"
+VERSION = "0.9.0"
 
 DESCRIPTION = "Add-on for bioinformatics analysis of single cell data"
 LONG_DESCRIPTION = open(path.join(path.dirname(__file__), 'README.md')).read()
