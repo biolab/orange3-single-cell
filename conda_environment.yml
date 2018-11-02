@@ -2,11 +2,10 @@ name: orange3-single-cell
 
 channels:
   - conda-forge
-  - bioconda
   - defaults
 
 dependencies:
-  - orange3-bioinformatics==3.2.0
+  - orange3-bioinformatics>=3.2.3
   - pandas>=0.23
   - fastdtw
   - loompy
