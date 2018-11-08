@@ -30,8 +30,6 @@ from Orange.widgets.utils.annotated_data import (
 )
 
 
-RE_FIND_INDEX = r"(^{} \()(\d{{1,}})(\)$)"
-
 tsne_cache = os.path.join(cache_dir(), "tsne")
 memory = Memory(tsne_cache, verbose=0, bytes_limit=1e8)
 memory.reduce_size()
