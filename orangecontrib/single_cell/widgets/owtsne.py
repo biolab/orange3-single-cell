@@ -1,13 +1,11 @@
 import os.path
-import re
 import sys
 
 import numpy as np
-from joblib.memory import Memory
-
-from AnyQt.QtWidgets import QFormLayout, QApplication
-from AnyQt.QtGui import QPainter
 from AnyQt.QtCore import Qt, QTimer
+from AnyQt.QtGui import QPainter
+from AnyQt.QtWidgets import QFormLayout, QApplication
+from joblib.memory import Memory
 
 try:
     from MulticoreTSNE import MulticoreTSNE
@@ -27,67 +25,25 @@ from Orange.canvas import report
 from Orange.widgets.visualize.owscatterplotgraph import OWScatterPlotGraph, InteractiveViewBox
 from Orange.widgets.widget import Msg, OWWidget, Input, Output
 from Orange.widgets.utils.annotated_data import (
-    create_annotated_table, create_groups_table, ANNOTATED_DATA_SIGNAL_NAME)
+    create_annotated_table, create_groups_table, ANNOTATED_DATA_SIGNAL_NAME,
+    get_unique_names,
+)
 
-
-RE_FIND_INDEX = r"(^{} \()(\d{{1,}})(\)$)"
 
 tsne_cache = os.path.join(cache_dir(), "tsne")
 memory = Memory(tsne_cache, verbose=0, bytes_limit=1e8)
 memory.reduce_size()
 
 
-###
-### TODO: When the next two functions are released in Orange, import from there
-
-def get_indices(names, name):
-    """
-    Return list of indices which occur in a names list for a given name.
-    :param names: list of strings
-    :param name: str
-    :return: list of indices
-    """
-    return [int(a.group(2)) for x in names
-            for a in re.finditer(RE_FIND_INDEX.format(name), x)]
-
-
-def get_unique_names(names, proposed):
-    """
-    Returns unique names of variables. Variables which are duplicate get appended by
-    unique index which is the same in all proposed variable names in a list.
-    :param names: list of strings
-    :param proposed: list of strings
-    :return: list of strings
-    """
-    if len([name for name in proposed if name in names]):
-        max_index = max([max(get_indices(names, name),
-                             default=1) for name in proposed], default=1)
-        for i, name in enumerate(proposed):
-            proposed[i] = "{} ({})".format(name, max_index + 1)
-    return proposed
-
-###
-###
-
-
 @memory.cache
-def cached_sklearn_tsne(X, perplexity, iter, init):
-    tsne = Orange.projection.TSNE(perplexity=perplexity, n_iter=iter,
-                                  early_exaggeration=1, n_iter_without_progress=50,
-                                  init=init, angle=.8, random_state=0)
-    tsnefit = tsne.fit(X)
-    return tsnefit.embedding_.astype(np.float32)  # Takes half the cache space
-
-
-@memory.cache
-def multicore_tsne(X, perplexity, iter, init):
-    tsne = MulticoreTSNE(n_iter=iter, perplexity=perplexity,
-                         angle=.8, n_jobs=-1, early_exaggeration=1,
-                         init=init, random_state=0)
-    return tsne.fit_transform(X).astype(np.float32)
-
-
-compute_tsne_embedding = multicore_tsne if MulticoreTSNE else cached_sklearn_tsne
+def compute_tsne_embedding(X, perplexity, iter, init):
+    negative_gradient_method = 'fft' if len(X) > 10000 else 'bh'
+    tsne = Orange.projection.TSNE(
+        perplexity=perplexity, n_iter=iter, initialization=init, theta=.8,
+        early_exaggeration_iter=0, negative_gradient_method=negative_gradient_method
+    )
+    tsne_model = tsne.fit(X)
+    return np.asarray(tsne_model, dtype=np.float32)
 
 
 class MDSInteractiveViewBox(InteractiveViewBox):
@@ -216,7 +172,7 @@ class OWtSNE(OWWidget):
 
         form.addRow(
             "Max iterations:",
-            gui.spin(box, self, "max_iter", 250, 2000, step=50))
+            gui.spin(box, self, "max_iter", 1, 2000, step=50))
 
         form.addRow(
             "Perplexity:",
@@ -395,7 +351,7 @@ class OWtSNE(OWWidget):
     def __start(self):
         self.pca_preprocessing()
         embedding = 'random' if self.embedding is None else self.embedding
-        step_size = self.max_iter
+        step_size = 50
 
         def update_loop(data, max_iter, step, embedding):
             """
