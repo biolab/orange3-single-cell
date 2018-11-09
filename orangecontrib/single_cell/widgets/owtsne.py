@@ -32,9 +32,11 @@ memory.reduce_size()
 @memory.cache
 def compute_tsne_embedding(X, perplexity, iter, init):
     negative_gradient_method = 'fft' if len(X) > 10000 else 'bh'
+    neighbor_method = 'approx' if len(X) > 10000 else 'exact'
     tsne = Orange.projection.TSNE(
         perplexity=perplexity, n_iter=iter, initialization=init, theta=.8,
-        early_exaggeration_iter=0, negative_gradient_method=negative_gradient_method
+        early_exaggeration_iter=0, negative_gradient_method=negative_gradient_method,
+        neighbors=neighbor_method,
     )
     tsne_model = tsne.fit(X)
     return np.asarray(tsne_model, dtype=np.float32)
