@@ -20,7 +20,7 @@ class OWscDataSets(Orange.widgets.data.owdatasets.OWDataSets):
     icon = "icons/SingleCellDatasets.svg"
     priority = 150
 
-    INDEX_URL = "http://datasets.orange.biolab.si/sc/"
+    INDEX_URL = "https://datasets.biolab.si/sc/"
     DATASET_DIR = "sc-datasets"
 
     HEADER_SCHEMA = [
