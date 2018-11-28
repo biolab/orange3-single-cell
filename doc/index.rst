@@ -12,5 +12,4 @@ Widgets
    widgets/scoregenes
    widgets/scorecells
    widgets/filter
-   widgets/tsne
    widgets/louvain
