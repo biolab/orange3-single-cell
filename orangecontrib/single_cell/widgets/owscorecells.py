@@ -115,8 +115,7 @@ class OWScoreCells(widget.OWWidget):
 
     def handleNewSignals(self):
         self.update_info_box()
-        if self.input_genes and self.marker_genes:
-            self.commit()
+        self.commit()
         
     def __check_organism_mismatch(self):
         """ Check if organisms from different inputs match.
@@ -130,7 +129,6 @@ class OWScoreCells(widget.OWWidget):
     def __clear_widget_state(self):
         self.Warning.clear()
         self.Error.clear()
-        self.Outputs.data.send(None)
 
     @Inputs.data
     @check_sql_input
@@ -248,11 +246,9 @@ class OWScoreCells(widget.OWWidget):
         self.marker_genes = set(filter(None, self.marker_genes))
 
     def commit(self):
-        if self.input_data is None:
-            self.Outputs.data.send(None)
-            return
+        table = None
 
-        if self.marker_data and self.marker_genes:
+        if self.marker_data and self.marker_genes and self.input_data:
             score = self.__score_cells()
 
             score_var = ContinuousVariable(self.score_variable_name)
@@ -264,7 +260,7 @@ class OWScoreCells(widget.OWWidget):
             col, sparse = table.get_column_view(score_var)
             col[:] = score
 
-            self.Outputs.data.send(table)
+        self.Outputs.data.send(table)
 
     def send_report(self):
         gene = None
