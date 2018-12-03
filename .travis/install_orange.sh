@@ -6,6 +6,7 @@ then
     pip install https://github.com/biolab/orange3/archive/master.zip
 else
     echo "Orange install for conda"
+    conda search Orange3
     conda install orange3
 
 fi
