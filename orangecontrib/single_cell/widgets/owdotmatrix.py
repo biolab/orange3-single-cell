@@ -130,14 +130,18 @@ class OWDotMatrix(widget.OWWidget):
         if self.data:
             self.feature_model.set_domain(self.data.domain)
             if self.feature_model:
+                self.Error.clear()
                 self.openContext(self.data)
                 if self.cluster_var is None:
                     self.cluster_var = self.feature_model[0]
                 self._calculate_table_values()
             else:
                 self.tableview.clear()
+                self.error("No discrete variables in data.")
+                self.data = None
         else:
             self.tableview.clear()
+            self.Error.clear()
 
     @staticmethod
     def _group_by(table: Table, var: DiscreteVariable):
@@ -246,7 +250,7 @@ def test():
     app = QApplication([])
 
     w = OWDotMatrix()
-    data = Table("iris")
+    data = Table("housing")
     w.set_data(data)
     w.handleNewSignals()
     w.show()
