@@ -9,5 +9,6 @@ export PATH="$HOME/miniconda/bin:$PATH"
 hash -r
 # update miniconda
 conda config --set always_yes yes --set changeps1 no
+conda config --add channels conda-forge
 conda update -q conda
 conda info -a
