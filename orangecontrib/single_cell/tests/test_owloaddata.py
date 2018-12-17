@@ -47,7 +47,7 @@ class TestOWLoadData(WidgetTest):
         file_name = os.path.join(self._path, "data.xlsx")
         self.widget.set_current_path(file_name)
         text = self.widget.summary_label.text()
-        self.assertEqual(text, "8.9 KB, 10 rows, 15 columns")
+        self.assertEqual(text, "8.9 KB, 11 rows, 15 columns")
         self._check_headers_and_row_labels_box((1, True, 1, True))
         self._check_input_data_structure_box((True, True, False, True))
         self._check_sample_data_box()

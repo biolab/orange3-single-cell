@@ -588,6 +588,11 @@ class PickleLoader(Loader):
 
 
 class ExcelLoader(Loader):
+    def __init__(self, file_name):
+        super().__init__(file_name)
+        self.header_rows_count = 1
+        self.header_cols_count = 1
+
     def _set_file_parameters(self):
         try:
             sheet = xlrd.open_workbook(self._file_name).sheet_by_index(0)
