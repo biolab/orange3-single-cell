@@ -50,6 +50,7 @@ class OWDotMatrix(widget.OWWidget):
     biclustering = ContextSetting(True)
     transpose = ContextSetting(False)
     log_scale = ContextSetting(False)
+    normalize = ContextSetting(True)
     cell_size_ix = ContextSetting(2)  # type: int
     selection = ContextSetting(set())
     auto_apply = Setting(True)
@@ -86,6 +87,8 @@ class OWDotMatrix(widget.OWWidget):
         gui.checkBox(box, self, "transpose", "Transpose",
                      callback=self._refresh_table)
         gui.checkBox(box, self, "log_scale", "Log scale",
+                     callback=self._refresh_table)
+        gui.checkBox(box, self, "normalize", "Normalize data",
                      callback=self._refresh_table)
 
         box = gui.vBox(self.controlArea, "Plot Size")
@@ -189,8 +192,16 @@ class OWDotMatrix(widget.OWWidget):
             if self.matrix.size > 0:
                 matrix = self.matrix
                 if self.log_scale:
-                    matrix = np.log(matrix + 1 - matrix.min())
-                matrix = matrix / matrix.max()
+                    matrix = np.log(matrix + 1)
+                if self.normalize:
+                    matrix = (matrix - np.mean(matrix, axis=0, keepdims=True)) / np.std(matrix, axis=0, keepdims=True)
+                    matrix[matrix < -3] = -3
+                    matrix[matrix > 3] = 3
+                    matrix = matrix - matrix.min(axis=0, keepdims=True)
+                    matrix = matrix / matrix.max(axis=0, keepdims=True)
+                else:
+                    matrix = matrix - matrix.min()
+                    matrix = matrix / matrix.max()
                 if self.transpose:
                     matrix = matrix.T
 
