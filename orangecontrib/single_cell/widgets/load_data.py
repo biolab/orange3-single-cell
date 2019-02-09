@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import scipy.io
 import loompy as lp
+import xlrd
 
 from Orange.data import (
     ContinuousVariable, DiscreteVariable, StringVariable, Domain, Table
@@ -587,6 +588,20 @@ class PickleLoader(Loader):
 
 
 class ExcelLoader(Loader):
+    def __init__(self, file_name):
+        super().__init__(file_name)
+        self.header_rows_count = 1
+        self.header_cols_count = 1
+
+    def _set_file_parameters(self):
+        try:
+            sheet = xlrd.open_workbook(self._file_name).sheet_by_index(0)
+            self.n_cols = sheet.ncols
+            self.n_rows = sheet.nrows
+            self._set_sparsity()
+        except Exception:
+            pass
+
     @staticmethod
     def df_read_func(*args, **kwargs):
         return pd.read_excel(*args, **kwargs)

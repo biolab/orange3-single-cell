@@ -75,7 +75,7 @@ class TestLoadData(unittest.TestCase):
         file_name = os.path.join(os.path.dirname(__file__), "data/data.xlsx")
         loader = ExcelLoader(file_name)
         self.assertEqual(loader.file_size, 9160)
-        self.assertEqual(loader.n_rows, 10)
+        self.assertEqual(loader.n_rows, 11)
         self.assertEqual(loader.n_cols, 15)
         self.assertEqual(round(loader.sparsity, 2), 0.86)
 
