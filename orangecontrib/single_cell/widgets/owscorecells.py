@@ -114,8 +114,10 @@ class OWScoreCells(widget.OWWidget):
         return QSize(320, 240)
 
     def handleNewSignals(self):
+        self.Outputs.data.send(None)
         self.update_info_box()
-        self.commit()
+        if self.input_genes is not None and self.marker_genes is not None:
+            self.commit()
         
     def __check_organism_mismatch(self):
         """ Check if organisms from different inputs match.
