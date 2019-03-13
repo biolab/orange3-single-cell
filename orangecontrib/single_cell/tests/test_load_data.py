@@ -5,9 +5,11 @@ import numpy as np
 import numpy.testing as npt
 import pandas as pd
 
+from Orange.data import DiscreteVariable, StringVariable
+
 from orangecontrib.single_cell.widgets.load_data import (
     LoomLoader, ExcelLoader, MtxLoader, CountLoader, Loader, PickleLoader,
-    get_data_loader, Concatenate
+    CsvLoader, get_data_loader, Concatenate
 )
 
 
@@ -134,6 +136,21 @@ class TestLoadData(unittest.TestCase):
         copied = loader.copy()
         self.assertIsInstance(copied, Loader)
         self.assertTrue(copied.sample_rows_enabled)
+
+    def test_guess_metas_type(self):
+        file_name = os.path.join(os.path.dirname(__file__), "data/data.csv")
+        loader = CsvLoader(file_name)
+        loader.header_rows_count = 1
+        loader.header_cols_count = 3
+        data = loader()
+        self.assertEqual(data.domain.metas[0].name, "level_0")
+        self.assertIsInstance(data.domain.metas[0], StringVariable)
+        self.assertEqual(data.domain.metas[1].name, "barcode")
+        self.assertIsInstance(data.domain.metas[1], StringVariable)
+        self.assertEqual(data.domain.metas[2].name, "cluster")
+        self.assertIsInstance(data.domain.metas[2], DiscreteVariable)
+        arr = np.array(["cell_0001", "AAGTGAAAG-CGACTCCT", 1], dtype=object)
+        npt.assert_array_equal(data.metas[0], arr)
 
 
 class TestConcatenate(unittest.TestCase):

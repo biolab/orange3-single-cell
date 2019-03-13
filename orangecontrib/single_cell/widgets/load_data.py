@@ -10,9 +10,12 @@ import loompy as lp
 import xlrd
 
 from Orange.data import (
-    ContinuousVariable, DiscreteVariable, StringVariable, Domain, Table
+    ContinuousVariable, DiscreteVariable, Domain, Table
 )
-from Orange.data.io import Compression, open_compressed, PickleReader
+from Orange.data.io import (
+    Compression, open_compressed, PickleReader,
+    guess_data_type, sanitize_variable
+)
 from Orange.widgets.utils.filedialogs import RecentPath
 
 
@@ -408,9 +411,7 @@ class Loader:
             if meta_parts:
                 meta_parts = [df_.reset_index() if not df_.index.is_integer()
                               else df_ for df_ in meta_parts]
-                metas = [StringVariable.make(name)
-                         for name in chain(*(_.columns for _ in meta_parts))]
-                M = np.hstack(tuple(df_.values for df_ in meta_parts))
+                metas, M = self.__guess_metas(meta_parts)
 
             domain = Domain(attrs, metas=metas)
             table = Table.from_numpy(domain, X, None, M)
@@ -420,6 +421,20 @@ class Loader:
             cols = self.leading_rows if self.transposed else self.leading_cols
             self.errors["inadequate_headers"] = (rows, cols)
         return table
+
+    @staticmethod
+    def __guess_metas(meta_parts):
+        def guessed_var(i, var_name):
+            orig_values = M[:, i]
+            val_map, values, var_type = guess_data_type(orig_values)
+            values, variable = sanitize_variable(
+                val_map, values, orig_values, var_type, {}, name=var_name)
+            M[:, i] = values
+            return variable
+
+        M = np.hstack(tuple(df_.values for df_ in meta_parts))
+        return [guessed_var(i, name) for i, name in
+                enumerate(chain(*(_.columns for _ in meta_parts)))], M
 
     def __reset_error_messages(self):
         self.errors = {"row_annot_mismatch": (),
