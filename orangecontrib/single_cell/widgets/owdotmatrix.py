@@ -68,6 +68,8 @@ class OWDotMatrix(widget.OWWidget):
         self.gene_order = None
         self.rows = None
         self.columns = None
+        self.ordered_clusters = None
+        self.ordered_genes = None
         self.feature_model = DomainModel(valid_types=DiscreteVariable)
 
         box = gui.vBox(self.controlArea, "Info")
@@ -129,6 +131,8 @@ class OWDotMatrix(widget.OWWidget):
         self.gene_order = None
         self.rows = None
         self.columns = None
+        self.ordered_clusters = None
+        self.ordered_genes = None
 
         if self.data:
             self.feature_model.set_domain(self.data.domain)
@@ -205,11 +209,14 @@ class OWDotMatrix(widget.OWWidget):
                 if self.transpose:
                     matrix = matrix.T
 
-                def tooltip(i,j):
+                self.ordered_clusters = np.array(self.clusters)[self.cluster_order]
+                self.ordered_genes = np.array(self.genes)[self.gene_order]
+
+                def tooltip(i, j):
                     if not self.transpose:
-                        cluster, gene, value = self.clusters[i], self.genes[j], self.matrix[i,j]
+                        cluster, gene, value = self.ordered_clusters[i], self.ordered_genes[j], self.matrix[i, j]
                     else:
-                        cluster, gene, value = self.clusters[j], self.genes[i], self.matrix[j,i]
+                        cluster, gene, value = self.ordered_clusters[j], self.ordered_genes[i], self.matrix[j, i]
                     return "Cluster: {}\nGene: {}\n{}: {:.1f}".format(
                         cluster, gene, self.AGGREGATE_NAME[self.aggregate_ix], value)
 
