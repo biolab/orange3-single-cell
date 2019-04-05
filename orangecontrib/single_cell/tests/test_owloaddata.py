@@ -4,7 +4,7 @@ import numpy as np
 import numpy.testing as npt
 import pandas as pd
 
-from Orange.data import ContinuousVariable
+from Orange.data import ContinuousVariable, Variable
 from Orange.widgets.data.owtable import OWDataTable
 from Orange.widgets.tests.base import WidgetTest
 
@@ -13,6 +13,7 @@ from orangecontrib.single_cell.widgets.owloaddata import OWLoadData
 
 class TestOWLoadData(WidgetTest):
     def setUp(self):
+        Variable._clear_all_caches()
         self.widget = self.create_widget(OWLoadData)
         self._path = os.path.join(os.path.dirname(__file__), "data")
 
@@ -193,6 +194,8 @@ class TestOWLoadData(WidgetTest):
         self._test_load_data_x(data.X, df)
         file_name = os.path.join(self._path, "lib.cell.meta")
         df = pd.read_csv(file_name, header=0, sep="\t", index_col=None)
+        df.iloc[:, [1, 3]] = 0
+        df.iloc[:, 6] = [0, 2, 0, 2, 0, 2, 0, 1, 0, 1]
         self._test_load_data_metas(data.metas, df)
 
     def test_load_data_hhmi_sample(self):
@@ -212,6 +215,9 @@ class TestOWLoadData(WidgetTest):
         file_name = os.path.join(self._path, "lib.cell.meta")
         df = pd.read_csv(file_name, header=0, sep="\t", index_col=None,
                          skiprows=[4, 6, 8, 9, 10])
+        df.iloc[:, [1, 3]] = 0
+        df.iloc[:, 5] = [1, 0, 1, 1, 1]
+        df.iloc[:, 6] = [0, 1, 0, 0, 0]
         self._test_load_data_metas(data.metas, df)
 
     def test_load_data_loom_sample(self):
