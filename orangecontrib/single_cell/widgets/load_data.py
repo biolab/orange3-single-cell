@@ -10,7 +10,7 @@ import loompy as lp
 import xlrd
 
 from Orange.data import (
-    ContinuousVariable, DiscreteVariable, Domain, Table
+    ContinuousVariable, DiscreteVariable, Domain, Table, StringVariable
 )
 from Orange.data.io import (
     Compression, open_compressed, PickleReader,
@@ -424,7 +424,9 @@ class Loader:
 
     @staticmethod
     def __guess_metas(meta_parts):
-        def guessed_var(i, var_name):
+        def guessed_var(i, var_name, dtype):
+            if np.issubdtype(dtype, np.number):
+                return ContinuousVariable.make(var_name)
             orig_values = M[:, i]
             val_map, values, var_type = guess_data_type(orig_values)
             values, variable = sanitize_variable(
@@ -433,8 +435,9 @@ class Loader:
             return variable
 
         M = np.hstack(tuple(df_.values for df_ in meta_parts))
-        return [guessed_var(i, name) for i, name in
-                enumerate(chain(*(_.columns for _ in meta_parts)))], M
+        return [guessed_var(i, name, dtype) for i, (name, dtype) in
+                enumerate(zip(chain(*(_.columns for _ in meta_parts)),
+                              chain(*(_.dtypes for _ in meta_parts))))], M
 
     def __reset_error_messages(self):
         self.errors = {"row_annot_mismatch": (),
