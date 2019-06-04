@@ -288,8 +288,12 @@ class ContingencyTable(QTableView):
         """
         if self.circles:
             self.verticalHeader().setDefaultSectionSize(self.cell_size)
+            # If the following line is removed, VerticalItemDelegate.sizeHint()
+            # of the headers returns sizes which are too short and the
+            # headers are cut off.
+            self.horizontalHeader().setDefaultSectionSize(100)
             self.resizeRowToContents(1)
-            self.horizontalHeader().setDefaultSectionSize(self.rowHeight(2))
+            self.horizontalHeader().setDefaultSectionSize(self.cell_size)
             self.resizeColumnToContents(1)
             self.tablemodel.setRowCount(len(self.classesv) + 2)
             self.tablemodel.setColumnCount(len(self.classesh) + 2)
