@@ -9,7 +9,6 @@ Widgets
 
    widgets/load_data
    widgets/single_cell_datasets
-   widgets/marker_genes
    widgets/filter
    widgets/single_cell_preprocess
    widgets/batch_effect_removal
