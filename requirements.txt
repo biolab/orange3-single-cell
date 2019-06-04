@@ -1,5 +1,5 @@
-Orange3>=3.18.0
-orange3-bioinformatics>=3.2.6
+Orange3>=3.21.0
+orange3-bioinformatics>=3.3.0
 joblib>=0.11
 networkx
 pandas>=0.23
