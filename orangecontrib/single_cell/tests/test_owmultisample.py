@@ -16,6 +16,7 @@ def get_sample_workflow_dir():
 
 
 class TestOWMultiSample(WidgetTest):
+
     def setUp(self):
         self.widget = self.create_widget(
             OWMultiSample, stored_settings={"auto_commit": True}
@@ -29,6 +30,10 @@ class TestOWMultiSample(WidgetTest):
         model.item(0).setCheckState(True)
         model.item(1).setCheckState(True)
         self.widget.commit()
+
+    def test_minimum_size(self):
+        # Override Orange's default limit
+        self.assertLess(self.widget.minimumSizeHint().width(), 900)
 
     def test_load_samples(self):
         self.assertEqual(self.widget.view.model().rowCount(), 2)
