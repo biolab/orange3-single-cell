@@ -15,7 +15,7 @@ keyrings.alt==2.2
 numpy==1.12.1
 PyQt5==5.9
 pyqtgraph==0.10.0
-scikit-learn==0.18.2
+scikit-learn>=0.20.0
 scipy==0.19.1
 sip==4.19.3
 six==1.10.0
