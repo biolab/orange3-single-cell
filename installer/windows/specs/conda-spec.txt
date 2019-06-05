@@ -82,4 +82,4 @@ https://conda.anaconda.org/conda-forge/noarch/slumber-0.7.1-py_1.tar.bz2#8e39d52
 https://conda.anaconda.org/conda-forge/noarch/genesis-pyapi-1.2.1-py_0.tar.bz2#e12da73905dfef3531cfaefc2908586f
 https://conda.anaconda.org/conda-forge/win-64/orange3-3.21.0-py37h6538335_0.tar.bz2#64006d1dd68b7a5e17d4fb1031bedb47
 https://conda.anaconda.org/conda-forge/noarch/orange3-bioinformatics-3.3.0-py_0.tar.bz2#a8be919c1a0d18e59ba0df90e0d75f2f
-https://conda.anaconda.org/conda-forge/noarch/orange3-singlecell-0.9.5-py_0.tar.bz2#6bd2734642d93a7a549eaf14cf5921b6
+# https://conda.anaconda.org/conda-forge/noarch/orange3-singlecell-0.9.5-py_0.tar.bz2#6bd2734642d93a7a549eaf14cf5921b6

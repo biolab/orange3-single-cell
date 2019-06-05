@@ -26,13 +26,13 @@ echo "$CONDA_PACKAGE" >> $NEW_SPEC
   --online=no \
   --dist-dir $DIST
 
-# Sign the installer
-VERSION=$( echo $CONDA_PACKAGE | sed -n 's/.*-\([0-9.]*\)-.*/\1/p' )
-signcode \
-  -spc ~/Desktop/ulfri.spc \
-  -v ~/Desktop/ulfri.pvk \
-  -a sha1 \
-  -t http://timestamp.verisign.com/scripts/timstamp.dll \
-  -n scOrange \
-  -i http://singlecell.biolab.si \
-  "$DIST/scOrange-$VERSION-Miniconda-x86_64.exe"
+## Sign the installer
+#VERSION=$( echo $CONDA_PACKAGE | sed -n 's/.*-\([0-9.]*\)-.*/\1/p' )
+#signcode \
+#  -spc ~/Desktop/ulfri.spc \
+#  -v ~/Desktop/ulfri.pvk \
+#  -a sha1 \
+#  -t http://timestamp.verisign.com/scripts/timstamp.dll \
+#  -n scOrange \
+#  -i http://singlecell.biolab.si \
+#  "$DIST/scOrange-$VERSION-Miniconda-x86_64.exe"

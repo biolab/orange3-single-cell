@@ -45,8 +45,8 @@ DISTDIR=
 CACHEDIR=
 
 # Python version in the Miniconda installer.
-MINICONDA_VERSION=4.3.14
-PYTHON_VERSION=3.6.0
+MINICONDA_VERSION=4.5.11
+PYTHON_VERSION=3.7.0
 
 PLATTAG=win_amd64
 
@@ -341,6 +341,7 @@ EOF
              -DINSTALL_REGISTRY_KEY=scOrange \
              -DINSTALLERICON="$(dirname "$0")"/OrangeInstall.ico \
              -DLICENSE_FILE="${BASEDIR}"/license.txt \
+             -DLAUNCHERMODULE="orangecontrib.single_cell" \
              "${extransisparams[@]}" \
              -NOCD \
              -V4 -WX \
