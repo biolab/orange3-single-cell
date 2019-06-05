@@ -375,4 +375,5 @@ cp "${CACHEDIR:?}/miniconda/Miniconda3-${MINICONDA_VERSION}-Windows-${CONDAPLATT
 
 mkdir -p "${BASEDIR:?}/icons"
 cp "$(dirname "$0")"/{scOrange.ico,OrangeOWS.ico} "${BASEDIR:?}/icons"
+cp "$(dirname "$0")"/sitecustomize.py "${BASEDIR:?}"/conda-pkgs
 make-installer
