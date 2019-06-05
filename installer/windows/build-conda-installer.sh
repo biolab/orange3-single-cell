@@ -361,8 +361,8 @@ else
     conda-fetch-packages "${BASEDIR:?}"/conda-pkgs "${ENV_SPEC_FILE}"
     # extract the orange version from env spec
     VERSION=$(cat < "${BASEDIR:?}"/conda-pkgs/conda-spec.txt |
-              grep -E 'orange3-single-cell.*tar.bz2' |
-              cut -d "-" -f 4)
+              grep -E 'orange3-singlecell.*tar.bz2' |
+              cut -d "-" -f 3)
 fi
 
 if [[ ! "${VERSION}" ]]; then
