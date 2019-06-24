@@ -842,11 +842,17 @@ def welcome_dialog_paged(self):
             window.activateWindow()
         window.set_new_scheme(wf)
 
+    def open_url(url):
+        return QDesktopServices.openUrl(QUrl(url))
+
     def on_clicked(button):
         current = dlg.currentIndex()
         path = None
         open_workflow_file = None
-        if current in {PageTemplates, PageWelcome}:
+
+        if current == PageWelcome:
+            open_workflow_file = open_url
+        elif current == PageTemplates:
             open_workflow_file = open_example_workflow
         elif current == PageRecent:
             open_workflow_file = self.open_scheme_file
