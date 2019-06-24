@@ -1,3 +1,5 @@
+import os
+
 from types import SimpleNamespace
 
 import pkg_resources
@@ -24,9 +26,11 @@ def welcome_screen_specs():
     -------
     spec : WelcomeScreenSpecs
     """
-    def workflow_filename(filename):
-        return pkg_resources.resource_filename(
-            "orangecontrib.single_cell.tutorials", filename)
+    base_url = 'https://singlecell.biolab.si/home/'
+
+    # def workflow_filename(filename):
+    #     return pkg_resources.resource_filename(
+    #         "orangecontrib.single_cell.tutorials", filename)
 
     def image_filename(filename):
         return pkg_resources.resource_filename(
@@ -34,21 +38,21 @@ def welcome_screen_specs():
 
     items = [
         WelcomeScreenSpecs.Item(
-            path=workflow_filename("Showcase-CellType.ows"),
+            path=os.path.join(base_url, "explore_the_diversity_of_cells"),
             icon=image_filename("CellTypeDiscovery.svg"),
             active_icon=image_filename("CellTypeDiscoveryColor.svg"),
             text="Cell Type Discovery",
             tooltip="Use Louvain clustering and tSNE to find cell types",
         ),
         WelcomeScreenSpecs.Item(
-            path=workflow_filename("Showcase-Markers.ows"),
+            path=os.path.join(base_url, "discover_new_marker_genes"),
             icon=image_filename("Biomarkers.svg"),
             active_icon=image_filename("BiomarkersColor.svg"),
             text="Biomarkers",
             tooltip="Visualize markers on tSNE plot"
         ),
         WelcomeScreenSpecs.Item(
-            path=workflow_filename("Showcase-Prediction.ows"),
+            path=os.path.join(base_url, "predict_new_cell"),
             icon=image_filename("PopulationPrediction.svg"),
             active_icon=image_filename("PopulationPredictionColor.svg"),
             text="Population Prediction",
