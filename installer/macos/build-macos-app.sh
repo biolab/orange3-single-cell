@@ -73,7 +73,7 @@ APPDIR=${1:?"Target APPDIR argument is missing"}
 PYVER=${PYTHON_VERSION%.*}  # Major.Minor
 
 if [[ ${#PIP_REQ_ARGS[@]} -eq 0 ]]; then
-    PIP_REQ_ARGS+=( Orange3 -r "${DIR}"/requirements.txt )
+    PIP_REQ_ARGS+=( -r "${DIR}"/requirements.txt)
 fi
 
 mkdir -p "${APPDIR}"/Contents/MacOS
@@ -95,7 +95,7 @@ ln -fs ../Frameworks/Python.framework/Versions/${PYVER}/bin/python${PYVER} \
     "${APPDIR}"/Contents/MacOS/python
 
 "${APPDIR}"/Contents/MacOS/python -m ensurepip
-"${APPDIR}"/Contents/MacOS/python -m pip install pip~=9.0 wheel
+"${APPDIR}"/Contents/MacOS/python -m pip install --upgrade pip wheel
 
 # Python 3.6 on macOS no longer links the obsolete system libssl.
 # Instead it builds/ships a it's own which expects a cert.pem in hardcoded

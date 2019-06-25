@@ -1,5 +1,5 @@
 {% set data = load_setup_py_data() %}
-{% set name = "orange3-single-cell" %}
+{% set name = "orange3-singlecell" %}
 {% set version = data['version'] %}
 
 package:

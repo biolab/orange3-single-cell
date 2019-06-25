@@ -16,7 +16,7 @@ sed '/^file/ d' \
   "$INSTALLER/windows/specs/conda-spec.txt" \
   > $NEW_SPEC 
 CONDA_PACKAGE=$( find "$BUILD/conda" \
-  -name "orange3-single-cell*" \
+  -name "orange3-singlecell*" \
   -exec echo "file://{}" \; )
 echo "$CONDA_PACKAGE" >> $NEW_SPEC
 
