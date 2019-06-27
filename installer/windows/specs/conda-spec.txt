@@ -67,7 +67,7 @@ https://conda.anaconda.org/conda-forge/win-64/matplotlib-base-3.1.0-py37h2852a4a
 https://conda.anaconda.org/conda-forge/noarch/networkx-2.3-py_0.tar.bz2#1c816d18df2389a9e59e44c6f2bec757
 https://conda.anaconda.org/conda-forge/win-64/pandas-0.24.2-py37he350917_0.tar.bz2#a122d8bbd04f54c6ffbecabc4b0e3ca7
 https://conda.anaconda.org/conda-forge/noarch/pyqtgraph-0.10.0-py_5.tar.bz2#e7b77f5245900166404714b97db6a728
-https://conda.anaconda.org/conda-forge/win-64/scikit-learn-0.21.2-py37h0ff8352_0.tar.bz2#b0da9fe116076cecbccfa19fd21a35be
+https://conda.anaconda.org/conda-forge/win-64/scikit-learn-0.21.2-py37h7208079_1.tar.bz2#16afeee6dd3bbe1562be90894db21204
 https://repo.anaconda.com/pkgs/main/win-64/wheel-0.33.4-py37_0.tar.bz2#3af12b81202a646b264110460fd03fab
 https://conda.anaconda.org/conda-forge/noarch/loompy-2.0.17-py_0.tar.bz2#496b1b8bab5a5c92616cf5595f096252
 https://conda.anaconda.org/conda-forge/win-64/matplotlib-3.1.0-py37_1.tar.bz2#9d1dbbe4a523fd83fb657d9022765702
@@ -82,5 +82,5 @@ https://conda.anaconda.org/conda-forge/noarch/requests-cache-0.5.0-py_0.tar.bz2#
 https://conda.anaconda.org/conda-forge/noarch/serverfiles-0.3.0-py_0.tar.bz2#a7e7b6240155d84040d62e12c5e34eec
 https://conda.anaconda.org/conda-forge/noarch/slumber-0.7.1-py_1.tar.bz2#8e39d52a90caa434fa02f63c161cfdf7
 https://conda.anaconda.org/conda-forge/noarch/genesis-pyapi-1.2.1-py_0.tar.bz2#e12da73905dfef3531cfaefc2908586f
-https://conda.anaconda.org/conda-forge/win-64/orange3-3.21.0-py37h6538335_0.tar.bz2#64006d1dd68b7a5e17d4fb1031bedb47
+https://conda.anaconda.org/conda-forge/win-64/orange3-3.22.0-py37h6538335_0.tar.bz2#2a6979cbd6272d7a5d37864268c39766
 https://conda.anaconda.org/conda-forge/noarch/orange3-bioinformatics-3.4.0-py_1.tar.bz2#424f251116123136c1b3e1e48312fd23
