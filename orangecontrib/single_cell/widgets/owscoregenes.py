@@ -5,38 +5,51 @@ Rank
 Rank (score) features for prediction.
 
 """
+import logging
+import numpy as np
+
 
 from collections import namedtuple, OrderedDict
-import logging
 from functools import partial
 from itertools import chain
-
-import numpy as np
 from scipy.sparse import issparse
 
+from AnyQt.QtCore import Qt, QItemSelection, QItemSelectionRange, QItemSelectionModel
 from AnyQt.QtGui import QFontMetrics
 from AnyQt.QtWidgets import (
-    QTableView, QRadioButton, QButtonGroup, QGridLayout,
-    QStackedWidget, QHeaderView, QCheckBox, QItemDelegate,
-)
-from AnyQt.QtCore import (
-    Qt, QItemSelection, QItemSelectionRange, QItemSelectionModel,
+    QTableView,
+    QRadioButton,
+    QButtonGroup,
+    QGridLayout,
+    QStackedWidget,
+    QHeaderView,
+    QCheckBox,
+    QItemDelegate,
 )
 
-from Orange.data import (Table, Domain, ContinuousVariable, DiscreteVariable,
-                         StringVariable, Variable)
+
+from Orange.data import (
+    Table,
+    Domain,
+    ContinuousVariable,
+    DiscreteVariable,
+    StringVariable,
+    Variable,
+)
 from Orange.misc.cache import memoize_method
 from Orange.preprocess import score
-from Orange.canvas import report
+from Orange.widgets import report
 from Orange.widgets import gui
-from Orange.widgets.settings import (DomainContextHandler, Setting,
-                                     ContextSetting)
+from Orange.widgets.settings import DomainContextHandler, Setting, ContextSetting
 from Orange.widgets.utils.itemmodels import PyTableModel
 from Orange.widgets.utils.sql import check_sql_input
 from Orange.widgets.widget import OWWidget, Msg, Input, Output
 
 from orangecontrib.bioinformatics.widgets.utils.data import (
-    TAX_ID, GENE_AS_ATTRIBUTE_NAME, GENE_ID_COLUMN, GENE_ID_ATTRIBUTE
+    TAX_ID,
+    GENE_AS_ATTRIBUTE_NAME,
+    GENE_ID_COLUMN,
+    GENE_ID_ATTRIBUTE,
 )
 
 
