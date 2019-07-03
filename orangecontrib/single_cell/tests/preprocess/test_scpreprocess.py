@@ -106,7 +106,7 @@ class TestStandardize(unittest.TestCase):
 class TestSelectMostVariableGenes(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        data = Table("dermatology")
+        data = Table("../data/dermatology.tab")
         cls.data = data.transform(Domain(data.domain.attributes[:-1],
                                          data.domain.class_vars))
         cls.variance = np.nanvar(cls.data.X, axis=0)
