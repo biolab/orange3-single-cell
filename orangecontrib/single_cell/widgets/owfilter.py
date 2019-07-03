@@ -766,6 +766,7 @@ class OWFilter(widget.OWWidget):
     def onDeleteWidget(self):
         self.clear()
         self._plot.close()
+        self._view.scene().clear()
         super().onDeleteWidget()
 
     @classmethod
