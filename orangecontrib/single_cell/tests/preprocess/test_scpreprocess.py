@@ -1,5 +1,5 @@
+import os
 import unittest
-
 import numpy as np
 import numpy.testing as npt
 
@@ -106,7 +106,8 @@ class TestStandardize(unittest.TestCase):
 class TestSelectMostVariableGenes(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        data = Table("dermatology")
+        path = os.path.join(os.path.dirname(__file__), '..', "data")
+        data = Table(os.path.join(path, 'dermatology.tab'))
         cls.data = data.transform(Domain(data.domain.attributes[:-1],
                                          data.domain.class_vars))
         cls.variance = np.nanvar(cls.data.X, axis=0)
