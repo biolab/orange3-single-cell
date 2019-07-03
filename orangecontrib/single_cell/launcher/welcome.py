@@ -19,17 +19,16 @@ from AnyQt.QtGui import (
     QStandardItemModel, QStandardItem, QDesktopServices,
     QKeySequence)
 
-from AnyQt.QtCore import (  # pylint: disable=unused-import
+from AnyQt.QtCore import (
     Qt, QEvent, QRect, QSize, QPoint, QModelIndex, QItemSelectionModel, QUrl,
     QSettings)
 from AnyQt.QtCore import pyqtSignal as Signal, pyqtProperty as Property
-from Orange.canvas.application import workflows
-from Orange.canvas.application.canvasmain import canvas_icons, CanvasMainWindow
+from orangecanvas.application import examples
+from orangecanvas.application.canvasmain import canvas_icons, CanvasMainWindow
 
-from Orange.canvas.gui.dropshadow import DropShadowFrame
-from Orange.canvas.canvas.items.utils import radial_gradient
-from Orange.canvas.preview import previewbrowser, previewmodel
-from Orange.canvas import config
+from orangecanvas.gui.dropshadow import DropShadowFrame
+from orangecanvas.preview import previewbrowser, previewmodel
+from orangecanvas import config
 
 from orangecontrib.single_cell.launcher.config import welcome_screen_specs
 from orangecontrib.single_cell.launcher.iconview import LinearIconView
@@ -742,8 +741,8 @@ def welcome_dialog_paged(self):
     PageWelcome = dlg.addPage(
         sc_icon("Welcome.svg"), "Welcome", main
     )
-    examples = workflows.example_workflows()
-    items = [previewmodel.PreviewItem(path=t.abspath()) for t in examples]
+    examples_ = examples.workflows(config.default)
+    items = [previewmodel.PreviewItem(path=t.abspath()) for t in examples_]
     model = previewmodel.PreviewModel(items=items)
     model.delayedScanUpdate()
     browser = previewbrowser.PreviewBrowser()
