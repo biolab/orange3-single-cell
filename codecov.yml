@@ -1,10 +1,14 @@
 comment:
-  layout: header, diff, changes, sunburst, uncovered
+  layout: header, changes, diff, sunburst, uncovered
 coverage:
   status:
     patch:
       default:
-        target: '80'
+        target: '85'
     project:
       default:
-        target: auto
+target: auto
+
+codecov:
+  ci:
+    - dev.azure.com

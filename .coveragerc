@@ -10,8 +10,13 @@ omit =
 [report]
 exclude_lines =
     pragma: no cover
-    raise NotImplementedError
-    if __name__ == .__main__.:
+    def __repr__
 
-[html]
-directory = coverage_html_report
+	# Don't complain if tests don't hit defensive assertion code:
+    raise AssertionError
+    raise NotImplementedError
+
+
+	# Don't complain if non-runnable code isn't run:
+    if 0:
+    if __name__ == .__main__.:

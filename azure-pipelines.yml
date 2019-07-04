@@ -1,19 +1,19 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
 trigger:
 - master
 
-pool:
-  vmImage: 'ubuntu-latest'
+jobs:
 
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+- template: .azure-pipelines/jobs.yml
+  parameters:
+    name: Linux
+    vmImage: 'ubuntu-16.04'
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+- template: .azure-pipelines/jobs.yml
+  parameters:
+    name: macOS
+    vmImage: 'macOS-10.14'
+
+- template: .azure-pipelines/jobs.yml
+  parameters:
+    name: Windows
+    vmImage: 'windows-2019'
