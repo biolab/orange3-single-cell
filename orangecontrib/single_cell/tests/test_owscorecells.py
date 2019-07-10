@@ -66,7 +66,7 @@ class TestOWScoreCells(WidgetTest):
         # output data
         self.widget.commit()
         out_data = self.get_output(self.widget.Outputs.data)
-        self.assertIsNone(out_data)
+        self.assertTrue(np.all(out_data.get_column_view('Score')[0] == 1.))
 
 
 if __name__ == '__main__':
