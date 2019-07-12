@@ -197,27 +197,30 @@ class OWScoreCells(widget.OWWidget):
             self.__get_marker_genes()
 
     def __score_cells(self):
-        scores = np.zeros(len(self.input_data))
+        scores = np.ones(len(self.input_data))
 
-        matched_ids = [gene_id for gene_id in self.input_genes if gene_id in self.marker_genes]
-        matched_columns = [column for column in self.input_data.domain.attributes
-                           if self.gene_id_attribute in column.attributes and
-                           str(column.attributes[self.gene_id_attribute]) in matched_ids]
+        if self.marker_data and self.marker_genes and \
+                self.input_data and self.input_genes:
 
-        self.Warning.no_genes.clear()
-        self.Warning.some_genes.clear()
+            matched_ids = [gene_id for gene_id in self.input_genes if gene_id in self.marker_genes]
+            matched_columns = [column for column in self.input_data.domain.attributes
+                               if self.gene_id_attribute in column.attributes and
+                               str(column.attributes[self.gene_id_attribute]) in matched_ids]
 
-        if not matched_ids:
-            self.Warning.no_genes()
-        else:
-            self.update_info_box(matched_genes=matched_ids)
-            if len(matched_ids) < len(self.marker_genes):
-                self.Warning.some_genes(len(self.marker_genes) - len(matched_ids),
-                                        len(self.marker_genes))
+            self.Warning.no_genes.clear()
+            self.Warning.some_genes.clear()
 
-            values = self.input_data[:, matched_columns].X
-            aggregator = self.aggregation_functions[self.aggregation]
-            scores = aggregator(values, axis=1)
+            if not matched_ids:
+                self.Warning.no_genes()
+            else:
+                self.update_info_box(matched_genes=matched_ids)
+                if len(matched_ids) < len(self.marker_genes):
+                    self.Warning.some_genes(len(self.marker_genes) - len(matched_ids),
+                                            len(self.marker_genes))
+
+                values = self.input_data[:, matched_columns].X
+                aggregator = self.aggregation_functions[self.aggregation]
+                scores = aggregator(values, axis=1)
 
         return scores
 
@@ -248,8 +251,7 @@ class OWScoreCells(widget.OWWidget):
     def commit(self):
         table = None
 
-        if self.marker_data and self.marker_genes and \
-                self.input_data and self.input_genes:
+        if self.input_data:
             score = self.__score_cells()
 
             score_var = ContinuousVariable(self.score_variable_name)
