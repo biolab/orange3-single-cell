@@ -5,7 +5,7 @@ channels:
   - defaults
 
 dependencies:
-  - orange3-bioinformatics>=3.4.0
+  - orange3-bioinformatics>=3.5.0
   - pandas>=0.23
   - fastdtw
   - loompy
