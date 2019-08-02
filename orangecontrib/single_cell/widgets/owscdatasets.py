@@ -9,9 +9,8 @@ from AnyQt.QtCore import Qt
 from Orange.widgets.gui import IndicatorItemDelegate
 
 from orangecontrib.bioinformatics.ncbi.taxonomy import shortname, common_taxids
-from orangecontrib.bioinformatics.ncbi.gene import NCBI_ID
+from orangecontrib.bioinformatics.ncbi.gene import ENTREZ_ID
 from orangecontrib.bioinformatics.widgets.utils.data import GENE_AS_ATTRIBUTE_NAME, TAX_ID, GENE_ID_ATTRIBUTE
-
 
 
 class OWscDataSets(Orange.widgets.data.owdatasets.OWDataSets):
@@ -39,7 +38,7 @@ class OWscDataSets(Orange.widgets.data.owdatasets.OWDataSets):
         data = Orange.data.Table(path)
         data.attributes[TAX_ID] = info.taxid
         data.attributes[GENE_AS_ATTRIBUTE_NAME] = True  # Will all data sets have gene names in columns?
-        data.attributes[GENE_ID_ATTRIBUTE] = NCBI_ID
+        data.attributes[GENE_ID_ATTRIBUTE] = ENTREZ_ID
         return data
 
     def assign_delegates(self):
