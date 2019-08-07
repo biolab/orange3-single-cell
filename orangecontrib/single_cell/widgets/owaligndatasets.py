@@ -1,5 +1,3 @@
-from builtins import property
-
 from AnyQt.QtWidgets import QFormLayout
 from AnyQt.QtGui import QColor
 from AnyQt.QtCore import Qt
@@ -13,7 +11,7 @@ from scipy.stats import multivariate_normal as mvn
 
 from Orange.widgets.settings import Setting, ContextSetting, DomainContextHandler
 from Orange.data import Table, Domain, ContinuousVariable, DiscreteVariable
-from Orange.widgets import widget, gui, settings
+from Orange.widgets import widget, gui
 from Orange.widgets.utils.itemmodels import DomainModel
 from Orange.widgets.widget import Input, Output
 from Orange.widgets.utils.sql import check_sql_input
@@ -177,8 +175,9 @@ class OWAlignDatasets(widget.OWWidget):
             label="Quantile normalization", checked="quantile_normalization",
         )
         self.controls.quantile_normalization_perc.setSuffix("%")
+        b = gui.vBox(box)
         gui.checkBox(
-            box, self, "dynamic_time_warping",
+            b, self, "dynamic_time_warping",
             callback=self._update_dynamic_time_warping,
             label="Dynamic time warping"
         )
