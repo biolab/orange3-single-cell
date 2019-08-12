@@ -84,9 +84,9 @@ class TestOWMultiSample(WidgetTest):
            Mock(return_value={"basedir": get_sample_workflow_dir()}))
     def test_load_workflow(self):
         base_path = os.path.join("010-Showcase-LoadDataM-Data", "batch-A")
-        base_name = PurePath(os.path.join(base_path, "matrix.mtx"))
-        base_row_name = PurePath(os.path.join(base_path, "barcodes.tsv"))
-        base_col_name = PurePath(os.path.join(base_path, "genes.tsv"))
+        base_name = str(PurePath(os.path.join(base_path, "matrix.mtx")))
+        base_row_name = str(PurePath(os.path.join(base_path, "barcodes.tsv")))
+        base_col_name = str(PurePath(os.path.join(base_path, "genes.tsv")))
 
         # store settings - simulate saving workflow
         w1 = self.create_widget(OWMultiSample)
@@ -97,11 +97,12 @@ class TestOWMultiSample(WidgetTest):
         # check other widget settings - simulate opening workflow
         w2 = self.create_widget(OWMultiSample, stored_settings=settings)
         loader = w2._data_loader
-        self.assertEqual(w2._recent[0].relpath, str(base_name))
+
+        self.assertEqual(str(PurePath(w2._recent[0].relpath)), base_name)
         self.assertEqual(w2._recent[0].prefix, "basedir")
-        self.assertEqual(loader.recent_path.relpath, str(base_name))
+        self.assertEqual(str(PurePath(loader.recent_path.relpath)), base_name)
         self.assertEqual(loader.recent_path.prefix, "basedir")
-        self.assertEqual(loader.row_annotation_file.relpath, str(base_row_name))
+        self.assertEqual(str(PurePath(loader.row_annotation_file.relpath)), base_row_name)
         self.assertEqual(loader.row_annotation_file.prefix, "basedir")
-        self.assertEqual(loader.col_annotation_file.relpath, str(base_col_name))
+        self.assertEqual(str(PurePath(loader.col_annotation_file.relpath)), base_col_name)
         self.assertEqual(loader.col_annotation_file.prefix, "basedir")
