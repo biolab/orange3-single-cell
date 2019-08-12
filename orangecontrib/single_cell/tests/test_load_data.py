@@ -34,7 +34,7 @@ class TestLoadData(unittest.TestCase):
         file_name = os.path.join(os.path.dirname(__file__),
                                  "data/10x/hg19/matrix.mtx")
         loader = MtxLoader(file_name)
-        self.assertEqual(loader.file_size, 112)
+        self.assertAlmostEqual(loader.file_size, 112, delta=15)
         self.assertEqual(loader.n_rows, 4)
         self.assertEqual(loader.n_cols, 6)
         self.assertEqual(loader.sparsity, 0.625)
@@ -43,7 +43,7 @@ class TestLoadData(unittest.TestCase):
         file_name = os.path.join(os.path.dirname(__file__),
                                  "data/DATA_MATRIX_LOG_TPM.txt")
         loader = Loader(file_name)
-        self.assertEqual(loader.file_size, 1084)
+        self.assertAlmostEqual(loader.file_size, 1084, delta=15)
         self.assertEqual(loader.n_rows, 10)
         self.assertEqual(loader.n_cols, 15)
         self.assertEqual(round(loader.sparsity, 2), 0.86)
@@ -52,7 +52,7 @@ class TestLoadData(unittest.TestCase):
         file_name = os.path.join(os.path.dirname(__file__),
                                  "data/lib.cell.count")
         loader = CountLoader(file_name)
-        self.assertEqual(loader.file_size, 428)
+        self.assertAlmostEqual(loader.file_size, 428, delta=15)
         self.assertEqual(loader.n_rows, 10)
         self.assertEqual(loader.n_cols, 11)
         self.assertEqual(round(loader.sparsity, 2), 0.99)
