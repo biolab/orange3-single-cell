@@ -111,8 +111,8 @@ class MultiSampleTreeView(QTreeView):
         if event.mimeData().hasUrls():
             for url in event.mimeData().urls():
                 event.acceptProposedAction()
-                if os.path.isfile(url.path()):
-                    self._parent.set_current_path(url.path())
+                if os.path.isfile(url.toLocalFile()):
+                    self._parent.set_current_path(url.toLocalFile())
             self._parent.select_last_item()
             self.drop_finished.emit()
         else:
