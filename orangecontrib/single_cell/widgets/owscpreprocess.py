@@ -26,7 +26,7 @@ from Orange.widgets.widget import Input, Output, Msg
 
 from orangecontrib.single_cell.preprocess.scpreprocess import (
     LogarithmicScale, Binarize, Normalize, NormalizeSamples, Standardize,
-    SelectMostVariableGenes, NormalizeGroups
+    SelectMostVariableGenes, NormalizeGroups, DropoutGeneSelection
 )
 
 
@@ -394,6 +394,43 @@ class SelectGenesEditor(ScBaseEditor):
         return text
 
 
+class DropoutEditor(ScBaseEditor):
+    DEFAULT_N_GENES = 1000
+
+    def __init__(self, parent=None, **kwargs):
+        super().__init__(parent, **kwargs)
+        self.setLayout(QVBoxLayout())
+        self._n_genes = self.DEFAULT_N_GENES
+
+        form = QFormLayout()
+        self.n_genes_spin = QSpinBox(minimum=1, maximum=10 ** 6,
+                                     value=self._n_genes)
+        self.n_genes_spin.valueChanged[int].connect(self._set_n_genes)
+        self.n_genes_spin.editingFinished.connect(self.edited)
+        form.addRow("Number of genes:", self.n_genes_spin)
+        self.layout().addLayout(form)
+
+    def _set_n_genes(self, n):
+        if self._n_genes != n:
+            self._n_genes = n
+            self.n_genes_spin.setValue(n)
+            self.changed.emit()
+
+    def setParameters(self, params):
+        self._set_n_genes(params.get("n_genes", self.DEFAULT_N_GENES))
+
+    def parameters(self):
+        return {"n_genes": self._n_genes}
+
+    @staticmethod
+    def createinstance(params):
+        n_genes = params.get("n_genes", DropoutEditor.DEFAULT_N_GENES)
+        return DropoutGeneSelection(n_genes)
+
+    def __repr__(self):
+        return "Number of Genes: {}".format(self._n_genes)
+
+
 PREPROCESS_ACTIONS = [
     PreprocessAction(
         "Logarithmic Scale", "preprocess.log_scale", "Value-Based",
@@ -425,6 +462,11 @@ PREPROCESS_ACTIONS = [
         Description("Select Most Variable Genes",
                     icon_path("SelectGenes.svg")),
         SelectGenesEditor
+    ),
+    PreprocessAction(
+        "Dropout Gene Selection", "preprocess.dropout", "Column-Based",
+        Description("Dropout Gene Selection", icon_path("Dropout.svg")),
+        DropoutEditor
     )
 ]
 
@@ -453,6 +495,7 @@ class OWscPreprocess(Orange.widgets.data.owpreprocess.OWPreprocess):
         preprocessed_data = Output("Preprocessed Data", Orange.data.Table)
 
     class Error(Orange.widgets.data.owpreprocess.OWPreprocess.Error):
+        unknown_error = Msg("{}")
         discrete_attributes = Msg("Data with discrete attributes "
                                   "can not be preprocessed.")
 
@@ -522,12 +565,12 @@ class OWscPreprocess(Orange.widgets.data.owpreprocess.OWPreprocess):
         self.storeSpecificSettings()
         preprocessor = self.buildpreproc()
         data = None
+        self.Error.unknown_error.clear()
         if self.data is not None:
-            self.error()
             try:
                 data = preprocessor(self.data)
             except (ValueError, ZeroDivisionError) as e:
-                self.error(str(e))
+                self.Error.unknown_error(str(e))
         self.Outputs.preprocessed_data.send(data)
 
 

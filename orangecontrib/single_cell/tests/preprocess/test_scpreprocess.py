@@ -6,7 +6,7 @@ import numpy.testing as npt
 from Orange.data import Table, Domain
 from orangecontrib.single_cell.preprocess.scpreprocess import (
     LogarithmicScale, Binarize, NormalizeSamples, NormalizeGroups,
-    Standardize, SelectMostVariableGenes
+    Standardize, SelectMostVariableGenes, DropoutGeneSelection
 )
 
 
@@ -143,3 +143,13 @@ class TestSelectMostVariableGenes(unittest.TestCase):
         npt.assert_array_equal(
             SelectMostVariableGenes(method=SelectMostVariableGenes.Mean,
                                     n_groups=None)(self.data), data)
+
+
+class TestDropoutGeneSelection(unittest.TestCase):
+    def test_default(self):
+        path = os.path.join(os.path.dirname(__file__), '..', "data")
+        data = Table(os.path.join(path, 'dermatology.tab'))
+        n_genes = 2
+        table = DropoutGeneSelection(n_genes)(data)
+        self.assertIsInstance(table, Table)
+        self.assertEqual(len(table.domain.attributes), n_genes)

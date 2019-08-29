@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.sparse as sp
 from scipy.stats import zscore, percentileofscore
 
 from Orange.data import Domain
@@ -164,3 +165,65 @@ class SelectMostVariableGenes(Preprocess):
         attrs, cls, metas = domain.attributes, domain.class_vars, domain.metas
         domain = Domain(tuple(np.array(attrs)[indices]), cls, metas)
         return data.transform(domain)
+
+
+class DropoutGeneSelection(Preprocess):
+    def __init__(self, n_genes=None):
+        self.n_genes = n_genes
+
+    def __call__(self, data):
+        selected = self._get_selection_mask(data.X, n=self.n_genes)
+        return self._filter_columns(data, selected)
+
+    @staticmethod
+    def _get_selection_mask(data, n=None, threshold=0, atleast=0,
+                            yoffset=0.02, xoffset=5, decay=1):
+        mask = data > threshold
+        if sp.issparse(data):
+            zero_rate = 1 - np.squeeze(np.array(mask.mean(axis=0)))
+            A = data.multiply(mask)
+            A.data = np.log2(A.data)
+            mean_expr = np.zeros_like(zero_rate) * np.nan
+            detected = zero_rate < 1
+            detected_mean = np.squeeze(np.array(A[:, detected].mean(axis=0)))
+            mean_expr[detected] = detected_mean / (1 - zero_rate[detected])
+        else:
+            zero_rate = 1 - np.mean(mask, axis=0)
+            mean_expr = np.zeros_like(zero_rate) * np.nan
+            detected = zero_rate < 1
+            mean_expr[detected] = np.nanmean(
+                np.where(data[:, detected] > threshold,
+                         np.log2(data[:, detected]), np.nan), axis=0)
+
+        low_detection = np.array(np.sum(mask, axis=0)).squeeze() < atleast
+        zero_rate[low_detection] = np.nan
+        mean_expr[low_detection] = np.nan
+
+        def get_selected():
+            nonan = ~np.isnan(zero_rate)
+            sel = np.zeros_like(zero_rate).astype(bool)
+            y = np.exp(-decay * (mean_expr[nonan] - xoffset)) + yoffset
+            sel[nonan] = (zero_rate[nonan] > y)
+            return sel
+
+        if n is not None:
+            low, up = 0, 10
+            for t in range(100):
+                selected = get_selected()
+                if np.sum(selected) == n:
+                    break
+                elif np.sum(selected) < n:
+                    up = xoffset
+                    xoffset = (xoffset + low) / 2
+                else:
+                    low = xoffset
+                    xoffset = (xoffset + up) / 2
+        else:
+            selected = get_selected()
+        return selected
+
+    @staticmethod
+    def _filter_columns(data, mask):
+        domain = data.domain
+        return data.transform(Domain(tuple(np.array(domain.attributes)[mask]),
+                                     domain.class_vars,  domain.metas))

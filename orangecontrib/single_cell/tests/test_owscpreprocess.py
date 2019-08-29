@@ -4,7 +4,7 @@ from Orange.data import Table
 from Orange.widgets.tests.base import WidgetTest
 
 from orangecontrib.single_cell.preprocess.scpreprocess import (
-    LogarithmicScale, Binarize, Normalize,
+    LogarithmicScale, Binarize, Normalize, DropoutGeneSelection,
     NormalizeGroups, NormalizeSamples, Standardize, SelectMostVariableGenes)
 from orangecontrib.single_cell.widgets import owscpreprocess
 from orangecontrib.single_cell.widgets.owscpreprocess import OWscPreprocess
@@ -15,7 +15,7 @@ class TestOWscPreprocess(WidgetTest):
         self.widget = self.create_widget(OWscPreprocess)
 
     def test_available_preprocessors(self):
-        self.assertEqual(self.widget.preprocessors.rowCount(), 5)
+        self.assertEqual(self.widget.preprocessors.rowCount(), 6)
 
     def test_default_preprocessors(self):
         self.assertEqual(self.widget.preprocessormodel.rowCount(), 4)
@@ -109,3 +109,11 @@ class TestSelectGenesEditor(WidgetTest):
         self.assertEqual(p.method, SelectMostVariableGenes.Dispersion)
         self.assertEqual(p.n_genes, 1000)
         self.assertEqual(p.n_groups, 20)
+
+
+class TestDropoutEditor(WidgetTest):
+    def test_editor_default(self):
+        widget = owscpreprocess.DropoutEditor()
+        p = widget.createinstance(widget.parameters())
+        self.assertIsInstance(p, DropoutGeneSelection)
+        self.assertEqual(p.n_genes, 1000)
