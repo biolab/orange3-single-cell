@@ -64,6 +64,27 @@ class TestOWscPreprocess(WidgetTest):
         pp_data = self.get_output(w.Outputs.preprocessed_data, widget=w)
         self.assertIsNone(pp_data, Table)
 
+    def test_bad_pp_combination(self):
+        pp_setting = {"preprocessors": [("preprocess.normalize", {}),
+                                        ('preprocess.dropout', {})]}
+        settings = {"storedsettings": pp_setting}
+        w = self.create_widget(OWscPreprocess, stored_settings=settings)
+        self.send_signal(w.Inputs.data, Table("iris"), widget=w)
+        self.assertTrue(w.Warning.bad_pp_combination.is_shown())
+
+        pp_setting = {"preprocessors": [('preprocess.dropout', {})]}
+        settings = {"storedsettings": pp_setting}
+        w = self.create_widget(OWscPreprocess, stored_settings=settings)
+        self.send_signal(w.Inputs.data, Table("iris"), widget=w)
+        self.assertFalse(w.Warning.bad_pp_combination.is_shown())
+
+        pp_setting = {"preprocessors": [("preprocess.dropout", {}),
+                                        ('preprocess.normalize', {})]}
+        settings = {"storedsettings": pp_setting}
+        w = self.create_widget(OWscPreprocess, stored_settings=settings)
+        self.send_signal(w.Inputs.data, Table("iris"), widget=w)
+        self.assertFalse(w.Warning.bad_pp_combination.is_shown())
+
 
 class TestLogarithmicScaleEditor(WidgetTest):
     def test_editor_default(self):

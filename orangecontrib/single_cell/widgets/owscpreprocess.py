@@ -10,8 +10,9 @@ from AnyQt.QtWidgets import (
     QButtonGroup, QLabel, QDoubleSpinBox, QGroupBox, QCheckBox, QRadioButton
 )
 
-import Orange.widgets.data.owpreprocess
 from Orange.data import DiscreteVariable
+from Orange.preprocess.preprocess import PreprocessorList
+import Orange.widgets.data.owpreprocess
 from Orange.widgets.data.owpreprocess import (
     PreprocessAction, Description, index_to_enum, enum_to_index
 )
@@ -504,6 +505,8 @@ class OWscPreprocess(Orange.widgets.data.owpreprocess.OWPreprocess):
     class Warning(Orange.widgets.data.owpreprocess.OWPreprocess.Warning):
         missing_values = Msg("Missing values have been replaced with 0.")
         dropout_warning = Msg("{}")
+        bad_pp_combination = Msg("Dropout should not be used after "
+                                 "Normalization/Log-transformation.")
 
     PREPROCESSORS = PREPROCESS_ACTIONS
     DEFAULT_PP = {"preprocessors": [("preprocess.normalize", {}),
@@ -569,6 +572,7 @@ class OWscPreprocess(Orange.widgets.data.owpreprocess.OWPreprocess):
         preprocessor = self.buildpreproc()
         data = None
         self.Warning.dropout_warning.clear()
+        self.Warning.bad_pp_combination.clear()
         self.Error.unknown_error.clear()
         if self.data is not None:
             try:
@@ -579,9 +583,28 @@ class OWscPreprocess(Orange.widgets.data.owpreprocess.OWPreprocess):
                         self.Warning.dropout_warning(warning.message)
                     else:
                         warnings.warn(warning.message)
+                if self.is_bad_combination(preprocessor):
+                    self.Warning.bad_pp_combination()
             except (ValueError, ZeroDivisionError) as e:
                 self.Error.unknown_error(str(e))
         self.Outputs.preprocessed_data.send(data)
+
+    @staticmethod
+    def is_bad_combination(pp) -> bool:
+        if not isinstance(pp, PreprocessorList):
+            return False
+
+        index_norm, index_log, index_dropout = None, None, None
+        for i in range(len(pp.preprocessors)):
+            if isinstance(pp.preprocessors[i], NormalizeSamples):
+                index_norm = i
+            elif isinstance(pp.preprocessors[i], LogarithmicScale):
+                index_log = i
+            elif isinstance(pp.preprocessors[i], DropoutGeneSelection):
+                index_dropout = i
+        return index_dropout is not None and \
+               (index_norm is not None and index_dropout > index_norm or
+                index_log is not None and index_dropout > index_log)
 
 
 def main(args=None):
