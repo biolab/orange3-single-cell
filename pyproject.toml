@@ -1,0 +1,7 @@
+[build-system]
+requires = [
+  # sync with setup.py until we discard non-pep-517/518
+  "setuptools-scm>=3.3.3",
+    "setuptools>=41.2.0",
+]
+build-backend = "setuptools.build_meta"
