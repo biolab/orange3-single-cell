@@ -36,4 +36,4 @@ jobs:
     platform: windows
     orange_version: development
 
-- template: .azure-pipelines/lint_job.yml
+# - template: .azure-pipelines/lint_job.yml
