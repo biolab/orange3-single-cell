@@ -1,9 +1,0 @@
-Orange3>=3.22.0
-orange3-bioinformatics>=3.5.0
-joblib>=0.11
-networkx
-pandas>=0.23
-fastdtw
-scikit-learn
-numpy
-loompy>=2.0.10

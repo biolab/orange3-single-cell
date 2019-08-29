@@ -41,14 +41,14 @@ jobs:
 
     - ${{ if in(parameters.orange_version, 'development') }}:
         - script: |
-            pip install https://github.com/biolab/orange3/archive/master.zip
-            pip install https://github.com/biolab/orange3-bioinformatics/archive/master.zip
-          displayName: 'Install development version of Orange'
+            pip install git+https://github.com/biolab/orange3.git@master#egg=orange3
+            pip install git+https://github.com/biolab/orange3-bioinformatics.git@master#egg=orange3-bioinformatics
+          displayName: 'Install development version of Orange and Bioinformatics'
           continueOnError: false
 
     - script: |
         pip install PyQt5~=5.9.0
-        pip install -e .
+        pip install -e .[test]
       displayName: 'Install Orange3-SingleCell'
       continueOnError: false
 
