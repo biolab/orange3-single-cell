@@ -1,5 +1,6 @@
 import sys
 import pkg_resources
+import warnings
 
 import numpy as np
 
@@ -26,7 +27,8 @@ from Orange.widgets.widget import Input, Output, Msg
 
 from orangecontrib.single_cell.preprocess.scpreprocess import (
     LogarithmicScale, Binarize, Normalize, NormalizeSamples, Standardize,
-    SelectMostVariableGenes, NormalizeGroups, DropoutGeneSelection
+    SelectMostVariableGenes, NormalizeGroups, DropoutGeneSelection,
+    DropoutWarning
 )
 
 
@@ -501,6 +503,7 @@ class OWscPreprocess(Orange.widgets.data.owpreprocess.OWPreprocess):
 
     class Warning(Orange.widgets.data.owpreprocess.OWPreprocess.Warning):
         missing_values = Msg("Missing values have been replaced with 0.")
+        dropout_warning = Msg("{}")
 
     PREPROCESSORS = PREPROCESS_ACTIONS
     DEFAULT_PP = {"preprocessors": [("preprocess.normalize", {}),
@@ -565,10 +568,17 @@ class OWscPreprocess(Orange.widgets.data.owpreprocess.OWPreprocess):
         self.storeSpecificSettings()
         preprocessor = self.buildpreproc()
         data = None
+        self.Warning.dropout_warning.clear()
         self.Error.unknown_error.clear()
         if self.data is not None:
             try:
-                data = preprocessor(self.data)
+                with warnings.catch_warnings(record=True) as w:
+                    data = preprocessor(self.data)
+                for warning in w:
+                    if issubclass(warning.category, DropoutWarning):
+                        self.Warning.dropout_warning(warning.message)
+                    else:
+                        warnings.warn(warning.message)
             except (ValueError, ZeroDivisionError) as e:
                 self.Error.unknown_error(str(e))
         self.Outputs.preprocessed_data.send(data)

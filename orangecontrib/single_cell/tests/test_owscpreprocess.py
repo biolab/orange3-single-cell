@@ -51,6 +51,19 @@ class TestOWscPreprocess(WidgetTest):
         pp_data = self.get_output(self.widget.Outputs.preprocessed_data)
         self.assertIsNone(pp_data)
 
+    def test_dropout_warning(self):
+        pp_setting = {"preprocessors": [('preprocess.dropout', {})]}
+        settings = {"storedsettings": pp_setting}
+        w = self.create_widget(OWscPreprocess, stored_settings=settings)
+        self.send_signal(w.Inputs.data, Table("iris"), widget=w)
+        pp_data = self.get_output(w.Outputs.preprocessed_data, widget=w)
+        self.assertIsInstance(pp_data, Table)
+        self.assertTrue(w.Warning.dropout_warning.is_shown())
+        self.send_signal(w.Inputs.data, None, widget=w)
+        self.assertFalse(w.Warning.dropout_warning.is_shown())
+        pp_data = self.get_output(w.Outputs.preprocessed_data, widget=w)
+        self.assertIsNone(pp_data, Table)
+
 
 class TestLogarithmicScaleEditor(WidgetTest):
     def test_editor_default(self):

@@ -1,3 +1,4 @@
+import warnings
 import numpy as np
 import scipy.sparse as sp
 from scipy.stats import zscore, percentileofscore
@@ -167,12 +168,18 @@ class SelectMostVariableGenes(Preprocess):
         return data.transform(domain)
 
 
+class DropoutWarning(Warning):
+    pass
+
+
 class DropoutGeneSelection(Preprocess):
     def __init__(self, n_genes=None):
         self.n_genes = n_genes
 
     def __call__(self, data):
         selected = self._get_selection_mask(data.X, n=self.n_genes)
+        if sum(selected) < self.n_genes:
+            warnings.warn(f"{sum(selected)} genes selected", DropoutWarning)
         return self._filter_columns(data, selected)
 
     @staticmethod
