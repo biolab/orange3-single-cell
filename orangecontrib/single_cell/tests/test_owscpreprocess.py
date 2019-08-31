@@ -4,7 +4,7 @@ from Orange.data import Table
 from Orange.widgets.tests.base import WidgetTest
 
 from orangecontrib.single_cell.preprocess.scpreprocess import (
-    LogarithmicScale, Binarize, Normalize,
+    LogarithmicScale, Binarize, Normalize, DropoutGeneSelection,
     NormalizeGroups, NormalizeSamples, Standardize, SelectMostVariableGenes)
 from orangecontrib.single_cell.widgets import owscpreprocess
 from orangecontrib.single_cell.widgets.owscpreprocess import OWscPreprocess
@@ -15,7 +15,7 @@ class TestOWscPreprocess(WidgetTest):
         self.widget = self.create_widget(OWscPreprocess)
 
     def test_available_preprocessors(self):
-        self.assertEqual(self.widget.preprocessors.rowCount(), 5)
+        self.assertEqual(self.widget.preprocessors.rowCount(), 6)
 
     def test_default_preprocessors(self):
         self.assertEqual(self.widget.preprocessormodel.rowCount(), 4)
@@ -50,6 +50,40 @@ class TestOWscPreprocess(WidgetTest):
         self.assertFalse(self.widget.Warning.missing_values.is_shown())
         pp_data = self.get_output(self.widget.Outputs.preprocessed_data)
         self.assertIsNone(pp_data)
+
+    def test_dropout_warning(self):
+        pp_setting = {"preprocessors": [('preprocess.dropout', {})]}
+        settings = {"storedsettings": pp_setting}
+        w = self.create_widget(OWscPreprocess, stored_settings=settings)
+        self.send_signal(w.Inputs.data, Table("iris"), widget=w)
+        pp_data = self.get_output(w.Outputs.preprocessed_data, widget=w)
+        self.assertIsInstance(pp_data, Table)
+        self.assertTrue(w.Warning.dropout_warning.is_shown())
+        self.send_signal(w.Inputs.data, None, widget=w)
+        self.assertFalse(w.Warning.dropout_warning.is_shown())
+        pp_data = self.get_output(w.Outputs.preprocessed_data, widget=w)
+        self.assertIsNone(pp_data, Table)
+
+    def test_bad_pp_combination(self):
+        pp_setting = {"preprocessors": [("preprocess.normalize", {}),
+                                        ('preprocess.dropout', {})]}
+        settings = {"storedsettings": pp_setting}
+        w = self.create_widget(OWscPreprocess, stored_settings=settings)
+        self.send_signal(w.Inputs.data, Table("iris"), widget=w)
+        self.assertTrue(w.Warning.bad_pp_combination.is_shown())
+
+        pp_setting = {"preprocessors": [('preprocess.dropout', {})]}
+        settings = {"storedsettings": pp_setting}
+        w = self.create_widget(OWscPreprocess, stored_settings=settings)
+        self.send_signal(w.Inputs.data, Table("iris"), widget=w)
+        self.assertFalse(w.Warning.bad_pp_combination.is_shown())
+
+        pp_setting = {"preprocessors": [("preprocess.dropout", {}),
+                                        ('preprocess.normalize', {})]}
+        settings = {"storedsettings": pp_setting}
+        w = self.create_widget(OWscPreprocess, stored_settings=settings)
+        self.send_signal(w.Inputs.data, Table("iris"), widget=w)
+        self.assertFalse(w.Warning.bad_pp_combination.is_shown())
 
 
 class TestLogarithmicScaleEditor(WidgetTest):
@@ -109,3 +143,11 @@ class TestSelectGenesEditor(WidgetTest):
         self.assertEqual(p.method, SelectMostVariableGenes.Dispersion)
         self.assertEqual(p.n_genes, 1000)
         self.assertEqual(p.n_groups, 20)
+
+
+class TestDropoutEditor(WidgetTest):
+    def test_editor_default(self):
+        widget = owscpreprocess.DropoutEditor()
+        p = widget.createinstance(widget.parameters())
+        self.assertIsInstance(p, DropoutGeneSelection)
+        self.assertEqual(p.n_genes, 1000)

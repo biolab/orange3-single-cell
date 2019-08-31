@@ -1,3 +1,4 @@
+import warnings
 import os
 import unittest
 import numpy as np
@@ -6,7 +7,8 @@ import numpy.testing as npt
 from Orange.data import Table, Domain
 from orangecontrib.single_cell.preprocess.scpreprocess import (
     LogarithmicScale, Binarize, NormalizeSamples, NormalizeGroups,
-    Standardize, SelectMostVariableGenes
+    Standardize, SelectMostVariableGenes, DropoutGeneSelection,
+    DropoutWarning
 )
 
 
@@ -143,3 +145,26 @@ class TestSelectMostVariableGenes(unittest.TestCase):
         npt.assert_array_equal(
             SelectMostVariableGenes(method=SelectMostVariableGenes.Mean,
                                     n_groups=None)(self.data), data)
+
+
+class TestDropoutGeneSelection(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        path = os.path.join(os.path.dirname(__file__), '..', "data")
+        cls.data = Table(os.path.join(path, 'dermatology.tab'))
+
+    def test_default(self):
+        n_genes = 2
+        table = DropoutGeneSelection(n_genes)(self.data)
+        self.assertIsInstance(table, Table)
+        self.assertEqual(len(table.domain.attributes), n_genes)
+
+    def test_warning(self):
+        n_genes = 30
+        with warnings.catch_warnings(record=True) as w:
+            table = DropoutGeneSelection(n_genes)(self.data)
+        self.assertIsInstance(table, Table)
+        self.assertNotEqual(len(table.domain.attributes), n_genes)
+        dropout_warnings = [warning for warning in w if
+                            issubclass(warning.category, DropoutWarning)]
+        self.assertEqual(len(dropout_warnings), 1)
