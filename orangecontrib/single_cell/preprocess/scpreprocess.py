@@ -3,7 +3,7 @@ import numpy as np
 import scipy.sparse as sp
 from scipy.stats import zscore, percentileofscore
 
-from Orange.data import Domain
+from Orange.data import Domain, Table
 from Orange.preprocess.preprocess import Preprocess
 from Orange.util import Enum
 
@@ -173,22 +173,26 @@ class DropoutWarning(Warning):
 
 
 class DropoutGeneSelection(Preprocess):
-    def __init__(self, n_genes=None):
+    def __init__(self, n_genes=None, decay=1, x_offset=5, y_offset=0.02,
+                 threshold=0, at_least=0):
         self.n_genes = n_genes
+        self.x_offset = x_offset
+        self.y_offset = y_offset
+        self.decay = decay
+        self.threshold = threshold
+        self.at_least = at_least
 
-    def __call__(self, data):
-        selected = self._get_selection_mask(data.X, n=self.n_genes)
+    def __call__(self, data: Table) -> Table:
+        selected = self.select_genes(data.X)[0]
         if sum(selected) < self.n_genes:
             warnings.warn(f"{sum(selected)} genes selected", DropoutWarning)
-        return self._filter_columns(data, selected)
+        return self.filter_columns(data, selected)
 
-    @staticmethod
-    def _get_selection_mask(data, n=None, threshold=0, atleast=0,
-                            yoffset=0.02, xoffset=5, decay=1):
-        mask = data > threshold
-        if sp.issparse(data):
+    def select_genes(self, table: np.ndarray) -> np.ndarray:
+        mask = table > self.threshold
+        if sp.issparse(table):
             zero_rate = 1 - np.squeeze(np.array(mask.mean(axis=0)))
-            A = data.multiply(mask)
+            A = table.multiply(mask)
             A.data = np.log2(A.data)
             mean_expr = np.zeros_like(zero_rate) * np.nan
             detected = zero_rate < 1
@@ -199,38 +203,43 @@ class DropoutGeneSelection(Preprocess):
             mean_expr = np.zeros_like(zero_rate) * np.nan
             detected = zero_rate < 1
             mean_expr[detected] = np.nanmean(
-                np.where(data[:, detected] > threshold,
-                         np.log2(data[:, detected]), np.nan), axis=0)
+                np.where(table[:, detected] > self.threshold,
+                         np.log2(table[:, detected]), np.nan), axis=0)
 
-        low_detection = np.array(np.sum(mask, axis=0)).squeeze() < atleast
-        zero_rate[low_detection] = np.nan
-        mean_expr[low_detection] = np.nan
+        low_detection = np.array(np.sum(mask, axis=0)).squeeze()
+        zero_rate[low_detection < self.at_least] = np.nan
+        mean_expr[low_detection < self.at_least] = np.nan
 
         def get_selected():
             nonan = ~np.isnan(zero_rate)
             sel = np.zeros_like(zero_rate).astype(bool)
-            y = np.exp(-decay * (mean_expr[nonan] - xoffset)) + yoffset
+            x = mean_expr[nonan]
+            y = self.y(x, self.decay, self.x_offset, self.y_offset)
             sel[nonan] = (zero_rate[nonan] > y)
             return sel
 
-        if n is not None:
+        if self.n_genes is not None:
             low, up = 0, 10
             for t in range(100):
                 selected = get_selected()
-                if np.sum(selected) == n:
+                if np.sum(selected) == self.n_genes:
                     break
-                elif np.sum(selected) < n:
-                    up = xoffset
-                    xoffset = (xoffset + low) / 2
+                elif np.sum(selected) < self.n_genes:
+                    up = self.x_offset
+                    self.x_offset = (self.x_offset + low) / 2
                 else:
-                    low = xoffset
-                    xoffset = (xoffset + up) / 2
+                    low = self.x_offset
+                    self.x_offset = (self.x_offset + up) / 2
         else:
             selected = get_selected()
-        return selected
+        return selected, zero_rate, mean_expr
 
     @staticmethod
-    def _filter_columns(data, mask):
+    def y(x, decay, x_offset, y_offset):
+        return np.exp(-decay * (x - x_offset)) + y_offset
+
+    @staticmethod
+    def filter_columns(data: Table, mask: np.ndarray) -> Table:
         domain = data.domain
         return data.transform(Domain(tuple(np.array(domain.attributes)[mask]),
                                      domain.class_vars,  domain.metas))
