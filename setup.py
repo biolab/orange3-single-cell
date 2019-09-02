@@ -35,6 +35,7 @@ if __name__ == '__main__':
             'fastdtw==0.3.2',
             'pandas>=0.23',
             'loompy>=2.0.10',
+            'anndata>=0.6.21',
             'numpy',
             'scikit-learn',
         ],

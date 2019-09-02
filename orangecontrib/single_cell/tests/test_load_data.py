@@ -9,7 +9,7 @@ from Orange.data import DiscreteVariable, StringVariable
 
 from orangecontrib.single_cell.widgets.load_data import (
     LoomLoader, ExcelLoader, MtxLoader, CountLoader, Loader, PickleLoader,
-    CsvLoader, get_data_loader, Concatenate
+    CsvLoader, H5ADLoader, get_data_loader, Concatenate,
 )
 
 
@@ -21,6 +21,8 @@ class TestLoadData(unittest.TestCase):
         self.assertIsInstance(loader, Loader)
         self.assertIsInstance(get_data_loader("data.xls"), ExcelLoader)
         self.assertIsInstance(get_data_loader("data.loom"), LoomLoader)
+        self.assertIsInstance(get_data_loader("data_sparse.h5ad"), H5ADLoader)
+        self.assertIsInstance(get_data_loader("data_dense.h5ad"), H5ADLoader)
 
     def test_get_data_loader_pickle(self):
         self.assertIsInstance(get_data_loader("data.pkl"), PickleLoader)
@@ -88,6 +90,22 @@ class TestLoadData(unittest.TestCase):
         self.assertEqual(loader.n_rows, 10)
         self.assertEqual(loader.n_cols, 20)
         self.assertEqual(round(loader.sparsity, 2), 0.93)
+
+    def test_file_summary_h5ad_sparse(self):
+        file_name = os.path.join(os.path.dirname(__file__), "data/data_sparse.h5ad")
+        loader = H5ADLoader(file_name)
+        self.assertEqual(19560, loader.file_size)
+        self.assertEqual(20, loader.n_rows)
+        self.assertEqual(25, loader.n_cols)
+        self.assertEqual(0.59, round(loader.sparsity, 2))
+
+    def test_file_summary_h5ad_dense(self):
+        file_name = os.path.join(os.path.dirname(__file__), "data/data_dense.h5ad")
+        loader = H5ADLoader(file_name)
+        self.assertEqual(11060, loader.file_size)
+        self.assertEqual(20, loader.n_rows)
+        self.assertEqual(25, loader.n_cols)
+        self.assertEqual(0.59, round(loader.sparsity, 2))
 
     def test_load_data_mtx(self):
         file_name = os.path.join(os.path.dirname(__file__),

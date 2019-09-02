@@ -6,11 +6,12 @@ from typing import Dict, Tuple
 import numpy as np
 import pandas as pd
 import scipy.io
+import scipy.sparse as sp
 import loompy as lp
 import xlrd
 
 from Orange.data import (
-    ContinuousVariable, DiscreteVariable, Domain, Table, StringVariable
+    ContinuousVariable, DiscreteVariable, Domain, Table
 )
 from Orange.data.io import (
     Compression, open_compressed, PickleReader,
@@ -49,6 +50,8 @@ def get_data_loader(file_name):
         return ExcelLoader(file_name)
     elif ext == ".loom":
         return LoomLoader(file_name)
+    elif ext == ".h5ad":
+        return H5ADLoader(file_name)
     else:
         return Loader(file_name)
 
@@ -425,7 +428,7 @@ class Loader:
     @staticmethod
     def __guess_metas(meta_parts):
         def guessed_var(i, var_name, dtype):
-            if np.issubdtype(dtype, np.number):
+            if pd.core.dtypes.common.is_numeric_dtype(dtype):
                 return ContinuousVariable.make(var_name)
             orig_values = M[:, i]
             val_map, values, var_type = guess_data_type(orig_values)
@@ -666,6 +669,57 @@ class LoomLoader(Loader):
             attrs = [ContinuousVariable.make(str(g)) for g in gene_names]
             meta_df = pd.DataFrame({key: ds.ca[key][self._use_cols_mask]
                                     for key in ds.ca.keys()})
+
+        return attrs, X, meta_df, meta_df.index
+
+
+class H5ADLoader(Loader):
+    def __init__(self, file_name):
+        super().__init__(file_name)
+        self.header_rows_count = 0
+        self.header_cols_count = 0
+        self.FIXED_FORMAT = False
+        self.ENABLE_ANNOTATIONS = False
+        self.transposed = False
+        self.row_annotations_enabled = False
+        self.col_annotations_enabled = False
+
+    def _set_file_parameters(self):
+        import anndata
+        try:
+            adata = anndata.read_h5ad(self._file_name)
+            self.n_rows, self.n_cols = adata.shape
+            all_el = self.n_rows * self.n_cols
+            if sp.issparse(adata.X):
+                self.sparsity = (all_el - adata.X.tocsr().count_nonzero()) / all_el
+            else:
+                self.sparsity = (all_el - np.count_nonzero(adata.X)) / all_el
+        except OSError:
+            pass
+
+    def _load_data(self, skip_row=None, skip_col=None, **kwargs):
+        import anndata
+        adata = anndata.read_h5ad(self._file_name)
+
+        if skip_row is not None:
+            mask = np.array([not skip_row(i) for i in range(adata.shape[0])])
+            self._use_rows_mask = mask
+        else:
+            self._use_rows_mask = np.ones(adata.shape[0], dtype=bool)
+        if skip_col is not None:
+            mask = np.array([not skip_col(i) for i in range(adata.shape[1])])
+            self._use_cols_mask = mask
+        else:
+            self._use_cols_mask = np.ones(adata.shape[1], dtype=bool)
+
+        adata = adata[self._use_rows_mask, :]
+        adata = adata[:, self._use_cols_mask]
+
+        attrs = [ContinuousVariable.make(str(g)) for g in adata.var_names]
+        meta_df = pd.DataFrame({key: adata.obs[key] for key in adata.obs.keys()})
+
+        X = adata.X.toarray() if sp.issparse(adata.X) else adata.X
+
         return attrs, X, meta_df, meta_df.index
 
 
