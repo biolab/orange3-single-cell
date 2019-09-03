@@ -99,6 +99,7 @@ class OWAlignDatasets(widget.OWWidget):
             "Data contains undefined instances for the selected Data source indicator")
         nan_input = widget.Msg("Input data contains non numeric values")
         sparse_data = widget.Msg("Sparse data is not supported")
+        only_one_dataset = widget.Msg("Data source indicator attribute column must indicate at least two datasets.")
 
     def __init__(self):
         super().__init__()
@@ -261,9 +262,13 @@ class OWAlignDatasets(widget.OWWidget):
         if self.ncomponents > MAX_COMPONENTS:
             self.ncomponents = MAX_COMPONENTS
 
-        self._init_mas()
         X = self.data.X
         y = self.data.get_column_view(self.source_id)[0]
+
+        if len(set(y)) < 2:
+            self.Error.only_one_dataset()
+            return
+        self._init_mas()
 
         self._Ws = self._mas.fit(X, y)
         self._shared_correlations = self._mas.shared_correlations
