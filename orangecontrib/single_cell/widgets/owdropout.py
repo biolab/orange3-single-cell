@@ -20,23 +20,61 @@ DropoutResults = namedtuple("DropoutResults",
                              "x_offset", "y_offset", "threshold"])
 
 
+class MouseEventDelegate(QObject):
+    def __init__(self, delegate, parent=None):
+        super().__init__(parent)
+        self.delegate = delegate
+
+    def eventFilter(self, obj, ev):
+        if isinstance(ev, QGraphicsSceneMouseEvent):
+            return self.delegate(ev)
+        return False
+
+
+class States:
+    WAITING, ON_CURVE, HOLDING_CURVE, MOVING_CURVE = range(4)
+
+
 class DropoutGraph(pg.PlotWidget):
     pg.setConfigOption("foreground", "k")
 
+    curve_moved = Signal(float, float)
     CURVE_PEN = pg.mkPen(color=QColor(Qt.darkCyan), width=4)
+    MOVING_CURVE_PEN = pg.mkPen(color=QColor(179, 215, 255), width=4)
 
-    def __init__(self, parent):
+    def __init__(self, parent, movable_curve=False):
         super().__init__(parent, background="w")
+        self.__movable_curve = movable_curve
+        self.__curve = None  # type: pg.PlotCurveItem
+        self.__decay = None  # type: float
+        self.__x_offset = None  # type: float
+        self.__y_offset = None  # type: float
+        self._initial_x = None  # type: float
+        self._initial_y = None  # type: float
+        self._state = States.WAITING
+        self._delegate = MouseEventDelegate(self.cursor_event)
         self.setMouseEnabled(False, False)
         self.hideButtons()
-        self.getPlotItem().setContentsMargins(0, 20, 20, 0)
+        self.plotItem.setContentsMargins(0, 20, 20, 0)
         self.setLabel("bottom", "Mean log2 nonzero expression")
         self.setLabel("left", "Frequency of zero expression")
+        self.scene().installEventFilter(self._delegate)
 
-    def set_data(self, dropout_results):
-        self.__plot_dots(dropout_results.mean_expr, dropout_results.zero_rate)
-        self.__plot_curve(dropout_results)
-        self.__set_range(dropout_results.threshold, dropout_results.mean_expr)
+    @property
+    def is_curve_movable(self):
+        return self.__movable_curve
+
+    @is_curve_movable.setter
+    def is_curve_movable(self, value):
+        self.__movable_curve = value
+
+    def set_data(self, results):
+        self.__decay = results.decay
+        self.__x_offset = results.x_offset
+        self.__y_offset = results.y_offset
+        self.__plot_dots(results.mean_expr, results.zero_rate)
+        self.__plot_curve(results)
+        self.__set_range(results.threshold, results.mean_expr)
 
     def __plot_dots(self, x, y):
         self.addItem(pg.ScatterPlotItem(x=x, y=y, size=3))
@@ -45,15 +83,76 @@ class DropoutGraph(pg.PlotWidget):
         xmin, xmax = self.__get_xlim(results.threshold, results.mean_expr)
         x = np.arange(xmin, xmax + 0.01, 0.01)
         y = np.exp(-results.decay * (x - results.x_offset)) + results.y_offset
-        curve = pg.PlotCurveItem(x=x, y=y, fillLevel=1, pen=self.CURVE_PEN,
-                                 brush=pg.mkBrush(color=QColor(0, 250, 0, 50)),
-                                 antialias=True)
-        self.addItem(curve)
+        pen = self.MOVING_CURVE_PEN if self._state == States.MOVING_CURVE \
+            else self.CURVE_PEN
+        self.__curve = pg.PlotCurveItem(
+            x=x, y=y, fillLevel=1, pen=pen,
+            brush=pg.mkBrush(color=QColor(0, 250, 0, 50)),
+            antialias=True)
+        self.addItem(self.__curve)
 
     def __set_range(self, threshold, x):
         xmin, xmax = self.__get_xlim(threshold, x)
         rect = QRectF(xmin, 0, xmin + xmax, 1)
         self.setRange(rect, padding=0)
+
+    def cursor_event(self, ev):
+        if self.__curve is None:
+            return False
+        if not self.__movable_curve:
+            return False
+        if self._state == States.HOLDING_CURVE:
+            return False
+
+        pos = self.__curve.mapFromScene(ev.scenePos())
+        if self._state == States.MOVING_CURVE:
+            self.curve_moved.emit(pos.x() - self._initial_x,
+                                  pos.y() - self._initial_y)
+            self._initial_x = pos.x()
+            self._initial_y = pos.y()
+            return False
+
+        if self._on_curve(pos.x(), pos.y()):
+            self._initial_x = pos.x()
+            self._initial_y = pos.y()
+            if self._state == States.WAITING:
+                self._state = States.ON_CURVE
+                self.getViewBox().setCursor(Qt.SizeAllCursor)
+        else:
+            self.getViewBox().setCursor(Qt.ArrowCursor)
+            if self._state == States.ON_CURVE:
+                self._state = States.WAITING
+        return False
+
+    def _on_curve(self, x, y):
+        if self.__curve is None:
+            return False
+        return abs(DropoutGeneSelection.y(
+            x, self.__decay,  self.__x_offset, self.__y_offset) - y) < 0.01
+
+    def mousePressEvent(self, ev):
+        super().mousePressEvent(ev)
+        if self._state == States.ON_CURVE:
+            self._state = States.HOLDING_CURVE
+            self.__curve.setPen(self.MOVING_CURVE_PEN)
+
+    def mouseMoveEvent(self, ev):
+        super().mouseMoveEvent(ev)
+        if self._state == States.HOLDING_CURVE:
+            self._state = States.MOVING_CURVE
+
+    def mouseReleaseEvent(self, ev):
+        super().mouseReleaseEvent(ev)
+        if self._state in (States.HOLDING_CURVE, States.MOVING_CURVE):
+            self._state = States.WAITING
+            self.__curve.setPen(self.CURVE_PEN)
+
+    def clear_all(self):
+        self.clear()
+        self.__curve = None
+        self.__decay = None
+        self.__x_offset = None
+        self.__y_offset = None
 
     @staticmethod
     def __get_xlim(threshold, x):
@@ -62,7 +161,7 @@ class DropoutGraph(pg.PlotWidget):
 
 
 class FilterType:
-    ByNumber, ByEquation = range(2)
+    ByNumber, ByEquation, ManualMove = range(3)
 
 
 class OWDropout(OWWidget):
@@ -102,6 +201,7 @@ class OWDropout(OWWidget):
     def _add_graph(self):
         box = gui.vBox(self.mainArea, True, margin=0)
         self.graph = DropoutGraph(self)
+        self.graph.curve_moved.connect(self.__manual_move)
         box.layout().addWidget(self.graph)
 
     def _add_controls(self):
@@ -137,6 +237,9 @@ class OWDropout(OWWidget):
         gui.doubleSpin(
             coef_box, self, "y_offset", 0.0, 1.0, 0.01, label="c:", **common)
 
+        gui.separator(filter_box, height=1)
+        gui.appendRadioButton(filter_box, "Manual move")
+
         gui.rubber(self.controlArea)
         gui.auto_commit(self.controlArea, self, "auto_commit",
                         "Send Selection", "Send Automatically")
@@ -154,6 +257,16 @@ class OWDropout(OWWidget):
         self.setup_info_label()
         self.commit()
 
+    def __manual_move(self, delta_x, delta_y):
+        if self.filter_type == FilterType.ManualMove:
+            self.x_offset += delta_x
+            self.y_offset += delta_y
+            if self.x_offset < 0:
+                self.x_offset = 0
+            if self.y_offset < 0:
+                self.y_offset = 0
+            self.__param_changed()
+
     @property
     def filter_by_nr_of_genes(self):
         return self.filter_type == FilterType.ByNumber
@@ -168,7 +281,8 @@ class OWDropout(OWWidget):
 
     def clear(self):
         self.selected = None
-        self.graph.clear()
+        self.graph.clear_all()
+        self.graph.is_curve_movable = self.filter_type == FilterType.ManualMove
 
     def select_genes(self):
         self.Warning.less_selected.clear()
@@ -206,10 +320,16 @@ class OWDropout(OWWidget):
         self.info_label.setText(text)
 
     def enable_controls(self):
-        self.controls.n_genes.setEnabled(self.filter_by_nr_of_genes)
-        self.controls.decay.setEnabled(not self.filter_by_nr_of_genes)
-        self.controls.x_offset.setEnabled(not self.filter_by_nr_of_genes)
-        self.controls.y_offset.setEnabled(not self.filter_by_nr_of_genes)
+        self.controls.n_genes.setEnabled(False)
+        self.controls.decay.setEnabled(False)
+        self.controls.x_offset.setEnabled(False)
+        self.controls.y_offset.setEnabled(False)
+        if self.filter_type == FilterType.ByNumber:
+            self.controls.n_genes.setEnabled(True)
+        if self.filter_type == FilterType.ByEquation:
+            self.controls.decay.setEnabled(True)
+            self.controls.x_offset.setEnabled(True)
+            self.controls.y_offset.setEnabled(True)
 
     def commit(self):
         data = None
