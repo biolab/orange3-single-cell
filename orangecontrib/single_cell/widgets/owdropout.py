@@ -59,11 +59,12 @@ class DropoutGraph(pg.PlotWidget):
     def is_curve_movable(self, value):
         self.__movable_curve = value
 
-    def set_data(self, results, data):
+    def set_data(self, results, data, genes=None):
         self.__decay = results.decay
         self.__x_offset = results.x_offset
         self.__y_offset = results.y_offset
         self.__plot_dots(results.mean_expr, results.zero_rate, data)
+        self.__plot_markers(results.mean_expr, results.zero_rate, data, genes)
         self.__plot_curve(results)
         self.__set_range(results.threshold, results.mean_expr)
 
@@ -73,6 +74,17 @@ class DropoutGraph(pg.PlotWidget):
                         np.full_like(y, len(data))))
         self.__dots = pg.ScatterPlotItem(x=x, y=y, size=5, data=data)
         self.addItem(self.__dots)
+
+    def __plot_markers(self, x, y, data, markers):
+        if markers is None:
+            return
+        col = markers.get_column_view("Entrez ID")[0]
+        mask = [str(a.attributes.get("Entrez ID", None)) in col
+                for a in data.domain.attributes]
+        markers = pg.ScatterPlotItem(
+            x=x[mask], y=y[mask], size=7,
+            brush=pg.mkBrush(color=QColor(Qt.magenta)))
+        self.addItem(markers)
 
     def __plot_curve(self, results):
         xmin, xmax = self.__get_xlim(results.threshold, results.mean_expr)
@@ -192,7 +204,8 @@ class OWDropout(OWWidget):
     priority = 205
 
     class Inputs:
-        data = Input("Data", Table)
+        data = Input("Data", Table, default=True)
+        genes = Input("Genes", Table)
 
     class Outputs:
         data = Output("Data", Table)
@@ -212,6 +225,7 @@ class OWDropout(OWWidget):
     def __init__(self):
         super().__init__()
         self.data = None  # type: Table
+        self.genes = None  # type: Table
         self.selected = None  # type: np.ndarray
         self.setup_gui()
 
@@ -300,6 +314,12 @@ class OWDropout(OWWidget):
         self.setup_info_label()
         self.unconditional_commit()
 
+    @Inputs.genes
+    def set_genes(self, genes):
+        self.genes = genes
+        self.clear()
+        self.select_genes()
+
     def clear(self):
         self.selected = None
         self.graph.clear_all()
@@ -322,7 +342,7 @@ class OWDropout(OWWidget):
                                                         selector.threshold)
         self.selected = results[0]
         self.decay, self.x_offset, self.y_offset = results[-4:-1]
-        self.graph.set_data(DropoutResults(*results[1:]), self.data)
+        self.graph.set_data(DropoutResults(*results[1:]), self.data, self.genes)
 
         n_selected = sum(self.selected)
         if n_selected < self.n_genes and self.filter_by_nr_of_genes:
