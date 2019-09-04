@@ -1,13 +1,19 @@
 import numpy as np
 from AnyQt.QtCore import Qt
-from Orange.data import (DiscreteVariable, Table, Domain)
+from Orange.clustering import hierarchical
+from Orange.clustering.hierarchical import leaves
+from Orange.data import (DiscreteVariable, Table, Domain, ContinuousVariable)
 from Orange.data.filter import Values, FilterDiscrete
+from Orange.distance import Euclidean
 from Orange.widgets import widget, gui
 from Orange.widgets.settings import Setting, ContextSetting, DomainContextHandler
 from Orange.widgets.utils.annotated_data import ANNOTATED_DATA_SIGNAL_NAME, create_annotated_table
 from Orange.widgets.utils.itemmodels import DomainModel
 from Orange.widgets.utils.signals import Input, Output
 from Orange.widgets.utils.sql import check_sql_input
+from Orange.preprocess import SklImpute
+from Orange.widgets.widget import OWWidget
+from orangewidget.widget import Msg
 
 from orangecontrib.single_cell.preprocess.clusteranalysis import ClusterAnalysis
 from orangecontrib.single_cell.widgets.contingency_table import ContingencyTable
@@ -27,6 +33,12 @@ class OWDotMatrix(widget.OWWidget):
         annotated_data = Output(ANNOTATED_DATA_SIGNAL_NAME, Table)
         contingency = Output("Contingency Table", Table)
 
+    class Error(OWWidget.Error):
+        no_discrete_variable = Msg("No discrete variables in data.")
+
+    class Warning(OWWidget.Warning):
+        to_many_attributes = Msg("Too many genes on input, first {} genes displayed.")
+
     GENE_MAXIMUM = 100
     CELL_SIZES = (14, 22, 30)
     AGGREGATE_F = [
@@ -44,7 +56,7 @@ class OWDotMatrix(widget.OWWidget):
         "Fraction expressing"
     ]
 
-    settingsHandler = DomainContextHandler(metas_in_res=True)
+    settingsHandler = DomainContextHandler()
     cluster_var = ContextSetting(None)
     aggregate_ix = ContextSetting(0)  # type: int
     biclustering = ContextSetting(True)
@@ -52,7 +64,7 @@ class OWDotMatrix(widget.OWWidget):
     log_scale = ContextSetting(False)
     normalize = ContextSetting(True)
     cell_size_ix = ContextSetting(2)  # type: int
-    selection = ContextSetting(set())
+    selection_indices = ContextSetting(set())
     auto_apply = Setting(True)
 
     want_main_area = True
@@ -60,38 +72,27 @@ class OWDotMatrix(widget.OWWidget):
     def __init__(self):
         super().__init__()
 
-        self.data = None  # type: Table
-        self.matrix = None
-        self.clusters = None
-        self.cluster_order = None
-        self.genes = None
-        self.gene_order = None
-        self.rows = None
-        self.columns = None
-        self.ordered_clusters = None
-        self.ordered_genes = None
         self.feature_model = DomainModel(valid_types=DiscreteVariable)
-
-        box = gui.vBox(self.controlArea, "Info")
-        self.infobox = gui.widgetLabel(box, self._get_info_string())
+        self._init_vars()
+        self._set_info_string()
 
         box = gui.vBox(self.controlArea, "Cluster Variable")
         gui.comboBox(box, self, "cluster_var", sendSelectedValue=True,
-                     model=self.feature_model, callback=self._calculate_table_values)
+                     model=self.feature_model, callback=self._aggregate_data)
 
         box = gui.vBox(self.controlArea, "Aggregation")
         gui.comboBox(box, self, "aggregate_ix", sendSelectedValue=False,
-                     items=self.AGGREGATE_NAME, callback=self._calculate_table_values)
+                     items=self.AGGREGATE_NAME, callback=self._aggregate_data)
 
         box = gui.vBox(self.controlArea, "Options")
-        gui.checkBox(box, self, "biclustering", "Biclustering of cells and genes",
+        gui.checkBox(box, self, "biclustering", "Order cells and genes",
                      callback=self._calculate_table_values)
         gui.checkBox(box, self, "transpose", "Transpose",
-                     callback=self._refresh_table)
+                     callback=self._calculate_table_values)
         gui.checkBox(box, self, "log_scale", "Log scale",
-                     callback=self._refresh_table)
+                     callback=self._calculate_table_values)
         gui.checkBox(box, self, "normalize", "Normalize data",
-                     callback=self._refresh_table)
+                     callback=self._calculate_table_values)
 
         box = gui.vBox(self.controlArea, "Plot Size")
         gui.radioButtons(box, self, "cell_size_ix", btnLabels=("S", "M", "L"),
@@ -106,14 +107,23 @@ class OWDotMatrix(widget.OWWidget):
         self.tableview = ContingencyTable(self)
         self.mainArea.layout().addWidget(self.tableview)
 
-    def _get_info_string(self):
-        formatstr = "{} genes, {} cells\n{} clusters"
+    def _init_vars(self):
+        self.data = None  # type: Table
+        self.matrix = None
+        self.clusters = None
+        self.clusters_unordered = None
+        self.aggregated_data = None
+        self.cluster_var = None
+        self.selected_names = {}
+
+    def _set_info_string(self):
+        formatstr = "{} genes\n{} cells\n{} clusters"
         if self.data:
-            return formatstr.format(len(self.data.domain.attributes),
-                                    len(self.data),
-                                    len(self.clusters))
+            self.info.set_input_summary(
+                str(len(self.data)),
+                formatstr.format(len(self.data.domain.attributes), len(self.data), len(self.clusters_unordered)))
         else:
-            return formatstr.format(*([0] * 3))
+            self.info.set_input_summary(self.info.NoInput)
 
     @Inputs.data
     @check_sql_input
@@ -121,112 +131,156 @@ class OWDotMatrix(widget.OWWidget):
         if self.feature_model:
             self.closeContext()
 
+        self._init_vars()
+        self.Error.no_discrete_variable.clear()
+        self.Warning.clear()
         self.data = data
-        self.matrix = None
-        self.feature_model.set_domain(None)
-        self.cluster_var = None
-        self.clusters = None
-        self.cluster_order = None
-        self.genes = None
-        self.gene_order = None
-        self.rows = None
-        self.columns = None
-        self.ordered_clusters = None
-        self.ordered_genes = None
-
         if self.data:
             self.feature_model.set_domain(self.data.domain)
             if self.feature_model:
-                self.Error.clear()
                 self.openContext(self.data)
                 if self.cluster_var is None:
                     self.cluster_var = self.feature_model[0]
-                self._calculate_table_values()
+                self._aggregate_data()
             else:
                 self.tableview.clear()
-                self.error("No discrete variables in data.")
+                self.Error.no_discrete_variable()
                 self.data = None
+                self._set_info_string()
+                self.commit()
         else:
             self.tableview.clear()
-            self.Error.clear()
+            self._set_info_string()
+            self.commit()
 
     @staticmethod
     def _group_by(table: Table, var: DiscreteVariable):
         column = table.get_column_view(var)[0]
         return (table[column == value] for value in np.unique(column))
 
-    def _calculate_table_values(self):
+    @staticmethod
+    def _transpose(matrix: np.ndarray, clusters, genes):
+        return matrix.T, np.array([str(g) for g in genes]), [ContinuousVariable(c) for c in clusters]
+
+    @staticmethod
+    def _normalize(matrix: np.ndarray):
+        matrix = (matrix - np.mean(matrix, axis=0, keepdims=True)) / (
+                np.std(matrix, axis=0, keepdims=True) + 1e-10)
+        matrix[matrix < -3] = -3
+        matrix[matrix > 3] = 3
+        return matrix
+
+    @staticmethod
+    def _norm_min_max(matrix: np.ndarray):
+        matrix = matrix - matrix.min()
+        return matrix / (matrix.max() + 1e-12)
+
+    def _aggregate_data(self):
+        self.Warning.clear()
         if self.data is None:
-            self.Warning.clear()
+            return
+
+        self.clusters_unordered = np.array(
+            [self.cluster_var.values[int(ix)]
+             for ix in np.unique(self.data.get_column_view(self.cluster_var)[0])])
+        self._set_info_string()
+
+        if len(self.data.domain.attributes) > self.GENE_MAXIMUM:
+            self.Warning.to_many_attributes(self.GENE_MAXIMUM)
+
+        self.aggregated_data = np.stack([self.AGGREGATE_F[self.aggregate_ix](cluster.X[:, :self.GENE_MAXIMUM])
+                                         for cluster in self._group_by(self.data, self.cluster_var)],
+                                        axis=0)
+        self._calculate_table_values()
+
+    def _calculate_table_values(self):
+        genes = self.data.domain.attributes[:self.GENE_MAXIMUM]
+        matrix = self.aggregated_data
+        clusters = self.clusters_unordered
+        if self.transpose:
+            matrix, clusters, genes = self._transpose(matrix, clusters, genes)
+
+        # create data table since imputation of nan values is required
+        matrix = Table(Domain(genes), matrix)
+        matrix_before_norm = matrix.copy()  # for tooltip
+        matrix = SklImpute()(matrix)
+
+        if self.log_scale:
+            matrix.X = np.log(matrix.X + 1)
+        if self.normalize:
+            matrix.X = self._normalize(matrix.X)
+
+        # values must be in range [0, 1] for visualisation
+        matrix.X = self._norm_min_max(matrix.X)
+
+        if self.biclustering:
+            cluster_order, gene_order = self.cluster_data(matrix)
         else:
-            self.clusters = [self.cluster_var.values[int(ix)]
-                             for ix in np.unique(self.data.get_column_view(self.cluster_var)[0])]
-            self.genes = [var.name for var in self.data.domain.attributes]
-            self.infobox.setText(self._get_info_string())
+            cluster_order, gene_order = np.arange(matrix.X.shape[0]), np.arange(matrix.X.shape[1])
 
-            if len(self.genes) > 100:
-                self.warning("Too many genes on input, first {} genes displayed.".format(self.GENE_MAXIMUM))
+        # reorder
+        self.matrix = matrix[cluster_order][:, gene_order]
+        self.matrix_before_norm = matrix_before_norm[cluster_order][:, gene_order]
+        self.clusters = clusters[cluster_order]
+
+        self._refresh_table()
+        self._update_selection()
+        self._invalidate()
+
+    def cluster_data(self, matrix):
+        with self.progressBar():
+            # cluster rows
+            if len(matrix) > 1:
+                rows_distances = Euclidean(matrix)
+                cluster = hierarchical.dist_matrix_clustering(rows_distances)
+                row_order = hierarchical.optimal_leaf_ordering(
+                    cluster, rows_distances, progress_callback=self.progressBarSet)
+                row_order = np.array([x.value.index for x in leaves(row_order)])
             else:
-                self.Warning.clear()
+                row_order = np.array([0])
 
-            self.matrix = np.stack((self.AGGREGATE_F[self.aggregate_ix](cluster.X[:self.GENE_MAXIMUM])
-                                    for cluster in self._group_by(self.data, self.cluster_var)),
-                                   axis=0)
-
-            if self.biclustering:
-                self.cluster_order, self.gene_order = ClusterAnalysis.biclustering(self.matrix,
-                                                                                   ClusterAnalysis.neighbor_distance)
+            # cluster columns
+            if matrix.X.shape[1] > 1:
+                columns_distances = Euclidean(matrix, axis=0)
+                cluster = hierarchical.dist_matrix_clustering(columns_distances)
+                columns_order = hierarchical.optimal_leaf_ordering(
+                    cluster, columns_distances,
+                    progress_callback=self.progressBarSet)
+                columns_order = np.array([x.value.index for x in leaves(columns_order)])
             else:
-                self.cluster_order, self.gene_order = np.arange(len(self.clusters)), np.arange(len(self.genes))
-            self.matrix = self.matrix[self.cluster_order][:,self.gene_order]
-
-            self._refresh_table()
-            self._invalidate()
+                columns_order = np.array([0])
+        return row_order, columns_order
 
     def _refresh_table(self):
-        if self.matrix is not None:
-            if not self.transpose:
-                self.rows, self.columns = self.clusters, self.genes
-                row_order, column_order = self.cluster_order, self.gene_order
-            else:
-                self.rows, self.columns = self.genes, self.clusters
-                row_order, column_order = self.gene_order, self.cluster_order
-            self.tableview.set_headers(np.array(self.rows)[row_order], np.array(self.columns)[column_order], circles=True,
-                                       cell_size=self.CELL_SIZES[self.cell_size_ix], bold_headers=False)
-            if self.matrix.size > 0:
-                matrix = self.matrix
-                if self.log_scale:
-                    matrix = np.log(matrix + 1)
-                if self.normalize:
-                    matrix = (matrix - np.mean(matrix, axis=0, keepdims=True)) / np.std(matrix, axis=0, keepdims=True)
-                    matrix[matrix < -3] = -3
-                    matrix[matrix > 3] = 3
-                    matrix = matrix - matrix.min(axis=0, keepdims=True)
-                    matrix = matrix / matrix.max(axis=0, keepdims=True)
-                else:
-                    matrix = matrix - matrix.min()
-                    matrix = matrix / matrix.max()
-                if self.transpose:
-                    matrix = matrix.T
+        if self.matrix is None:
+            return
 
-                self.ordered_clusters = np.array(self.clusters)[self.cluster_order]
-                self.ordered_genes = np.array(self.genes)[self.gene_order]
+        columns = np.array([str(x) for x in self.matrix.domain.attributes])
+        rows = self.clusters
+        # row_order, column_order = self.gene_order, self.cluster_order
+        self.tableview.set_headers(rows, columns, circles=True,
+                                   cell_size=self.CELL_SIZES[self.cell_size_ix], bold_headers=False)
+        if self.matrix.X.size > 0:
+            matrix = self.matrix.X
 
-                def tooltip(i, j):
-                    if not self.transpose:
-                        cluster, gene, value = self.ordered_clusters[i], self.ordered_genes[j], self.matrix[i, j]
-                    else:
-                        cluster, gene, value = self.ordered_clusters[j], self.ordered_genes[i], self.matrix[j, i]
-                    return "Cluster: {}\nGene: {}\n{}: {:.1f}".format(
-                        cluster, gene, self.AGGREGATE_NAME[self.aggregate_ix], value)
+            def tooltip(i, j):
+                cluster, gene, value = rows[i], columns[j], self.matrix_before_norm[i, j]
+                return "Cluster: {}\nGene: {}\n{}: {:.1f}".format(
+                    cluster, gene, self.AGGREGATE_NAME[self.aggregate_ix], value)
 
-                self.tableview.update_table(matrix, tooltip=tooltip)
+            self.tableview.update_table(matrix, tooltip=tooltip)
 
     def commit(self):
-        if len(self.selection):
+        if self.data is None:
+            self.Outputs.selected_data.send(None)
+            self.Outputs.annotated_data.send(None)
+            self.Outputs.contingency.send(None)
+            return
+
+        if len(self.selection_indices):
             cluster_ids = set()
             gene_ids = set()
-            for (ir, ic) in self.selection:
+            for (ir, ic) in self.selection_indices:
                 if not self.transpose:
                     cluster_ids.add(ir)
                     gene_ids.add(ic)
@@ -234,33 +288,63 @@ class OWDotMatrix(widget.OWWidget):
                     cluster_ids.add(ic)
                     gene_ids.add(ir)
 
-            new_domain = Domain([self.data.domain[self.genes[i]] for i in gene_ids],
+            columns = self.clusters if self.transpose else [str(x) for x in self.matrix.domain.attributes]
+            rows = self.clusters if not self.transpose else [str(x) for x in self.matrix.domain.attributes]
+            new_domain = Domain([self.data.domain[columns[i]] for i in gene_ids],
                                 self.data.domain.class_vars,
                                 self.data.domain.metas)
-            selected_data = Values([FilterDiscrete(self.cluster_var, [self.clusters[i]])
+            selected_data = Values([FilterDiscrete(self.cluster_var, [rows[i]])
                                     for i in cluster_ids],
                                    conjunction=False)(self.data)
             selected_data = selected_data.transform(new_domain)
-            annotated_data = create_annotated_table(self.data.transform(new_domain),
+            annotated_data = create_annotated_table(self.data,
                                                     np.where(np.in1d(self.data.ids, selected_data.ids, True)))
         else:
             selected_data = None
             annotated_data = create_annotated_table(self.data, [])
-        if self.matrix is not None:
-            table = ClusterAnalysis.contingency_table(self.matrix,
-                                                      DiscreteVariable(self.cluster_var.name,
-                                                                       np.array(self.clusters)),
-                                                      np.array(self.genes)[self.gene_order],
-                                                      self.cluster_order[...,np.newaxis])
-        else:
-            table = None
+
+        clusters_values = list(set(self.clusters))
+        table = ClusterAnalysis.contingency_table(
+            self.matrix,
+            DiscreteVariable("Gene" if self.transpose else self.cluster_var.name, clusters_values),
+            [str(x) for x in self.matrix.domain.attributes],
+            [[clusters_values.index(c)] for c in self.clusters]
+        )
+
         self.Outputs.selected_data.send(selected_data)
         self.Outputs.annotated_data.send(annotated_data)
         self.Outputs.contingency.send(table)
 
+    def _update_selection(self):
+        """
+        This function updates widget selection in case when any item is selected.
+        It updates selection when order has changed
+        """
+        rows = self.clusters.tolist()
+        columns = [str(x) for x in self.matrix.domain.attributes]
+        if self.transpose:
+            new_selection = {(rows.index(g), columns.index(c)) for g, c in self.selected_names}
+        else:
+            new_selection = {(rows.index(c), columns.index(g)) for g, c in self.selected_names}
+        self.tableview.set_selection(new_selection)
+
     def _invalidate(self):
-        self.selection = self.tableview.get_selection()
+        self.save_selection_names()
         self.commit()
+
+    def save_selection_names(self):
+        """
+        With this method we save the names of selected genes-clusters pairs, since options changes
+        the columns, rows orders and we want to keep the selection.
+        """
+        self.selection_indices = self.tableview.get_selection()
+        genes = self.clusters if self.transpose else [str(x) for x in self.matrix.domain.attributes]
+        clusters = self.clusters if not self.transpose else [str(x) for x in self.matrix.domain.attributes]
+
+        if self.transpose:
+            self.selected_names = {(genes[g], clusters[c]) for g, c in self.selection_indices}
+        else:
+            self.selected_names = {(genes[g], clusters[c]) for c, g in self.selection_indices}
 
 
 def test():
@@ -268,7 +352,7 @@ def test():
     app = QApplication([])
 
     w = OWDotMatrix()
-    data = Table("housing")
+    data = Table("iris")
     w.set_data(data)
     w.handleNewSignals()
     w.show()
