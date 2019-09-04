@@ -1,9 +1,9 @@
 from collections import namedtuple
 import numpy as np
 
-from AnyQt.QtCore import Qt, QSize, QRectF, QObject, pyqtSignal as Signal
+from AnyQt.QtCore import Qt, QSize, QRectF, pyqtSignal as Signal
 from AnyQt.QtGui import QColor
-from AnyQt.QtWidgets import QGraphicsSceneMouseEvent, QHBoxLayout, QVBoxLayout
+from AnyQt.QtWidgets import QHBoxLayout, QVBoxLayout, QToolTip
 
 import pyqtgraph as pg
 
@@ -11,6 +11,7 @@ from Orange.data import Table
 from Orange.widgets import gui
 from Orange.widgets.settings import Setting
 from Orange.widgets.widget import OWWidget, Input, Output, Msg
+from Orange.widgets.visualize.utils.plotutils import MouseEventDelegate
 
 from orangecontrib.single_cell.preprocess.scpreprocess import \
     DropoutGeneSelection
@@ -18,17 +19,6 @@ from orangecontrib.single_cell.preprocess.scpreprocess import \
 DropoutResults = namedtuple("DropoutResults",
                             ["zero_rate", "mean_expr", "decay",
                              "x_offset", "y_offset", "threshold"])
-
-
-class MouseEventDelegate(QObject):
-    def __init__(self, delegate, parent=None):
-        super().__init__(parent)
-        self.delegate = delegate
-
-    def eventFilter(self, obj, ev):
-        if isinstance(ev, QGraphicsSceneMouseEvent):
-            return self.delegate(ev)
-        return False
 
 
 class States:
@@ -45,6 +35,7 @@ class DropoutGraph(pg.PlotWidget):
     def __init__(self, parent, movable_curve=False):
         super().__init__(parent, background="w")
         self.__movable_curve = movable_curve
+        self.__dots = None  # type: pg.ScatterPlotItem
         self.__curve = None  # type: pg.PlotCurveItem
         self.__decay = None  # type: float
         self.__x_offset = None  # type: float
@@ -52,7 +43,7 @@ class DropoutGraph(pg.PlotWidget):
         self._initial_x = None  # type: float
         self._initial_y = None  # type: float
         self._state = States.WAITING
-        self._delegate = MouseEventDelegate(self.cursor_event)
+        self._delegate = MouseEventDelegate(self.help_event, self.cursor_event)
         self.setMouseEnabled(False, False)
         self.hideButtons()
         self.plotItem.setContentsMargins(0, 20, 20, 0)
@@ -68,16 +59,20 @@ class DropoutGraph(pg.PlotWidget):
     def is_curve_movable(self, value):
         self.__movable_curve = value
 
-    def set_data(self, results):
+    def set_data(self, results, data):
         self.__decay = results.decay
         self.__x_offset = results.x_offset
         self.__y_offset = results.y_offset
-        self.__plot_dots(results.mean_expr, results.zero_rate)
+        self.__plot_dots(results.mean_expr, results.zero_rate, data)
         self.__plot_curve(results)
         self.__set_range(results.threshold, results.mean_expr)
 
-    def __plot_dots(self, x, y):
-        self.addItem(pg.ScatterPlotItem(x=x, y=y, size=3))
+    def __plot_dots(self, x, y, data):
+        data = list(zip(data.domain.attributes,
+                        (data.X > 0).sum(axis=0),
+                        np.full_like(y, len(data))))
+        self.__dots = pg.ScatterPlotItem(x=x, y=y, size=5, data=data)
+        self.addItem(self.__dots)
 
     def __plot_curve(self, results):
         xmin, xmax = self.__get_xlim(results.threshold, results.mean_expr)
@@ -95,6 +90,31 @@ class DropoutGraph(pg.PlotWidget):
         xmin, xmax = self.__get_xlim(threshold, x)
         rect = QRectF(xmin, 0, xmin + xmax, 1)
         self.setRange(rect, padding=0)
+
+    def help_event(self, ev):
+        if self.__dots is None:
+            return False
+        dot = self.__dotAt(self.__dots.mapFromScene(ev.scenePos()))
+        if dot is not None and dot.data() is not None:
+            var, p, n = dot.data()
+            q = round(p / n * 100, 1)
+            text = f"{var.name}\nExpressed in {int(p)}/{int(n)} cells ({q}%)"
+            QToolTip.showText(ev.screenPos(), text, widget=self)
+            return True
+        else:
+            return False
+
+    def __dotAt(self, pos):
+        pw, ph = self.__dots.pixelWidth(), self.__dots.pixelHeight()
+        for s in self.__dots.points():
+            sx, sy = s.pos().x(), s.pos().y()
+            s2x = s2y = s.size()
+            if self.__dots.opts['pxMode']:
+                s2x *= pw
+                s2y *= ph
+            if sx + s2x > pos.x() > sx - s2x and sy + s2y > pos.y() > sy - s2y:
+                return s
+        return None
 
     def cursor_event(self, ev):
         if self.__curve is None:
@@ -149,6 +169,7 @@ class DropoutGraph(pg.PlotWidget):
 
     def clear_all(self):
         self.clear()
+        self.__dots = None
         self.__curve = None
         self.__decay = None
         self.__x_offset = None
@@ -165,7 +186,7 @@ class FilterType:
 
 
 class OWDropout(OWWidget):
-    name = "Dropout"
+    name = "Dropout-based Gene Selection"
     description = "Dropout-based gene selection"
     icon = 'icons/Dropout.svg'
     priority = 205
@@ -289,12 +310,11 @@ class OWDropout(OWWidget):
         if not self.data:
             return
 
+        kwargs = {"decay": self.decay, "y_offset": self.y_offset}
         if self.filter_by_nr_of_genes:
-            kwargs = {"n_genes": self.n_genes}
+            kwargs["n_genes"] = self.n_genes
         else:
-            kwargs = {"decay": self.decay,
-                      "x_offset": self.x_offset,
-                      "y_offset": self.y_offset}
+            kwargs["x_offset"] = self.x_offset
         selector = DropoutGeneSelection(**kwargs)
         results = selector.select_genes(self.data.X) + (selector.decay,
                                                         selector.x_offset,
@@ -302,7 +322,7 @@ class OWDropout(OWWidget):
                                                         selector.threshold)
         self.selected = results[0]
         self.decay, self.x_offset, self.y_offset = results[-4:-1]
-        self.graph.set_data(DropoutResults(*results[1:]))
+        self.graph.set_data(DropoutResults(*results[1:]), self.data)
 
         n_selected = sum(self.selected)
         if n_selected < self.n_genes and self.filter_by_nr_of_genes:
