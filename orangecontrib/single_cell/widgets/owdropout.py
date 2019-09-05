@@ -9,7 +9,8 @@ import pyqtgraph as pg
 
 from Orange.data import Table
 from Orange.widgets import gui, report
-from Orange.widgets.settings import Setting
+from Orange.widgets.settings import Setting, ContextSetting, \
+    DomainContextHandler
 from Orange.widgets.widget import OWWidget, Input, Output, Msg
 from Orange.widgets.visualize.utils.plotutils import MouseEventDelegate
 
@@ -206,11 +207,12 @@ class OWDropout(OWWidget):
         less_selected = Msg("Cannot select more than {} genes.")
         missing_entrez_id = Msg("'Entred ID' is missing in Genes table.")
 
+    settingsHandler = DomainContextHandler()
     filter_type = Setting(FilterType.ByNumber)
-    n_genes = Setting(1000)
-    x_offset = Setting(5)
-    y_offset = Setting(0.02)
-    decay = Setting(1)
+    n_genes = ContextSetting(1000)
+    x_offset = ContextSetting(5)
+    y_offset = ContextSetting(0.02)
+    decay = ContextSetting(1)
     auto_commit = Setting(True)
 
     graph_name = "graph.plotItem"
@@ -245,7 +247,7 @@ class OWDropout(OWWidget):
         genes_layout.addWidget(gui.appendRadioButton(
             filter_box, "Number of genes:", addToLayout=False))
         genes_layout.addWidget(gui.spin(
-            filter_box, self, "n_genes", 0, 10000, addToLayout=False,
+            filter_box, self, "n_genes", 0, 100000, addToLayout=False,
             callback=self.__param_changed))
         formula_layout.addWidget(gui.appendRadioButton(
             filter_box, "Apply exp(-a(x-b))+c", addToLayout=False))
@@ -298,8 +300,10 @@ class OWDropout(OWWidget):
 
     @Inputs.data
     def set_data(self, data):
+        self.closeContext()
         self.clear()
         self.data = data
+        self.openContext(data)
         self.select_genes()
         self.setup_info_label()
         self.unconditional_commit()
