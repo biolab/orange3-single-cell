@@ -187,7 +187,7 @@ class FilterType:
 
 
 class OWDropout(OWWidget):
-    name = "Dropout-based Gene Selection"
+    name = "Dropout Gene Selection"
     description = "Dropout-based gene selection"
     icon = 'icons/Dropout.svg'
     priority = 205
