@@ -37,6 +37,7 @@ class DropoutGraph(pg.PlotWidget):
     def __init__(self, parent):
         super().__init__(parent, background="w")
         self.__dots = None  # type: pg.ScatterPlotItem
+        self.__markers = None  # type: pg.ScatterPlotItem
         self.__curve = None  # type: pg.PlotCurveItem
         self.__decay = None  # type: float
         self.__x_offset = None  # type: float
@@ -61,6 +62,13 @@ class DropoutGraph(pg.PlotWidget):
         self.__plot_curve(results)
         self.__set_range(results.threshold, results.mean_expr)
 
+    def update_markers(self, data, genes):
+        self.removeItem(self.__markers)
+        if data is None:
+            return
+        x, y = self.__dots.getData()
+        self.__plot_markers(x, y, data, genes)
+
     def __plot_dots(self, x, y, data):
         data = list(zip(data.domain.attributes,
                         (data.X > 0).sum(axis=0),
@@ -74,10 +82,10 @@ class DropoutGraph(pg.PlotWidget):
         col = markers.get_column_view(ENTREZ_ID)[0]
         mask = [str(a.attributes.get(ENTREZ_ID, None)) in col
                 for a in data.domain.attributes]
-        markers = pg.ScatterPlotItem(
+        self.__markers = pg.ScatterPlotItem(
             x=x[mask], y=y[mask], size=7,
             brush=pg.mkBrush(color=QColor(Qt.magenta)))
-        self.addItem(markers)
+        self.addItem(self.__markers)
 
     def __plot_curve(self, results):
         xmin, xmax = self.__get_xlim(results.threshold, results.mean_expr)
@@ -279,7 +287,6 @@ class OWDropout(OWWidget):
         self.__param_changed()
 
     def __param_changed(self):
-        self.clear()
         self.select_genes()
         self.setup_info_label()
         self.commit()
@@ -301,7 +308,6 @@ class OWDropout(OWWidget):
     @Inputs.data
     def set_data(self, data):
         self.closeContext()
-        self.clear()
         self.data = data
         self.openContext(data)
         self.select_genes()
@@ -312,8 +318,7 @@ class OWDropout(OWWidget):
     def set_genes(self, genes):
         self.genes = genes
         self.check_genes()
-        self.clear()
-        self.select_genes()
+        self.graph.update_markers(self.data, self.genes)
 
     def check_genes(self):
         self.Warning.missing_entrez_id.clear()
@@ -322,11 +327,9 @@ class OWDropout(OWWidget):
                 self.Warning.missing_entrez_id()
                 self.genes = None
 
-    def clear(self):
+    def select_genes(self):
         self.selected = None
         self.graph.clear_all()
-
-    def select_genes(self):
         self.Warning.less_selected.clear()
         if not self.data:
             return

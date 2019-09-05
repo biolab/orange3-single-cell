@@ -78,20 +78,52 @@ class TestOWDropout(WidgetTest):
                                                     "panglao_gene_markers.tab")
         filter_ = FilterString("Organism", FilterString.Equal, "Human")
         cls.genes = Values([filter_])(Table(genes_path))
+        cls.iris = Table("iris")
 
     def setUp(self):
         self.widget = self.create_widget(OWDropout)
 
-    def test_inputs(self):
-        iris = Table("iris")
-        self.send_signal(self.widget.Inputs.genes, self.genes)
+    def test_input_data(self):
         self.send_signal(self.widget.Inputs.data, self.data)
-        self.send_signal(self.widget.Inputs.genes, iris)
-        self.assertTrue(self.widget.Warning.missing_entrez_id.is_shown())
+        self.send_signal(self.widget.Inputs.data, self.iris)
         self.send_signal(self.widget.Inputs.data, self.genes)
+        self.send_signal(self.widget.Inputs.data, None)
+
+    @patch("orangecontrib.single_cell.widgets.owdropout."
+           "DropoutGraph.update_markers")
+    @patch("orangecontrib.single_cell.widgets.owdropout."
+           "DropoutGraph.set_data")
+    def test_input_genes(self, set_data: Mock, update_markers: Mock):
+        # genes
+        self.send_signal(self.widget.Inputs.genes, self.genes)
+        update_markers.assert_called_once_with(None, self.genes)
+        update_markers.reset_mock()
+        set_data.assert_not_called()
+
+        # data, genes
+        self.send_signal(self.widget.Inputs.data, self.data)
+        update_markers.assert_not_called()
+        update_markers.reset_mock()
+        set_data.assert_called_once()
+
+        # data
+        self.send_signal(self.widget.Inputs.genes, None)
+        update_markers.assert_called_once_with(self.data, None)
+        update_markers.reset_mock()
+        set_data.assert_called_once()
+
+        # data, genes
+        self.send_signal(self.widget.Inputs.genes, self.iris)
         self.assertTrue(self.widget.Warning.missing_entrez_id.is_shown())
+        update_markers.assert_called_once_with(self.data, None)
+        update_markers.reset_mock()
+        set_data.assert_called_once()
+
+        # data
         self.send_signal(self.widget.Inputs.genes, None)
         self.assertFalse(self.widget.Warning.missing_entrez_id.is_shown())
+        update_markers.assert_called_once_with(self.data, None)
+        set_data.assert_called_once()
 
     def test_controls_enabled(self):
         controls = self.widget.controls
