@@ -380,7 +380,7 @@ class OWDropout(OWWidget):
         self.Outputs.data.send(data)
 
     def sizeHint(self):
-        return super().sizeHint().expandedTo(QSize(800, 600))
+        return super().sizeHint().expandedTo(QSize(800, 400))
 
     def send_report(self):
         if self.selected is None:
