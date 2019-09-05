@@ -32,9 +32,8 @@ class DropoutGraph(pg.PlotWidget):
     CURVE_PEN = pg.mkPen(color=QColor(Qt.darkCyan), width=4)
     MOVING_CURVE_PEN = pg.mkPen(color=QColor(179, 215, 255), width=4)
 
-    def __init__(self, parent, movable_curve=False):
+    def __init__(self, parent):
         super().__init__(parent, background="w")
-        self.__movable_curve = movable_curve
         self.__dots = None  # type: pg.ScatterPlotItem
         self.__curve = None  # type: pg.PlotCurveItem
         self.__decay = None  # type: float
@@ -50,14 +49,6 @@ class DropoutGraph(pg.PlotWidget):
         self.setLabel("bottom", "Mean log2 nonzero expression")
         self.setLabel("left", "Frequency of zero expression")
         self.scene().installEventFilter(self._delegate)
-
-    @property
-    def is_curve_movable(self):
-        return self.__movable_curve
-
-    @is_curve_movable.setter
-    def is_curve_movable(self, value):
-        self.__movable_curve = value
 
     def set_data(self, results, data, genes=None):
         self.__decay = results.decay
@@ -130,8 +121,6 @@ class DropoutGraph(pg.PlotWidget):
 
     def cursor_event(self, ev):
         if self.__curve is None:
-            return False
-        if not self.__movable_curve:
             return False
         if self._state == States.HOLDING_CURVE:
             return False
@@ -272,9 +261,6 @@ class OWDropout(OWWidget):
         gui.doubleSpin(
             coef_box, self, "y_offset", 0.0, 1.0, 0.01, label="c:", **common)
 
-        gui.separator(filter_box, height=1)
-        gui.appendRadioButton(filter_box, "Manual move")
-
         gui.rubber(self.controlArea)
         gui.auto_commit(self.controlArea, self, "auto_commit",
                         "Send Selection", "Send Automatically")
@@ -293,14 +279,14 @@ class OWDropout(OWWidget):
         self.commit()
 
     def __manual_move(self, delta_x, delta_y):
-        if self.filter_type == FilterType.ManualMove:
-            self.x_offset += delta_x
-            self.y_offset += delta_y
-            if self.x_offset < 0:
-                self.x_offset = 0
-            if self.y_offset < 0:
-                self.y_offset = 0
-            self.__param_changed()
+        self.x_offset += delta_x
+        self.y_offset += delta_y
+        if self.x_offset < 0:
+            self.x_offset = 0
+        if self.y_offset < 0:
+            self.y_offset = 0
+        self.filter_type = FilterType.ByEquation
+        self.__filter_type_changed()
 
     @property
     def filter_by_nr_of_genes(self):
@@ -323,7 +309,6 @@ class OWDropout(OWWidget):
     def clear(self):
         self.selected = None
         self.graph.clear_all()
-        self.graph.is_curve_movable = self.filter_type == FilterType.ManualMove
 
     def select_genes(self):
         self.Warning.less_selected.clear()

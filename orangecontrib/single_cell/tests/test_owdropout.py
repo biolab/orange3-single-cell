@@ -90,29 +90,6 @@ class TestOWDropout(WidgetTest):
         self.assertTrue(controls.x_offset.isEnabled())
         self.assertTrue(controls.y_offset.isEnabled())
 
-        buttons[2].click()
-        self.assertEqual(self.widget.filter_type, 2)
-        self.assertFalse(controls.n_genes.isEnabled())
-        self.assertFalse(controls.decay.isEnabled())
-        self.assertFalse(controls.x_offset.isEnabled())
-        self.assertFalse(controls.y_offset.isEnabled())
-
-    def test_manual_move_enabled(self):
-        controls = self.widget.controls
-        buttons = controls.filter_type.buttons
-        self.send_signal(self.widget.Inputs.data, self.data)
-        self.assertFalse(self.widget.graph.is_curve_movable)
-        buttons[2].click()
-        self.assertTrue(self.widget.graph.is_curve_movable)
-        self.send_signal(self.widget.Inputs.data, None)
-        self.assertTrue(self.widget.graph.is_curve_movable)
-        buttons[1].click()
-        self.assertFalse(self.widget.graph.is_curve_movable)
-        buttons[2].click()
-        self.assertTrue(self.widget.graph.is_curve_movable)
-        self.send_signal(self.widget.Inputs.data, self.data)
-        self.assertTrue(self.widget.graph.is_curve_movable)
-
     def test_output(self):
         self.send_signal(self.widget.Inputs.data, self.data)
         output = self.get_output(self.widget.Outputs.data)
