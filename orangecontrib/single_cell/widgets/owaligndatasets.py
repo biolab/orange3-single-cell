@@ -218,7 +218,9 @@ class OWAlignDatasets(widget.OWWidget):
         if self.data:
             self._feature_model.set_domain(self.data.domain)
             if self._feature_model:
-                # self.openContext(data)
+                # if source id is available we assume that it is the feature that describes a dataset source
+                if "Source ID" in self.data.domain:
+                    self.source_id = self.data.domain["Source ID"]
                 self.openContext(self.data.domain)
                 if self.source_id is None or self.source_id == '':
                     for model in self._feature_model:
