@@ -1,12 +1,10 @@
-import unittest
-
 from sklearn import datasets
-from Orange.data import Table, Domain, ContinuousVariable, DiscreteVariable
+from Orange.data import ContinuousVariable, DiscreteVariable
 import numpy as np
 
 from Orange.data import Table, Domain
-from Orange.widgets.data.owtranspose import OWTranspose
 from Orange.widgets.tests.base import WidgetTest
+from Orange.widgets.tests.utils import simulate
 
 from orangecontrib.single_cell.widgets.owaligndatasets import OWAlignDatasets
 
@@ -63,3 +61,38 @@ class TestOWMDA(WidgetTest):
 
         self.assertEqual(td.X.shape, (samples, ncomponents))
         self.assertEqual(gc.X.shape, (ngenes, ncomponents))
+
+    def test_source_id_defult(self):
+        """
+        Check whether Source ID is set as a default source ID attribute.
+        """
+        w = self.widget
+        data = self.generate_dataset()
+        data1 = Table("iris")
+        data = Table(
+            Domain(
+                data.domain.attributes, data.domain.class_var,
+                metas=[DiscreteVariable("Source ID", values=["a", "b"])]),
+            data.X, data.Y, metas=np.random.randint(0, 2, (len(data), 1)))
+        data1 = Table(
+            Domain(
+                data1.domain.attributes, data1.domain.class_var,
+                metas=[DiscreteVariable("Source ID", values=["a", "b", ])]),
+            data1.X, data1.Y, metas=np.random.randint(0, 2, (len(data1), 1)))
+        w._reset_settings()
+        self.send_signal(w.Inputs.data, data)
+        # without manual fix source ID would be class since it is first in list
+        self.assertEqual("Source ID", str(w.source_id))
+        # we change setting manually (it is stored in widget settings) and it should stay even when new signal comes
+        cbox = w.controls.source_id
+        simulate.combobox_activate_item(cbox, "class")
+        self.assertEqual("class", str(w.source_id))
+        self.send_signal(w.Inputs.data, None)
+        self.send_signal(w.Inputs.data, data)
+        self.assertEqual("class", str(w.source_id))
+
+        self.send_signal(w.Inputs.data, data1)
+        self.assertEqual("Source ID", str(w.source_id))
+
+        self.send_signal(w.Inputs.data, data)
+        self.assertEqual("class", str(w.source_id))
