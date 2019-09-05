@@ -12,8 +12,7 @@ from Orange.widgets.utils.itemmodels import DomainModel
 from Orange.widgets.utils.signals import Input, Output
 from Orange.widgets.utils.sql import check_sql_input
 from Orange.preprocess import SklImpute
-from Orange.widgets.widget import OWWidget
-from orangewidget.widget import Msg
+from Orange.widgets.widget import OWWidget, Msg
 
 from orangecontrib.single_cell.preprocess.clusteranalysis import ClusterAnalysis
 from orangecontrib.single_cell.widgets.contingency_table import ContingencyTable
