@@ -16,6 +16,7 @@ from Orange.widgets.visualize.utils.plotutils import MouseEventDelegate
 from orangecontrib.single_cell.preprocess.scpreprocess import \
     DropoutGeneSelection
 
+ENTREZ_ID = "Entrez ID"
 DropoutResults = namedtuple("DropoutResults",
                             ["zero_rate", "mean_expr", "decay",
                              "x_offset", "y_offset", "threshold"])
@@ -69,8 +70,8 @@ class DropoutGraph(pg.PlotWidget):
     def __plot_markers(self, x, y, data, markers):
         if markers is None:
             return
-        col = markers.get_column_view("Entrez ID")[0]
-        mask = [str(a.attributes.get("Entrez ID", None)) in col
+        col = markers.get_column_view(ENTREZ_ID)[0]
+        mask = [str(a.attributes.get(ENTREZ_ID, None)) in col
                 for a in data.domain.attributes]
         markers = pg.ScatterPlotItem(
             x=x[mask], y=y[mask], size=7,
@@ -178,6 +179,8 @@ class DropoutGraph(pg.PlotWidget):
 
     @staticmethod
     def __get_xlim(threshold, x):
+        if not len(x):
+            return 0, 0
         xmin = 0 if threshold == 0 else np.log2(threshold)
         return xmin, np.ceil(np.nanmax(x))
 
@@ -201,6 +204,7 @@ class OWDropout(OWWidget):
 
     class Warning(OWWidget.Warning):
         less_selected = Msg("Cannot select more than {} genes.")
+        missing_entrez_id = Msg("'Entred ID' is missing in Genes table.")
 
     filter_type = Setting(FilterType.ByNumber)
     n_genes = Setting(1000)
@@ -303,8 +307,16 @@ class OWDropout(OWWidget):
     @Inputs.genes
     def set_genes(self, genes):
         self.genes = genes
+        self.check_genes()
         self.clear()
         self.select_genes()
+
+    def check_genes(self):
+        self.Warning.missing_entrez_id.clear()
+        if self.genes:
+            if ENTREZ_ID not in self.genes.domain:
+                self.Warning.missing_entrez_id()
+                self.genes = None
 
     def clear(self):
         self.selected = None
