@@ -186,7 +186,7 @@ class DropoutGraph(pg.PlotWidget):
 
 
 class FilterType:
-    ByNumber, ByEquation, ManualMove = range(3)
+    ByNumber, ByEquation = range(2)
 
 
 class OWDropout(OWWidget):
@@ -358,16 +358,10 @@ class OWDropout(OWWidget):
         self.info_label.setText(text)
 
     def enable_controls(self):
-        self.controls.n_genes.setEnabled(False)
-        self.controls.decay.setEnabled(False)
-        self.controls.x_offset.setEnabled(False)
-        self.controls.y_offset.setEnabled(False)
-        if self.filter_type == FilterType.ByNumber:
-            self.controls.n_genes.setEnabled(True)
-        if self.filter_type == FilterType.ByEquation:
-            self.controls.decay.setEnabled(True)
-            self.controls.x_offset.setEnabled(True)
-            self.controls.y_offset.setEnabled(True)
+        self.controls.n_genes.setEnabled(self.filter_by_nr_of_genes)
+        self.controls.decay.setEnabled(not self.filter_by_nr_of_genes)
+        self.controls.x_offset.setEnabled(not self.filter_by_nr_of_genes)
+        self.controls.y_offset.setEnabled(not self.filter_by_nr_of_genes)
 
     def commit(self):
         data = None

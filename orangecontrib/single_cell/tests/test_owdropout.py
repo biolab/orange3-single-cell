@@ -7,10 +7,14 @@ from AnyQt.QtCore import Qt, QPoint
 from AnyQt.QtTest import QTest
 
 from Orange.data import Table
+from Orange.data.filter import Values, FilterString
 from Orange.widgets.tests.base import WidgetTest
 from Orange.widgets.widget import OWWidget
 
-from orangecontrib.single_cell.widgets.owdropout import OWDropout, DropoutGraph
+from orangecontrib.bioinformatics.utils import serverfiles
+
+from orangecontrib.single_cell.widgets.owdropout import OWDropout, \
+    DropoutGraph, FilterType
 
 
 class DummyWidget(OWWidget):
@@ -70,21 +74,47 @@ class TestOWDropout(WidgetTest):
     def setUpClass(cls):
         super().setUpClass()
         cls.data = Table("https://datasets.orange.biolab.si/sc/aml-1k.tab.gz")
+        genes_path = serverfiles.localpath_download("marker_genes",
+                                                    "panglao_gene_markers.tab")
+        filter_ = FilterString("Organism", FilterString.Equal, "Human")
+        cls.genes = Values([filter_])(Table(genes_path))
 
     def setUp(self):
         self.widget = self.create_widget(OWDropout)
 
+    def test_inputs(self):
+        iris = Table("iris")
+        self.send_signal(self.widget.Inputs.genes, self.genes)
+        self.send_signal(self.widget.Inputs.data, self.data)
+        self.send_signal(self.widget.Inputs.genes, iris)
+        self.assertTrue(self.widget.Warning.missing_entrez_id.is_shown())
+        self.send_signal(self.widget.Inputs.data, self.genes)
+        self.assertTrue(self.widget.Warning.missing_entrez_id.is_shown())
+        self.send_signal(self.widget.Inputs.genes, None)
+        self.assertFalse(self.widget.Warning.missing_entrez_id.is_shown())
+
     def test_controls_enabled(self):
         controls = self.widget.controls
         buttons = controls.filter_type.buttons
-        self.assertEqual(self.widget.filter_type, 0)
+        self.assertEqual(self.widget.filter_type, FilterType.ByNumber)
         self.assertTrue(controls.n_genes.isEnabled())
         self.assertFalse(controls.decay.isEnabled())
         self.assertFalse(controls.x_offset.isEnabled())
         self.assertFalse(controls.y_offset.isEnabled())
 
         buttons[1].click()
-        self.assertEqual(self.widget.filter_type, 1)
+        self.assertEqual(self.widget.filter_type, FilterType.ByEquation)
+        self.assertFalse(controls.n_genes.isEnabled())
+        self.assertTrue(controls.decay.isEnabled())
+        self.assertTrue(controls.x_offset.isEnabled())
+        self.assertTrue(controls.y_offset.isEnabled())
+
+    def test_manual_move(self):
+        self.send_signal(self.widget.Inputs.data, self.data)
+        self.widget.graph.curve_moved.emit(1, 2)
+        self.assertEqual(self.widget.filter_type, FilterType.ByEquation)
+        controls = self.widget.controls
+        self.assertTrue(controls.filter_type.buttons[1].clicked)
         self.assertFalse(controls.n_genes.isEnabled())
         self.assertTrue(controls.decay.isEnabled())
         self.assertTrue(controls.x_offset.isEnabled())
