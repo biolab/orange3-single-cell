@@ -139,15 +139,6 @@ class TestOWDropout(WidgetTest):
         output = self.get_output(self.widget.Outputs.data)
         self.assertEqual(len(output.domain.attributes), 200)
 
-    @unittest.skip("Skip due to numpy.linalg.LinAlgError: Singular matrix")
-    def test_send_report(self):
-        self.send_signal(self.widget.Inputs.data, self.data)
-        self.widget.report_button.click()
-        self.widget.controls.filter_type.buttons[1].click()
-        self.widget.report_button.click()
-        self.send_signal(self.widget.Inputs.data, None)
-        self.widget.report_button.click()
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -8,7 +8,7 @@ from AnyQt.QtWidgets import QHBoxLayout, QVBoxLayout, QToolTip
 import pyqtgraph as pg
 
 from Orange.data import Table
-from Orange.widgets import gui
+from Orange.widgets import gui, report
 from Orange.widgets.settings import Setting
 from Orange.widgets.widget import OWWidget, Input, Output, Msg
 from Orange.widgets.visualize.utils.plotutils import MouseEventDelegate
@@ -385,18 +385,12 @@ class OWDropout(OWWidget):
     def send_report(self):
         if self.selected is None:
             return
-        if self.filter_by_nr_of_genes:
-            caption = f"Number of genes: {self.n_genes}"
-        else:
-            a = "{:.2f}".format(self.decay) \
-                if round(self.decay, 2) != 1 else ""
-            b = "-{:.2f}".format(self.x_offset) \
-                if round(self.x_offset, 2) != 0 else ""
-            c = "+{:.2f}".format(self.y_offset) \
-                if round(self.y_offset, 2) != 0 else ""
-            caption = f"Applying equation: exp(-{a}(x{b})){c}"
         self.report_plot()
-        self.report_caption(caption)
+        self.report_caption(report.render_items_vert((
+            ("Number of genes", self.n_genes),
+            ("a", round(self.decay, 2)),
+            ("b", round(self.x_offset, 2)),
+            ("a", round(self.y_offset, 2)))))
 
 
 if __name__ == "__main__":
