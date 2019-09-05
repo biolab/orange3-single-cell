@@ -347,6 +347,7 @@ class OWDropout(OWWidget):
         n_selected = sum(self.selected)
         if n_selected < self.n_genes and self.filter_by_nr_of_genes:
             self.Warning.less_selected(n_selected)
+        self.n_genes = n_selected
 
     def setup_info_label(self):
         text = "No data on input."
