@@ -1,3 +1,4 @@
+from typing import Tuple, Optional
 import warnings
 import numpy as np
 import scipy.sparse as sp
@@ -183,12 +184,13 @@ class DropoutGeneSelection(Preprocess):
         self.at_least = at_least
 
     def __call__(self, data: Table) -> Table:
-        selected = self.select_genes(data.X)[0]
+        zero_rate, mean_expr = self.detection(data.X)
+        selected = self.select_genes(zero_rate, mean_expr)
         if sum(selected) < self.n_genes:
             warnings.warn(f"{sum(selected)} genes selected", DropoutWarning)
         return self.filter_columns(data, selected)
 
-    def select_genes(self, table: np.ndarray) -> np.ndarray:
+    def detection(self, table: np.ndarray) -> Tuple[np.ndarray]:
         mask = table > self.threshold
         if sp.issparse(table):
             zero_rate = 1 - np.squeeze(np.array(mask.mean(axis=0)))
@@ -209,30 +211,35 @@ class DropoutGeneSelection(Preprocess):
         low_detection = np.array(np.sum(mask, axis=0)).squeeze()
         zero_rate[low_detection < self.at_least] = np.nan
         mean_expr[low_detection < self.at_least] = np.nan
+        return zero_rate, mean_expr
 
-        def get_selected():
-            nonan = ~np.isnan(zero_rate)
-            sel = np.zeros_like(zero_rate).astype(bool)
-            x = mean_expr[nonan]
-            y = self.y(x, self.decay, self.x_offset, self.y_offset)
-            sel[nonan] = (zero_rate[nonan] > y)
-            return sel
+    def select_genes(self, zero_rate: np.ndarray,
+                     mean_expr: np.ndarray) -> np.ndarray:
+        args = (mean_expr, zero_rate)
+        return self.__get_selected(*args) if self.n_genes is None \
+            else self.__bisection(*args)
 
-        if self.n_genes is not None:
-            low, up = 0, 10
-            for t in range(100):
-                selected = get_selected()
-                if np.sum(selected) == self.n_genes:
-                    break
-                elif np.sum(selected) < self.n_genes:
-                    up = self.x_offset
-                    self.x_offset = (self.x_offset + low) / 2
-                else:
-                    low = self.x_offset
-                    self.x_offset = (self.x_offset + up) / 2
-        else:
-            selected = get_selected()
-        return selected, zero_rate, mean_expr
+    def __bisection(self, mean_expr, zero_rate):
+        low, up = 0, 10
+        for t in range(100):
+            selected = self.__get_selected(mean_expr, zero_rate)
+            if np.sum(selected) == self.n_genes:
+                break
+            elif np.sum(selected) < self.n_genes:
+                up = self.x_offset
+                self.x_offset = (self.x_offset + low) / 2
+            else:
+                low = self.x_offset
+                self.x_offset = (self.x_offset + up) / 2
+        return selected
+
+    def __get_selected(self, mean_expr, zero_rate):
+        nonan = ~np.isnan(zero_rate)
+        sel = np.zeros_like(zero_rate).astype(bool)
+        x = mean_expr[nonan]
+        y = self.y(x, self.decay, self.x_offset, self.y_offset)
+        sel[nonan] = (zero_rate[nonan] > y)
+        return sel
 
     @staticmethod
     def y(x, decay, x_offset, y_offset):

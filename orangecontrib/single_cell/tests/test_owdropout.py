@@ -47,7 +47,7 @@ class TestDropoutGraph(WidgetTest):
 
     def test_on_curve(self):
         self.assertFalse(self.graph._on_curve(1, 0.5))
-        self.graph.set_data(self.results, self.data)
+        self.graph.set_data(self.results, self.data, None)
         self.assertTrue(self.graph._on_curve(1, 0.5))
         self.assertFalse(self.graph._on_curve(1, 1))
 
@@ -59,7 +59,7 @@ class TestDropoutGraph(WidgetTest):
         graph = self.graph
         slot = Mock()
         graph.curve_moved.connect(slot)
-        graph.set_data(self.results, self.data)
+        graph.set_data(self.results, self.data, None)
         graph.is_curve_movable = True
         graph.cursor_event(Mock())
         QTest.mousePress(graph.viewport(), Qt.LeftButton, pos=QPoint(1, 1))
