@@ -1,9 +1,10 @@
 from collections import namedtuple
 import numpy as np
 
-from AnyQt.QtCore import Qt, QSize, QRectF, pyqtSignal as Signal
-from AnyQt.QtGui import QColor
-from AnyQt.QtWidgets import QHBoxLayout, QVBoxLayout, QToolTip
+from AnyQt.QtCore import Qt, QSize, QRectF, QPointF, pyqtSignal as Signal
+from AnyQt.QtGui import QColor, QMouseEvent
+from AnyQt.QtWidgets import QHBoxLayout, QVBoxLayout, QToolTip, \
+    QGraphicsSceneMouseEvent
 
 import pyqtgraph as pg
 
@@ -11,8 +12,8 @@ from Orange.data import Table
 from Orange.widgets import gui, report
 from Orange.widgets.settings import Setting, ContextSetting, \
     DomainContextHandler
-from Orange.widgets.widget import OWWidget, Input, Output, Msg
 from Orange.widgets.visualize.utils.plotutils import MouseEventDelegate
+from Orange.widgets.widget import OWWidget, Input, Output, Msg
 
 from orangecontrib.single_cell.preprocess.scpreprocess import \
     DropoutGeneSelection
@@ -37,6 +38,7 @@ class DropoutGraph(pg.PlotWidget):
     def __init__(self, parent):
         super().__init__(parent, background="w")
         self.__dots = None  # type: pg.ScatterPlotItem
+        self.__markers = None  # type: pg.ScatterPlotItem
         self.__curve = None  # type: pg.PlotCurveItem
         self.__decay = None  # type: float
         self.__x_offset = None  # type: float
@@ -52,34 +54,47 @@ class DropoutGraph(pg.PlotWidget):
         self.setLabel("left", "Frequency of zero expression")
         self.scene().installEventFilter(self._delegate)
 
-    def set_data(self, results, data, genes=None):
-        self.__decay = results.decay
-        self.__x_offset = results.x_offset
-        self.__y_offset = results.y_offset
+    def set_data(self, results: DropoutResults, data: Table, genes: Table):
         self.__plot_dots(results.mean_expr, results.zero_rate, data)
-        self.__plot_markers(results.mean_expr, results.zero_rate, data, genes)
-        self.__plot_curve(results)
+        self.update_markers(data, genes)
+        self.update_curve(results)
         self.__set_range(results.threshold, results.mean_expr)
 
-    def __plot_dots(self, x, y, data):
+    def update_markers(self, data: Table, genes: Table):
+        self.removeItem(self.__markers)
+        if data is None or self.__dots is None or genes is None:
+            return
+        x, y = self.__dots.getData()
+        self.__plot_markers(x, y, data, genes)
+
+    def update_curve(self, results: DropoutResults):
+        self.__set_curve_params(results)
+        self.__plot_curve(results)
+
+    def __plot_dots(self, x: np.ndarray, y: np.ndarray, data: Table):
         data = list(zip(data.domain.attributes,
                         (data.X > 0).sum(axis=0),
                         np.full_like(y, len(data))))
         self.__dots = pg.ScatterPlotItem(x=x, y=y, size=5, data=data)
         self.addItem(self.__dots)
 
-    def __plot_markers(self, x, y, data, markers):
-        if markers is None:
-            return
+    def __plot_markers(self, x: np.ndarray, y: np.ndarray,
+                       data: Table, markers: Table):
         col = markers.get_column_view(ENTREZ_ID)[0]
         mask = [str(a.attributes.get(ENTREZ_ID, None)) in col
                 for a in data.domain.attributes]
-        markers = pg.ScatterPlotItem(
+        self.__markers = pg.ScatterPlotItem(
             x=x[mask], y=y[mask], size=7,
             brush=pg.mkBrush(color=QColor(Qt.magenta)))
-        self.addItem(markers)
+        self.addItem(self.__markers)
 
-    def __plot_curve(self, results):
+    def __set_curve_params(self, results: DropoutResults):
+        self.__decay = results.decay
+        self.__x_offset = results.x_offset
+        self.__y_offset = results.y_offset
+
+    def __plot_curve(self, results: DropoutResults):
+        self.removeItem(self.__curve)
         xmin, xmax = self.__get_xlim(results.threshold, results.mean_expr)
         x = np.arange(xmin, xmax + 0.01, 0.01)
         y = np.exp(-results.decay * (x - results.x_offset)) + results.y_offset
@@ -91,7 +106,7 @@ class DropoutGraph(pg.PlotWidget):
             antialias=True)
         self.addItem(self.__curve)
 
-    def __set_range(self, threshold, x):
+    def __set_range(self, threshold: float, x: np.ndarray):
         xmin, xmax = self.__get_xlim(threshold, x)
         rect = QRectF(xmin, 0, xmin + xmax, 1)
         self.setRange(rect, padding=0)
@@ -99,7 +114,7 @@ class DropoutGraph(pg.PlotWidget):
     def help_event(self, ev):
         if self.__dots is None:
             return False
-        dot = self.__dotAt(self.__dots.mapFromScene(ev.scenePos()))
+        dot = self._dotAt(self.__dots.mapFromScene(ev.scenePos()))
         if dot is not None and dot.data() is not None:
             var, p, n = dot.data()
             q = round(p / n * 100, 1)
@@ -109,7 +124,7 @@ class DropoutGraph(pg.PlotWidget):
         else:
             return False
 
-    def __dotAt(self, pos):
+    def _dotAt(self, pos: QPointF):
         pw, ph = self.__dots.pixelWidth(), self.__dots.pixelHeight()
         for s in self.__dots.points():
             sx, sy = s.pos().x(), s.pos().y()
@@ -121,7 +136,7 @@ class DropoutGraph(pg.PlotWidget):
                 return s
         return None
 
-    def cursor_event(self, ev):
+    def cursor_event(self, ev: QGraphicsSceneMouseEvent):
         if self.__curve is None:
             return False
         if self._state == States.HOLDING_CURVE:
@@ -147,24 +162,24 @@ class DropoutGraph(pg.PlotWidget):
                 self._state = States.WAITING
         return False
 
-    def _on_curve(self, x, y):
+    def _on_curve(self, x: float, y: float):
         if self.__curve is None:
             return False
         return abs(DropoutGeneSelection.y(
-            x, self.__decay,  self.__x_offset, self.__y_offset) - y) < 0.01
+            x, self.__decay, self.__x_offset, self.__y_offset) - y) < 0.01
 
-    def mousePressEvent(self, ev):
+    def mousePressEvent(self, ev: QMouseEvent):
         super().mousePressEvent(ev)
         if self._state == States.ON_CURVE:
             self._state = States.HOLDING_CURVE
             self.__curve.setPen(self.MOVING_CURVE_PEN)
 
-    def mouseMoveEvent(self, ev):
+    def mouseMoveEvent(self, ev: QMouseEvent):
         super().mouseMoveEvent(ev)
         if self._state == States.HOLDING_CURVE:
             self._state = States.MOVING_CURVE
 
-    def mouseReleaseEvent(self, ev):
+    def mouseReleaseEvent(self, ev: QMouseEvent):
         super().mouseReleaseEvent(ev)
         if self._state in (States.HOLDING_CURVE, States.MOVING_CURVE):
             self._state = States.WAITING
@@ -179,7 +194,7 @@ class DropoutGraph(pg.PlotWidget):
         self.__y_offset = None
 
     @staticmethod
-    def __get_xlim(threshold, x):
+    def __get_xlim(threshold: float, x: np.ndarray):
         if not len(x):
             return 0, 0
         xmin = 0 if threshold == 0 else np.log2(threshold)
@@ -221,6 +236,8 @@ class OWDropout(OWWidget):
         super().__init__()
         self.data = None  # type: Table
         self.genes = None  # type: Table
+        self.zero_rate = None  # type: np.ndarray
+        self.mean_expr = None  # type: np.ndarray
         self.selected = None  # type: np.ndarray
         self.setup_gui()
 
@@ -279,8 +296,7 @@ class OWDropout(OWWidget):
         self.__param_changed()
 
     def __param_changed(self):
-        self.clear()
-        self.select_genes()
+        self.update_selection()
         self.setup_info_label()
         self.commit()
 
@@ -301,7 +317,6 @@ class OWDropout(OWWidget):
     @Inputs.data
     def set_data(self, data):
         self.closeContext()
-        self.clear()
         self.data = data
         self.openContext(data)
         self.select_genes()
@@ -312,8 +327,7 @@ class OWDropout(OWWidget):
     def set_genes(self, genes):
         self.genes = genes
         self.check_genes()
-        self.clear()
-        self.select_genes()
+        self.graph.update_markers(self.data, self.genes)
 
     def check_genes(self):
         self.Warning.missing_entrez_id.clear()
@@ -322,33 +336,44 @@ class OWDropout(OWWidget):
                 self.Warning.missing_entrez_id()
                 self.genes = None
 
-    def clear(self):
+    def select_genes(self):
         self.selected = None
         self.graph.clear_all()
-
-    def select_genes(self):
         self.Warning.less_selected.clear()
         if not self.data:
             return
 
+        selector = self.__get_selector()
+        self.zero_rate, self.mean_expr = selector.detection(self.data.X)
+        results = self.__select(selector)
+        self.graph.set_data(DropoutResults(*results), self.data, self.genes)
+
+    def __get_selector(self):
         kwargs = {"decay": self.decay, "y_offset": self.y_offset}
         if self.filter_by_nr_of_genes:
             kwargs["n_genes"] = self.n_genes
         else:
             kwargs["x_offset"] = self.x_offset
-        selector = DropoutGeneSelection(**kwargs)
-        results = selector.select_genes(self.data.X) + (selector.decay,
-                                                        selector.x_offset,
-                                                        selector.y_offset,
-                                                        selector.threshold)
-        self.selected = results[0]
-        self.decay, self.x_offset, self.y_offset = results[-4:-1]
-        self.graph.set_data(DropoutResults(*results[1:]), self.data, self.genes)
+        return DropoutGeneSelection(**kwargs)
 
+    def __select(self, selector):
+        self.selected = selector.select_genes(self.zero_rate, self.mean_expr)
         n_selected = sum(self.selected)
         if n_selected < self.n_genes and self.filter_by_nr_of_genes:
             self.Warning.less_selected(n_selected)
         self.n_genes = n_selected
+        self.decay = selector.decay
+        self.x_offset = selector.x_offset
+        self.y_offset = selector.y_offset
+        return (self.zero_rate, self.mean_expr, selector.decay,
+                selector.x_offset, selector.y_offset, selector.threshold)
+
+    def update_selection(self):
+        self.Warning.less_selected.clear()
+        if not self.data:
+            return
+        selector = self.__get_selector()
+        self.graph.update_curve(DropoutResults(*self.__select(selector)))
 
     def setup_info_label(self):
         text = "No data on input."
