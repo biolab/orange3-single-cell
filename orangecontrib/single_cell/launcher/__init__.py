@@ -1,4 +1,4 @@
-from Orange.canvas.application.workflows import list_schemes, ExampleWorkflow
+from orangecanvas.application.examples import ExampleWorkflow, list_workflows
 
 from orangecontrib.single_cell.launcher.splash import splash_screen
 from orangecontrib.single_cell.launcher.update_check import check_for_updates
@@ -83,17 +83,17 @@ class SCOrangeLauncher:
         environ.cache_dir = cache_dir
 
     def replace_welcome_screen(self):
-        from Orange.canvas.application.canvasmain import CanvasMainWindow
+        from orangecanvas.application.canvasmain import CanvasMainWindow
         from orangecontrib.single_cell.launcher.welcome import welcome_dialog_paged
 
         CanvasMainWindow.welcome_dialog = welcome_dialog_paged
 
     def replace_example_workflows(self):
-        from Orange.canvas.application import workflows
+        from Orange.canvas import workflows
 
         def example_workflows():
             from orangecontrib.single_cell import tutorials
-            workflows = list_schemes(tutorials)
+            workflows = list_workflows(tutorials)
             workflows = [ExampleWorkflow(wf, tutorials, "scOrange")
                          for wf in workflows]
             return workflows
@@ -108,7 +108,7 @@ class SCOrangeLauncher:
         from AnyQt.QtCore import Qt
         from AnyQt.QtGui import QColor
         from Orange.canvas import config
-        from Orange.canvas.gui.splashscreen import SplashScreen
+        from orangecanvas.gui.splashscreen import SplashScreen
 
         config.splash_screen = splash_screen
 
@@ -119,7 +119,7 @@ class SCOrangeLauncher:
         SplashScreen.showMessage = showMessage
 
     def fix_widget_categories(self):
-        from Orange.canvas import registry
+        from orangecanvas import registry
 
         wd = registry.WidgetDiscovery.widget_description
         def widget_description(self, module, widget_name=None,

@@ -23,13 +23,11 @@ from AnyQt.QtCore import (  # pylint: disable=unused-import
     Qt, QEvent, QRect, QSize, QPoint, QModelIndex, QItemSelectionModel, QUrl,
     QSettings)
 from AnyQt.QtCore import pyqtSignal as Signal, pyqtProperty as Property
-from Orange.canvas.application import workflows
-from Orange.canvas.application.canvasmain import canvas_icons, CanvasMainWindow
+from Orange.canvas import workflows
+from orangecanvas.application.canvasmain import canvas_icons, CanvasMainWindow
 
-from Orange.canvas.gui.dropshadow import DropShadowFrame
-from Orange.canvas.canvas.items.utils import radial_gradient
-from Orange.canvas.preview import previewbrowser, previewmodel
-from Orange.canvas import config
+from orangecanvas.gui.dropshadow import DropShadowFrame
+from orangecanvas.preview import previewbrowser, previewmodel
 
 from orangecontrib.single_cell.launcher.config import welcome_screen_specs
 from orangecontrib.single_cell.launcher.iconview import LinearIconView
