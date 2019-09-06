@@ -1,50 +1,66 @@
-from Orange.canvas.application.workflows import list_schemes, ExampleWorkflow
+from typing import Iterable, List
+
+import pkg_resources
+
+from AnyQt.QtCore import Qt
+from AnyQt.QtGui import QColor
+
+from orangecanvas.gui.splashscreen import SplashScreen
+
+from Orange.canvas import config as oconfig, __main__ as main, mainwindow
 
 from orangecontrib.single_cell.launcher.splash import splash_screen
 from orangecontrib.single_cell.launcher.update_check import check_for_updates
+from orangecontrib.single_cell.launcher.welcome import welcome_dialog_paged
+
+
+class SCConfig(oconfig.Config):
+    ApplicationName = "scOrange"
+    dist = pkg_resources.get_distribution("Orange3-SingleCell")
+    ApplicationVersion = dist.version
+    del dist
+
+    @staticmethod
+    def examples_entry_points():
+        # type: () -> Iterable[pkg_resources.EntryPoint]
+        return filter(
+            lambda ep: ep.dist.project_name.lower() == "orange3-singlecell",
+            super(SCConfig, SCConfig).examples_entry_points()
+        )
+
+    @staticmethod
+    def splash_screen():
+        return splash_screen()
+
+    @staticmethod
+    def core_packages():
+        # type: () -> List[str]
+        return super(SCConfig, SCConfig).core_packages() + [
+            "orange3-singlecell",
+            "orange3-bioinformatics",
+        ]
+
+
+class SCMainWindow(mainwindow.MainWindow):
+    def welcome_dialog(self):
+        return welcome_dialog_paged(self, )
+
+
+class SCSplashScreen(SplashScreen):
+    def showMessage(self, message, alignment=Qt.AlignLeft, color=Qt.black):
+        super().showMessage(message, alignment, color=QColor("#4c85c5"))
 
 
 class SCOrangeLauncher:
     def launch(self):
-        self.fix_application_name()
+        oconfig.Config = SCConfig
+        main.SplashScreen = SCSplashScreen
+        main.MainWindow = SCMainWindow
+
         self.fix_application_dirs()
-        self.replace_splash_screen()
-        self.replace_welcome_screen()
-        self.replace_example_workflows()
         self.replace_update_check()
 
-        self.fix_widget_categories()
-
         self.main()
-
-    def fix_application_name(self):
-        from PyQt5.QtCore import QCoreApplication, QSettings
-        from Orange.canvas import config
-
-        def init():
-            """
-            Initialize the QCoreApplication.organizationDomain, applicationName,
-            applicationVersion and the default settings format. Will only run once.
-
-            .. note:: This should not be run before QApplication has been initialized.
-                      Otherwise it can break Qt's plugin search paths.
-
-            """
-            import pkg_resources
-
-            dist = pkg_resources.get_distribution("Orange3-SingleCell")
-            version = dist.version
-            # Use only major.minor
-            #version = ".".join(version.split(".", 2)[:2])
-
-            QCoreApplication.setOrganizationDomain("biolab.si")
-            QCoreApplication.setApplicationName("scOrange")
-            QCoreApplication.setApplicationVersion(version)
-            QSettings.setDefaultFormat(QSettings.IniFormat)
-
-            # Make it a null op.
-            config.init = lambda: None
-        config.init = init
 
     def fix_application_dirs(self):
         import os, sys
@@ -82,70 +98,11 @@ class SCOrangeLauncher:
                 return base
         environ.cache_dir = cache_dir
 
-    def replace_welcome_screen(self):
-        from Orange.canvas.application.canvasmain import CanvasMainWindow
-        from orangecontrib.single_cell.launcher.welcome import welcome_dialog_paged
-
-        CanvasMainWindow.welcome_dialog = welcome_dialog_paged
-
-    def replace_example_workflows(self):
-        from Orange.canvas.application import workflows
-
-        def example_workflows():
-            from orangecontrib.single_cell import tutorials
-            workflows = list_schemes(tutorials)
-            workflows = [ExampleWorkflow(wf, tutorials, "scOrange")
-                         for wf in workflows]
-            return workflows
-        workflows.example_workflows = example_workflows
-
     def replace_update_check(self):
-        from Orange.canvas import __main__
-
-        __main__.check_for_updates = check_for_updates
+        main.check_for_updates = check_for_updates
 
     def replace_splash_screen(self):
-        from AnyQt.QtCore import Qt
-        from AnyQt.QtGui import QColor
-        from Orange.canvas import config
-        from Orange.canvas.gui.splashscreen import SplashScreen
-
-        config.splash_screen = splash_screen
-
-        sm = SplashScreen.showMessage
-
-        def showMessage(self, message, alignment=Qt.AlignLeft, color=Qt.black):
-            sm(self, message, alignment=alignment, color=QColor("#4c85c5"))
-        SplashScreen.showMessage = showMessage
-
-    def fix_widget_categories(self):
-        from Orange.canvas import registry
-
-        wd = registry.WidgetDiscovery.widget_description
-        def widget_description(self, module, widget_name=None,
-                               category_name=None, distribution=None):
-            """Move scOrange widgets to more appropriate methods
-
-            t-SNE -> Unsupervised
-            Louvain Clustering -> Unsupervised
-
-            A better way to do this would be to change the behaviour of the
-            widget_description method to *not* overwrite the category when
-            manually specified on widget.
-            """
-
-            desc = wd(
-                self, module, widget_name, category_name, distribution)
-
-            if desc.qualified_name == 'orangecontrib.single_cell.widgets.owtsne.OWtSNE':
-                desc.category = 'Unsupervised'
-            if desc.qualified_name == 'orangecontrib.single_cell.widgets.owlouvainclustering.OWLouvainClustering':
-                desc.category = 'Unsupervised'
-            return desc
-
-        registry.WidgetDiscovery.widget_description = widget_description
+        main.SplashScreen = SCSplashScreen
 
     def main(self):
-        from Orange.canvas.__main__ import main
-
-        main()
+        main.main()
