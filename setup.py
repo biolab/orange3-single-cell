@@ -30,8 +30,8 @@ if __name__ == '__main__':
             'setuptools>=41.2.0'
         ],
         install_requires=[
-            'Orange3>=3.22.0',
-            'orange3-bioinformatics>=3.5.0',
+            'Orange3>=3.23.0',
+            'orange3-bioinformatics>=4.0.0',
             'fastdtw==0.3.2',
             'pandas>=0.23',
             'loompy>=2.0.10',
