@@ -190,7 +190,7 @@ class DropoutGeneSelection(Preprocess):
             warnings.warn(f"{sum(selected)} genes selected", DropoutWarning)
         return self.filter_columns(data, selected)
 
-    def detection(self, table: np.ndarray) -> Tuple[np.ndarray]:
+    def detection(self, table: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         mask = table > self.threshold
         if sp.issparse(table):
             zero_rate = 1 - np.squeeze(np.array(mask.mean(axis=0)))

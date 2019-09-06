@@ -1,13 +1,15 @@
 import unittest
 from unittest.mock import Mock, patch
 
+import numpy as np
+
 from pyqtgraph import PlotCurveItem, ScatterPlotItem
 
 from AnyQt.QtCore import Qt, QPoint
 from AnyQt.QtTest import QTest
 from PyQt5.QtWidgets import QToolTip
 
-from Orange.data import Table, ContinuousVariable
+from Orange.data import Table, StringVariable, Domain, ContinuousVariable
 from Orange.data.filter import Values, FilterString
 from Orange.widgets.tests.base import WidgetTest
 from Orange.widgets.widget import OWWidget
@@ -41,12 +43,60 @@ class TestDropoutGraph(WidgetTest):
         results.decay = 1
         results.x_offset = 0.1
         results.y_offset = 0.1
-        results.mean_expr = [0.1, 0.2, 0.3]
-        results.zero_rate = [0.1, 0.2, 0.3]
+        results.mean_expr = np.array([0.1, 0.2])
+        results.zero_rate = np.array([0.1, 0.2])
         results.threshold = 0
-        data = Table("iris")[:3]
-        data[0, 0] = 0
-        self.data = data
+        self.data = Table(Domain([ContinuousVariable("A"),
+                                  ContinuousVariable("B")]),
+                          np.array([[1, 0], [0, 0], [2, 0]]))
+        self.genes = Table(Domain([], metas=[StringVariable("Entrez ID")]),
+                           np.empty((1, 0)), metas=np.array([["1"]]))
+
+    def test_set_data(self):
+        self.graph.set_data(self.results, self.data, None)
+        self.assertEqual(len(self.graph.plotItem.items), 2)
+
+        self.graph.update_markers(None, self.genes)
+        self.assertEqual(len(self.graph.plotItem.items), 2)
+
+        self.graph.update_markers(self.data, self.genes)
+        self.assertEqual(len(self.graph.plotItem.items), 3)
+
+        self.graph.update_markers(self.data, None)
+        self.assertEqual(len(self.graph.plotItem.items), 2)
+
+    def test_set_data_and_markers(self):
+        self.graph.set_data(self.results, self.data, self.genes)
+        self.assertEqual(len(self.graph.plotItem.items), 3)
+
+        self.graph.update_markers(self.data, None)
+        self.assertEqual(len(self.graph.plotItem.items), 2)
+
+        self.graph.update_markers(self.data, self.genes)
+        self.assertEqual(len(self.graph.plotItem.items), 3)
+
+    def test_update_curve(self):
+        self.graph.update_curve(self.results)
+        self.assertEqual(len(self.graph.plotItem.items), 1)
+
+        self.graph.set_data(self.results, self.data, None)
+        self.assertEqual(len(self.graph.plotItem.items), 2)
+
+        self.graph.update_curve(self.results)
+        self.assertEqual(len(self.graph.plotItem.items), 2)
+
+    def test_update_markers(self):
+        self.graph.update_markers(self.data, self.genes)
+        self.assertEqual(len(self.graph.plotItem.items), 0)
+
+        self.graph.update_markers(self.data, None)
+        self.assertEqual(len(self.graph.plotItem.items), 0)
+
+        self.graph.update_markers(None, self.genes)
+        self.assertEqual(len(self.graph.plotItem.items), 0)
+
+        self.graph.update_markers(None, None)
+        self.assertEqual(len(self.graph.plotItem.items), 0)
 
     def test_on_curve(self):
         self.assertFalse(self.graph._on_curve(1, 0.5))
@@ -81,7 +131,7 @@ class TestDropoutGraph(WidgetTest):
         dot_at.return_value = dots.points()[0]
         graph.help_event(Mock())
         self.assertEqual(show_text.call_args[0][1],
-                         "sepal length\nExpressed in 2/3 cells (66.7%)")
+                         "A\nExpressed in 2/3 cells (66.7%)")
 
 
 class TestOWDropout(WidgetTest):
@@ -157,16 +207,16 @@ class TestOWDropout(WidgetTest):
         self.assertTrue(controls.y_offset.isEnabled())
 
     @patch("orangecontrib.single_cell.widgets.owdropout."
-           "DropoutGraph.update_data")
+           "DropoutGraph.update_curve")
     @patch("orangecontrib.single_cell.widgets.owdropout."
            "DropoutGraph.set_data")
-    def test_manual_move(self, set_data: Mock, update_data: Mock):
+    def test_manual_move(self, set_data: Mock, update_curve: Mock):
         self.send_signal(self.widget.Inputs.data, self.data)
         set_data.assert_called_once()
-        update_data.assert_not_called()
+        update_curve.assert_not_called()
         self.widget.graph.curve_moved.emit(1, 2)
         set_data.assert_called_once()
-        update_data.assert_called_once()
+        update_curve.assert_called_once()
         self.assertEqual(self.widget.filter_type, FilterType.ByEquation)
         controls = self.widget.controls
         self.assertTrue(controls.filter_type.buttons[1].clicked)

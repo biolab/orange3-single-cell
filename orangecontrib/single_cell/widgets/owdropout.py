@@ -55,27 +55,21 @@ class DropoutGraph(pg.PlotWidget):
         self.scene().installEventFilter(self._delegate)
 
     def set_data(self, results: DropoutResults, data: Table, genes: Table):
-        self.__set_params(results)
         self.__plot_dots(results.mean_expr, results.zero_rate, data)
-        self.__plot_markers(results.mean_expr, results.zero_rate, data, genes)
-        self.__plot_curve(results)
+        self.update_markers(data, genes)
+        self.update_curve(results)
         self.__set_range(results.threshold, results.mean_expr)
-
-    def __set_params(self, results: DropoutResults):
-        self.__decay = results.decay
-        self.__x_offset = results.x_offset
-        self.__y_offset = results.y_offset
-
-    def update_data(self, results: DropoutResults):
-        self.__set_params(results)
-        self.__plot_curve(results)
 
     def update_markers(self, data: Table, genes: Table):
         self.removeItem(self.__markers)
-        if data is None:
+        if data is None or self.__dots is None or genes is None:
             return
         x, y = self.__dots.getData()
         self.__plot_markers(x, y, data, genes)
+
+    def update_curve(self, results: DropoutResults):
+        self.__set_curve_params(results)
+        self.__plot_curve(results)
 
     def __plot_dots(self, x: np.ndarray, y: np.ndarray, data: Table):
         data = list(zip(data.domain.attributes,
@@ -86,8 +80,6 @@ class DropoutGraph(pg.PlotWidget):
 
     def __plot_markers(self, x: np.ndarray, y: np.ndarray,
                        data: Table, markers: Table):
-        if markers is None:
-            return
         col = markers.get_column_view(ENTREZ_ID)[0]
         mask = [str(a.attributes.get(ENTREZ_ID, None)) in col
                 for a in data.domain.attributes]
@@ -95,6 +87,11 @@ class DropoutGraph(pg.PlotWidget):
             x=x[mask], y=y[mask], size=7,
             brush=pg.mkBrush(color=QColor(Qt.magenta)))
         self.addItem(self.__markers)
+
+    def __set_curve_params(self, results: DropoutResults):
+        self.__decay = results.decay
+        self.__x_offset = results.x_offset
+        self.__y_offset = results.y_offset
 
     def __plot_curve(self, results: DropoutResults):
         self.removeItem(self.__curve)
@@ -169,7 +166,7 @@ class DropoutGraph(pg.PlotWidget):
         if self.__curve is None:
             return False
         return abs(DropoutGeneSelection.y(
-            x, self.__decay,  self.__x_offset, self.__y_offset) - y) < 0.01
+            x, self.__decay, self.__x_offset, self.__y_offset) - y) < 0.01
 
     def mousePressEvent(self, ev: QMouseEvent):
         super().mousePressEvent(ev)
@@ -376,7 +373,7 @@ class OWDropout(OWWidget):
         if not self.data:
             return
         selector = self.__get_selector()
-        self.graph.update_data(DropoutResults(*self.__select(selector)))
+        self.graph.update_curve(DropoutResults(*self.__select(selector)))
 
     def setup_info_label(self):
         text = "No data on input."
