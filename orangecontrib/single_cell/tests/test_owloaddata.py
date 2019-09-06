@@ -5,7 +5,6 @@ import numpy.testing as npt
 import pandas as pd
 
 from Orange.data import ContinuousVariable, Variable
-from Orange.widgets.data.owtable import OWDataTable
 from Orange.widgets.tests.base import WidgetTest
 
 from orangecontrib.single_cell.widgets.owloaddata import OWLoadData
@@ -240,6 +239,46 @@ class TestOWLoadData(WidgetTest):
         npt.assert_array_equal(data.metas, metas)
         self.assertListEqual([attr.name for attr in data.domain.attributes],
                              ["0", "1", "2", "3", "6", "7"])
+
+    def test_load_data_h5ad_sparse_sample(self):
+        file_name = os.path.join(self._path, "data_sparse.h5ad")
+        self.widget.set_current_path(file_name)
+        self.widget.sample_rows_cb.setChecked(True)
+        self.widget.sample_cols_cb.setChecked(True)
+        self.widget.set_sample_rows_p(30)
+        self.widget.set_sample_cols_p(10)
+        self.widget.commit()
+        data = self.get_output("Data")
+        X = np.array([[0, 2, 1, 0], [1, 0, 0, 0], [2, 1, 2, 1], [1, 1, 0, 0],
+                      [1, 0, 0, 0], [0, 1, 0, 2], [1, 0, 0, 1], [0, 2, 0, 1],
+                      [0, 1, 1, 0]])
+        npt.assert_array_equal(data.X, X)
+        metas = np.array([[0, 0, 10], [1, 0, 10], [2, 0, 15], [3, 0, 10],
+                          [6, 1, 11], [7, 1, 15], [8, 1, 11], [9, 1, 20],
+                          [14, 2, 12]])
+        npt.assert_array_equal(data.metas, metas)
+        self.assertListEqual([attr.name for attr in data.domain.attributes],
+                             ["Gene 0", "Gene 1", "Gene 2", "Gene 3"])
+
+    def test_load_data_h5ad_dense_sample(self):
+        file_name = os.path.join(self._path, "data_dense.h5ad")
+        self.widget.set_current_path(file_name)
+        self.widget.sample_rows_cb.setChecked(True)
+        self.widget.sample_cols_cb.setChecked(True)
+        self.widget.set_sample_rows_p(30)
+        self.widget.set_sample_cols_p(10)
+        self.widget.commit()
+        data = self.get_output("Data")
+        X = np.array([[0, 2, 1, 0], [1, 0, 0, 0], [2, 1, 2, 1], [1, 1, 0, 0],
+                      [1, 0, 0, 0], [0, 1, 0, 2], [1, 0, 0, 1], [0, 2, 0, 1],
+                      [0, 1, 1, 0]])
+        npt.assert_array_equal(data.X, X)
+        metas = np.array([[0, 0, 10], [1, 0, 10], [2, 0, 15], [3, 0, 10],
+                          [6, 1, 11], [7, 1, 15], [8, 1, 11], [9, 1, 20],
+                          [14, 2, 12]])
+        npt.assert_array_equal(data.metas, metas)
+        self.assertListEqual([attr.name for attr in data.domain.attributes],
+                             ["Gene 0", "Gene 1", "Gene 2", "Gene 3"])
 
     def test_not_enough_headers(self):
         file_name = os.path.join(self._path, "DATA_MATRIX_LOG_TPM.txt")
