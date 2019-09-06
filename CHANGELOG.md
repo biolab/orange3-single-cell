@@ -1,8 +1,29 @@
-Change Log
-==========
+# Changelog
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+Version 1.3.0 (2019-09-06)
+--------------------------
+
+### Added
+- [#356](https://github.com/biolab/orange3-single-cell/pull/356): Support for H5AD format in Load data widget.
+
+### Changed
+- [#361](https://github.com/biolab/orange3-single-cell/pull/361): Performance improvements for Dropout Gene Selection widget.
+
+### Fixed
+- [#363](https://github.com/biolab/orange3-single-cell/pull/363): Fix scOrange launcher to account for changes orange-canvas-core project.
 
 Version 1.2.0 (2019-09-06)
-------------------------
+--------------------------
+
+Version 1.1.0 (2019-07-19)
+--------------------------
+
+Version 1.0.0 (2019-06-24)
+--------------------------
 
 Version 0.8 (2018-08-07)
 ------------------------
