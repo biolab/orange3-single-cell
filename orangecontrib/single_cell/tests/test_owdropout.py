@@ -1,12 +1,13 @@
 import unittest
 from unittest.mock import Mock, patch
 
-from pyqtgraph import PlotCurveItem
+from pyqtgraph import PlotCurveItem, ScatterPlotItem
 
 from AnyQt.QtCore import Qt, QPoint
 from AnyQt.QtTest import QTest
+from PyQt5.QtWidgets import QToolTip
 
-from Orange.data import Table
+from Orange.data import Table, ContinuousVariable
 from Orange.data.filter import Values, FilterString
 from Orange.widgets.tests.base import WidgetTest
 from Orange.widgets.widget import OWWidget
@@ -40,10 +41,12 @@ class TestDropoutGraph(WidgetTest):
         results.decay = 1
         results.x_offset = 0.1
         results.y_offset = 0.1
-        results.mean_expr = [1, 2, 3]
-        results.zero_rate = [1, 2, 3]
+        results.mean_expr = [0.1, 0.2, 0.3]
+        results.zero_rate = [0.1, 0.2, 0.3]
         results.threshold = 0
-        self.data = Table("iris")[:3]
+        data = Table("iris")[:3]
+        data[0, 0] = 0
+        self.data = data
 
     def test_on_curve(self):
         self.assertFalse(self.graph._on_curve(1, 0.5))
@@ -60,13 +63,25 @@ class TestDropoutGraph(WidgetTest):
         slot = Mock()
         graph.curve_moved.connect(slot)
         graph.set_data(self.results, self.data, None)
-        graph.is_curve_movable = True
         graph.cursor_event(Mock())
         QTest.mousePress(graph.viewport(), Qt.LeftButton, pos=QPoint(1, 1))
         # QTest.mouseMove(g.viewport()) does not work; set flag manually
         graph._state = 3
         graph.cursor_event(Mock())
         slot.assert_called_once_with(1, 2)
+
+    @patch("orangecontrib.single_cell.widgets.owdropout.DropoutGraph._dotAt")
+    @patch.object(ScatterPlotItem, "mapFromScene",
+                  Mock(return_value=DummyPoint()))
+    @patch.object(QToolTip, "showText")
+    def test_help_event(self, show_text, dot_at):
+        graph = self.graph
+        graph.set_data(self.results, self.data, None)
+        dots = graph.plotItem.items[0]
+        dot_at.return_value = dots.points()[0]
+        graph.help_event(Mock())
+        self.assertEqual(show_text.call_args[0][1],
+                         "sepal length\nExpressed in 2/3 cells (66.7%)")
 
 
 class TestOWDropout(WidgetTest):
@@ -141,9 +156,17 @@ class TestOWDropout(WidgetTest):
         self.assertTrue(controls.x_offset.isEnabled())
         self.assertTrue(controls.y_offset.isEnabled())
 
-    def test_manual_move(self):
+    @patch("orangecontrib.single_cell.widgets.owdropout."
+           "DropoutGraph.update_data")
+    @patch("orangecontrib.single_cell.widgets.owdropout."
+           "DropoutGraph.set_data")
+    def test_manual_move(self, set_data: Mock, update_data: Mock):
         self.send_signal(self.widget.Inputs.data, self.data)
+        set_data.assert_called_once()
+        update_data.assert_not_called()
         self.widget.graph.curve_moved.emit(1, 2)
+        set_data.assert_called_once()
+        update_data.assert_called_once()
         self.assertEqual(self.widget.filter_type, FilterType.ByEquation)
         controls = self.widget.controls
         self.assertTrue(controls.filter_type.buttons[1].clicked)
@@ -172,11 +195,14 @@ class TestOWDropout(WidgetTest):
         self.send_signal(self.widget.Inputs.data, None)
         self.assertEqual(self.widget.info_label.text(), "No data on input.")
 
-    def test_n_genes_changed(self):
+    def test_param_changed(self):
+        self.widget.controls.n_genes.setValue(100)
         self.send_signal(self.widget.Inputs.data, self.data)
         self.widget.controls.n_genes.setValue(200)
         output = self.get_output(self.widget.Outputs.data)
         self.assertEqual(len(output.domain.attributes), 200)
+        self.send_signal(self.widget.Inputs.data, None)
+        self.widget.controls.n_genes.setValue(100)
 
 
 if __name__ == "__main__":

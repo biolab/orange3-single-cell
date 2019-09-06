@@ -117,7 +117,7 @@ class DropoutGraph(pg.PlotWidget):
     def help_event(self, ev):
         if self.__dots is None:
             return False
-        dot = self.__dotAt(self.__dots.mapFromScene(ev.scenePos()))
+        dot = self._dotAt(self.__dots.mapFromScene(ev.scenePos()))
         if dot is not None and dot.data() is not None:
             var, p, n = dot.data()
             q = round(p / n * 100, 1)
@@ -127,7 +127,7 @@ class DropoutGraph(pg.PlotWidget):
         else:
             return False
 
-    def __dotAt(self, pos: QPointF):
+    def _dotAt(self, pos: QPointF):
         pw, ph = self.__dots.pixelWidth(), self.__dots.pixelHeight()
         for s in self.__dots.points():
             sx, sy = s.pos().x(), s.pos().y()
