@@ -1,5 +1,7 @@
-from typing import Tuple, Optional
+from typing import Tuple
 import warnings
+from typing import Union
+
 import numpy as np
 import scipy.sparse as sp
 from scipy.stats import zscore, percentileofscore
@@ -7,6 +9,10 @@ from scipy.stats import zscore, percentileofscore
 from Orange.data import Domain, Table
 from Orange.preprocess.preprocess import Preprocess
 from Orange.util import Enum
+import Orange.statistics.util as ut
+
+
+AnyArray = Union[np.ndarray, sp.csr_matrix, sp.csc_matrix]
 
 
 class LogarithmicScale(Preprocess):
@@ -17,14 +23,23 @@ class LogarithmicScale(Preprocess):
     def __init__(self, base=BinaryLog):
         self.base = base
 
-    def __call__(self, data):
+    def __call__(self, data: Table) -> Table:
         new_data = data.copy()
+
         if self.base == LogarithmicScale.BinaryLog:
-            new_data.X = np.log2(1 + data.X)
-        elif self.base == LogarithmicScale.NaturalLog:
-            new_data.X = np.log(1 + data.X)
+            def func(x, *args, **kwargs):
+                return np.log2(x + 1, *args, **kwargs)
         elif self.base == LogarithmicScale.CommonLog:
-            new_data.X = np.log10(1 + data.X)
+            def func(x, *args, **kwargs):
+                return np.log10(x + 1, *args, **kwargs)
+        elif self.base == LogarithmicScale.NaturalLog:
+            func = np.log1p
+
+        if sp.issparse(new_data.X):
+            func(new_data.X.data, out=new_data.X.data)
+        else:
+            func(new_data.X, out=new_data.X)
+
         return new_data
 
 
@@ -37,18 +52,17 @@ class Binarize(Preprocess):
         self.condition = condition
         self.threshold = threshold
 
-    def __call__(self, data):
+    def __call__(self, data: Table) -> Table:
         new_data = data.copy()
         if self.condition == Binarize.GreaterOrEqual:
-            new_data.X = np.where(data.X >= self.threshold, 1, 0)
+            new_data.X = new_data.X >= self.threshold
         elif self.condition == Binarize.Greater:
-            new_data.X = np.where(data.X > self.threshold, 1, 0)
+            new_data.X = new_data.X > self.threshold
         return new_data
 
 
 class Normalize(Preprocess):
-    Method = Enum("Normalize", ("CPM", "Median"),
-                  qualname="Normalize.Method")
+    Method = Enum("Normalize", ("CPM", "Median"), qualname="Normalize.Method")
     CPM, Median = Method
 
     def __init__(self, method=CPM):
@@ -62,18 +76,28 @@ class Normalize(Preprocess):
 
 
 class NormalizeSamples(Normalize):
-    def __call__(self, data):
+    def __call__(self, data: Table) -> Table:
         new_data = data.copy()
         new_data.X = self.normalize(data.X)
         return new_data
 
-    def normalize(self, table):
-        row_sums = np.nansum(table, axis=1)
-        row_sums[row_sums == 0] = 1
-        table = table / row_sums[:, None]
-        factor = np.nanmedian(row_sums) \
-            if self.method == NormalizeSamples.Median else 10 ** 6
-        return table * factor
+    def normalize(self, table: AnyArray) -> AnyArray:
+        row_sums = ut.nansum(table, axis=1)
+        row_sums[row_sums == 0] = 1  # avoid division by zero errors
+
+        if self.method == NormalizeSamples.Median:
+            factor = np.nanmedian(row_sums)
+        else:
+            factor = 1e6
+
+        if sp.issparse(table):
+            table = sp.diags(1 / row_sums) @ table
+        else:
+            table = table / row_sums[:, None]
+
+        table *= factor
+
+        return table
 
 
 class NormalizeGroups(Normalize):
@@ -81,27 +105,38 @@ class NormalizeGroups(Normalize):
         super().__init__(method)
         self.group_var = group_var
 
-    def __call__(self, data):
+    def __call__(self, data: Table) -> Table:
         group_col = data.get_column_view(self.group_var)[0]
         group_col = group_col.astype("int64")
         new_data = data.copy()
         new_data.X = self.normalize(data.X, group_col)
         return new_data
 
-    def normalize(self, table, group_col):
-        group_sums = np.bincount(group_col, np.nansum(table, axis=1))
+    def normalize(self, table: AnyArray, group_col: np.ndarray) -> AnyArray:
+        group_sums = np.bincount(group_col, ut.nansum(table, axis=1))
         group_sums[group_sums == 0] = 1
         group_sums_row = np.zeros_like(group_col)
         medians = []
-        row_sums = np.nansum(table, axis=1)
+        row_sums = ut.nansum(table, axis=1)
         for value, group_sum in zip(np.unique(group_col), group_sums):
             mask = group_col == value
             group_sums_row[mask] = group_sum
             if self.method == NormalizeGroups.Median:
                 medians.append(np.nanmedian(row_sums[mask]))
-        factor = np.min(medians) \
-            if self.method == NormalizeGroups.Median else 10 ** 6
-        return table / group_sums_row[:, None] * factor
+
+        if self.method == NormalizeGroups.Median:
+            factor = np.min(medians)
+        else:
+            factor = 1e6
+
+        if sp.issparse(table):
+            table = sp.diags(1 / group_sums_row) @ table
+        else:
+            table = table / group_sums_row[:, None]
+
+        table *= factor
+
+        return table
 
 
 class Standardize(Preprocess):
@@ -129,10 +164,10 @@ class SelectMostVariableGenes(Preprocess):
         self.n_genes = n_genes
         self.n_groups = n_groups if n_groups and n_groups > 1 else 1
 
-    def __call__(self, data):
+    def __call__(self, data: Table) -> Table:
         n_groups = min(self.n_groups, len(data.domain.attributes))
-        mean = np.nanmean(data.X, axis=0)
-        variance = np.nanvar(data.X, axis=0)
+        mean = ut.nanmean(data.X, axis=0)
+        variance = ut.nanvar(data.X, axis=0)
         percentiles = [percentileofscore(mean, m) for m in mean]
         _, bins = np.histogram(percentiles, n_groups)
         bin_indices = np.digitize(percentiles, bins, True)
@@ -190,23 +225,24 @@ class DropoutGeneSelection(Preprocess):
             warnings.warn(f"{sum(selected)} genes selected", DropoutWarning)
         return self.filter_columns(data, selected)
 
-    def detection(self, table: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        mask = table > self.threshold
+    def detection(self, table: AnyArray) -> Tuple[np.ndarray, np.ndarray]:
+        with np.errstate(invalid="ignore"):  # comparison can include nans
+            mask = table > self.threshold
+
         if sp.issparse(table):
-            zero_rate = 1 - np.squeeze(np.array(mask.mean(axis=0)))
-            A = table.multiply(mask)
-            A.data = np.log2(A.data)
-            mean_expr = np.zeros_like(zero_rate) * np.nan
-            detected = zero_rate < 1
-            detected_mean = np.squeeze(np.array(A[:, detected].mean(axis=0)))
-            mean_expr[detected] = detected_mean / (1 - zero_rate[detected])
+            A = table.copy()
+            np.log2(A.data, out=A.data)
         else:
-            zero_rate = 1 - np.mean(mask, axis=0)
-            mean_expr = np.zeros_like(zero_rate) * np.nan
-            detected = zero_rate < 1
-            mean_expr[detected] = np.nanmean(
-                np.where(table[:, detected] > self.threshold,
-                         np.log2(table[:, detected]), np.nan), axis=0)
+            A = np.ma.log2(table)  # avoid log2(0)
+            A.mask = False
+
+        detection_rate = ut.nanmean(mask, axis=0)
+        zero_rate = 1 - detection_rate
+        detected = detection_rate > 0
+        detected_mean = ut.nanmean(A[:, detected], axis=0)
+
+        mean_expr = np.full_like(zero_rate, fill_value=np.nan)
+        mean_expr[detected] = detected_mean / detection_rate[detected]
 
         low_detection = np.array(np.sum(mask, axis=0)).squeeze()
         zero_rate[low_detection < self.at_least] = np.nan
