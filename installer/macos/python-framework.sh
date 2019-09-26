@@ -6,7 +6,7 @@ usage() {
 Fetch, extract and layout a macOS relocatable Python framework at FRAMEWORKPATH
 
 Options:
-    --version VERSION     Python version (default 3.5.3)
+    --version VERSION     Python version (default 3.7.4)
 
 Note:
     Python >= 3.6 comes with a bundled openssl library build that is
@@ -29,7 +29,7 @@ Example
 
 
 
-VERSION=3.5.3
+VERSION=3.7.4
 VERBOSE_LEVEL=0
 
 

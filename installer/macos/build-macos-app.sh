@@ -8,7 +8,7 @@ Create (build) an macOS application bundle
 
 Options:
     --python-version VERSION
-        Python version to install in the application bundle (default: 3.6.1)
+        Python version to install in the application bundle (default: 3.7.4)
 
     --pip-arg  ARG
         Pip install arguments to populate the python environemnt in the
@@ -41,7 +41,7 @@ Examples
 DIR=$(dirname "$0")
 
 # Python version in the bundled framework
-PYTHON_VERSION=3.6.1
+PYTHON_VERSION=3.7.4
 
 # Pip arguments used to populate the python environment in the application
 # bundle
@@ -73,7 +73,7 @@ APPDIR=${1:?"Target APPDIR argument is missing"}
 PYVER=${PYTHON_VERSION%.*}  # Major.Minor
 
 if [[ ${#PIP_REQ_ARGS[@]} -eq 0 ]]; then
-    PIP_REQ_ARGS+=( -r "${DIR}"/requirements.txt)
+    PIP_REQ_ARGS+=( Orange3-SingleCell )
 fi
 
 mkdir -p "${APPDIR}"/Contents/MacOS
@@ -144,24 +144,25 @@ EOF
 chmod +x "${APPDIR}"/Contents/MacOS/pip
 
 PYTHON="${APPDIR}"/Contents/MacOS/python
-
+echo "${PYTHON}"
+echo "${PIP_REQ_ARGS[@]}"
 "${PYTHON}" -m pip install "${PIP_REQ_ARGS[@]}"
-"${PYTHON}" -m pip install ../..
+# "${PYTHON}" -m pip install ../..
 
-VERSION=$("${PYTHON}" -m pip show orange3 | grep -E '^Version:' |
+VERSION=$("${PYTHON}" -m pip show orange3-singlecell | grep -E '^Version:' |
           cut -d " " -f 2)
 
 m4 -D__VERSION__="${VERSION:?}" "${APPDIR}"/Contents/Info.plist.in \
     > "${APPDIR}"/Contents/Info.plist
 rm "${APPDIR}"/Contents/Info.plist.in
 
-# Sanity check
-(
-    # run from an empty dir to avoid importing/finding any packages on ./
-    tempdir=$(mktemp -d)
-    cleanup() { rm -r "${tempdir}"; }
-    trap cleanup EXIT
-    cd "${tempdir}"
-    "${PYTHON}" -m pip install --no-cache-dir --no-index orange3 PyQt5
-    "${PYTHON}" -m orangecontrib.single_cell --help > /dev/null
-)
+## Sanity check
+#(
+#    # run from an empty dir to avoid importing/finding any packages on ./
+#    tempdir=$(mktemp -d)
+#    cleanup() { rm -r "${tempdir}"; }
+#    trap cleanup EXIT
+#    cd "${tempdir}"
+#    "${PYTHON}" -m pip install --no-cache-dir --no-index orange3-singlecell PyQt5
+#    "${PYTHON}" -m orangecontrib.single_cell --help > /dev/null
+#)

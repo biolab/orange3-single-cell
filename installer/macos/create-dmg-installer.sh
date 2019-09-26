@@ -54,9 +54,9 @@ if [[ ! -d "${APP}" ]]; then
     exit 1
 fi
 
-TMP_DIR=$(mktemp -d -t orange-dmg)
+TMP_DIR=$(mktemp -d -t scOrange-dmg)
 TMP_TEMPLATE="${TMP_DIR}"/template
-TMP_DMG="${TMP_DIR}"/orange.dmg
+TMP_DMG="${TMP_DIR}"/scOrange.dmg
 
 echo "Preparing an image template in ${TMP_TEMPLATE}"
 echo "============================================="

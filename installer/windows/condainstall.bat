@@ -7,6 +7,15 @@ set PREFIX=%~1
 rem Path to conda executable
 set CONDA=%~2
 
+rem activate the root conda environment (miniconda3 4.7.0 installs
+rem libarchive that requires this - conda cannot be used as a executable
+rem without activation first)
+if exist "%CONDA%\..\activate" (
+    call "%CONDA%\..\activate"
+)
+
+"%CONDA%" info --all
+
 if not exist "%PREFIX%\python.exe" (
     echo Creating a conda env in "%PREFIX%"
     rem # Create an empty initial skeleton to layout the conda, activate.bat
@@ -15,16 +24,16 @@ if not exist "%PREFIX%\python.exe" (
 
     rem # Also install python (msvc runtime and python might be required
     rem # for any post-link scripts).
-    for %%f in ( python-*.tar.bz2 ) do (
+    for %%f in ( vs*runtime*.tar.bz2 vc-*.tar.bz2 python-*.tar.bz2 *.conda *.tar.bz2 ) do (
         "%CONDA%" install --yes --copy --quiet --prefix "%PREFIX%" "%CD%\%%f" ^
             || exit /b !ERRORLEVEL!
     )
 )
 
 for %%f in ( *.tar.bz2 ) do (
-    echo Installing: %%f
-    "%CONDA%" install --yes  --copy --quiet --prefix "%PREFIX%" "%CD%\%%f" ^
-        || exit /b !ERRORLEVEL!
+     echo Installing: %%f
+     "%CONDA%" install --yes  --copy --quiet --prefix "%PREFIX%" "%CD%\%%f" ^
+         || exit /b !ERRORLEVEL!
 )
 
 rem # Create .condarc file that includes conda-forge channel
@@ -53,4 +62,5 @@ if not exist "%ACTIVATE_BAT%" (
     echo call "%CONDA_BASE_PREFIX%\Scripts\activate.bat" "%PREFIX%" >> "%ACTIVATE_BAT%"
 )
 
+rem # install custom sitecustomize module
 copy sitecustomize.py "%PREFIX%\Lib\

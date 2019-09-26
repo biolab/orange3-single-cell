@@ -1,0 +1,65 @@
+{% set name = "orange3-singlecell" %}
+{% set version = environ.get('SC_ORANGE_VERSION', '') %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  url: ../../dist/Orange3-SingleCell-{{ version }}.tar.gz
+  # git_url: ../../
+
+build:
+  number: 0
+  noarch: python
+  script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed --no-cache-dir -vvv"
+  entry_points:
+    - vcftutorials = orangecontrib.single_cell.tutorials:main
+    - html-index = orangecontrib.single_cell.widgets:WIDGET_HELP_PATH
+    - Single Cell = orangecontrib.single_cell.widgets:main
+
+requirements:
+  host:
+    - python >=3
+    - pip
+    - sphinx
+    - recommonmark
+    - setuptools
+    - setuptools_scm
+  run:
+    - python >=3
+    - orange3 >=3.23.0
+    - orange3-bioinformatics >=4.0.0
+    - fastdtw ~=0.3.2
+    - loompy ~=2.0.17
+    - xlrd ~=1.2.0
+    - anndata ~=0.6.21
+    # versions are set in orange3
+    - numpy
+    - scikit-learn
+    - pandas
+
+test:
+  # Python imports
+  imports:
+    - orangecontrib.single_cell
+    - orangecontrib.single_cell.__main__
+    - orangecontrib.single_cell.widgets
+    - orangecontrib.single_cell.preprocess
+    - orangecontrib.single_cell.tutorials
+  commands:
+    - python -m orangecontrib.single_cell --help
+
+about:
+  home: https://singlecell.biolab.si/
+  license: GPL-3
+  license_family: GPL
+  license_file: LICENSE
+  summary: 'Single-cell Orange'
+
+extra:
+  recipe-maintainers:
+    - jakakokosar
+    - astaric
+    - lanzagar
+    - ales-erjavec

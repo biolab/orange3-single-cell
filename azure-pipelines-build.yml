@@ -1,0 +1,219 @@
+trigger:
+  tags:
+    include:
+      - '*.*.*'
+
+pr: none
+
+variables:
+  python.version: '3.7'
+  # macos
+  app_path: installers/scOrange.app
+  create_app: installer/macos/build-macos-app.sh
+  create_dmg: installer/macos/create-dmg-installer.sh
+  # win
+  conda_recipe: installer/conda-recipe
+  conda_build: installer/conda-recipe/build
+  conda_installer: installer/windows/build-conda-installer.sh
+  conda_spec: conda-spec.txt
+
+jobs:
+- job: build_distribution_files
+  displayName: Build distribution files
+
+  pool:
+    vmImage: 'ubuntu-16.04'
+
+  steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '$(python.version)'
+
+    - script: |
+        pip install --upgrade pip setuptools setuptools-scm
+      displayName: 'Install build requirements'
+
+    - script: |
+        pip install sphinx recommonmark
+        cd doc && make htmlhelp && cd ..
+      displayName: 'Build docs'
+      continueOnError: false
+
+    - script: python setup.py sdist bdist_wheel
+      displayName: 'Build distribution files'
+      continueOnError: false
+
+    - script: |
+        ver=$( python setup.py --version )
+        echo "##vso[task.setvariable variable=VERSION;isOutput=true]$ver"
+      name: scOrange
+      displayName: 'set scOrange VERSION'
+
+    # Show output variable
+    - bash: echo "$(scOrange.VERSION)"
+      displayName: 'show scOrange VERSION'
+
+    - task: CopyFiles@2
+      condition: eq(variables['Agent.JobStatus'], 'Succeeded')
+      inputs:
+        contents: dist/*
+        targetFolder: $(Build.ArtifactStagingDirectory)
+
+    - task: PublishBuildArtifacts@1
+      condition: eq(variables['Agent.JobStatus'], 'Succeeded')
+      inputs:
+        pathtoPublish: $(Build.ArtifactStagingDirectory)
+
+- job:
+  displayName: Build macOS installer
+  dependsOn: build_distribution_files
+  condition: succeeded('build_distribution_files')
+
+  pool:
+    vmImage: 'macOS-10.14'
+  variables:
+    # Define the variable from the previous (build_distribution_files) job
+    SC_ORANGE_VERSION: $[ dependencies.build_distribution_files.outputs['scOrange.VERSION'] ]
+
+  steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '$(python.version)'
+
+    - task: DownloadBuildArtifacts@0
+      inputs:
+        downloadType: 'specific'
+        itemPattern: drop/dist/*
+        downloadPath: $(Agent.TempDirectory)
+
+    - script: |
+        mkdir -p dist/
+        mv $(Agent.TempDirectory)/drop/dist/** dist/
+      displayName: 'Move artifacts from temp directory'
+
+    - script: |
+        if [[ -d $(app_path) ]]; then rm -rf $(app_path); fi
+        $(create_app) --pip-arg={--find-links,$(Agent.TempDirectory),Orange3-SingleCell,PyQt5==5.9.*} $(app_path)
+        ls -lGaf installers/
+      displayName: 'Build App'
+
+    - script: |
+        $(app_path)/Contents/MacOS/python --version
+        $(app_path)/Contents/MacOS/pip --version
+        $(app_path)/Contents/MacOS/pip freeze
+      displayName: 'Freeze App dependencies'
+
+    - script: |
+        ./installer/macos/create-dmg-installer.sh --app $(app_path) ./installers/scOrange-$(SC_ORANGE_VERSION).dmg
+      displayName: 'Build dmg'
+
+    - script: |
+        # run tests
+        $(app_path)/Contents/MacOS/python -Xfaulthandler -m unittest -v orangecontrib.single_cell.tests
+      displayName: 'Sanity check'
+
+    - script: |
+        # remove uncompressed files before uploading artifacts
+        rm -r $(app_path)
+      displayName: 'Remove uncompressed files before upload'
+
+    - script: |
+        shasum -a 256 ./installers/scOrange-$(SC_ORANGE_VERSION).dmg
+      displayName: 'Hash of released installer'
+
+    - task: CopyFiles@2
+      condition: eq(variables['Agent.JobStatus'], 'Succeeded')
+      inputs:
+        contents: installers/*
+        targetFolder: $(Build.ArtifactStagingDirectory)
+
+    - task: PublishBuildArtifacts@1
+      condition: eq(variables['Agent.JobStatus'], 'Succeeded')
+      inputs:
+        pathtoPublish: $(Build.ArtifactStagingDirectory)
+
+- job:
+  displayName: Build windows installer
+  dependsOn: build_distribution_files
+  condition: succeeded('build_distribution_files')
+  pool:
+    vmImage: 'windows-2019'
+  variables:
+    # Define the variable from the previous (build_distribution_files) job
+    SC_ORANGE_VERSION: $[ dependencies.build_distribution_files.outputs['scOrange.VERSION'] ]
+
+  steps:
+    - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
+      displayName: 'Add conda to PATH'
+
+    - task: DownloadBuildArtifacts@0
+      inputs:
+        downloadType: 'specific'
+        itemPattern: drop/dist/*
+        downloadPath: $(Agent.TempDirectory)
+
+    - powershell: |
+        New-Item -ItemType "directory" -Path ".\dist\"
+        Move-Item -Path "$(Agent.TempDirectory)\drop\dist\*" -Destination ".\dist\"
+      displayName: 'Move artifacts from temp directory'
+
+    - bash: |
+        conda config --append channels conda-forge
+        conda install --yes conda-build conda-verify
+        conda build --python=$(python.version) $(conda_recipe)
+        # CONDA_PACKAGE=$( conda build --output --python=$(python.version) $(conda_recipe) --output-folder $(conda_build) )
+        conda create -n scOrange --yes --use-local python=$(python.version) pyqt=5.9.* orange3-singlecell
+      env:
+        SC_ORANGE_VERSION: $(SC_ORANGE_VERSION)
+      displayName: 'Build and install package'
+
+    - bash: |
+        conda list -n scOrange --export --explicit --md5 > $(conda_spec)
+        cat conda-spec.txt
+      displayName: 'List conda specs'
+
+    - bash: |
+        mkdir -p installers/
+        $(conda_installer) --env-spec $(conda_spec) --online=no --dist-dir installers/
+      displayName: 'Build conda installer'
+
+    - bash: |
+        dist/scOrange-$(SC_ORANGE_VERSION)-Miniconda-x86_64.exe /S /D=test-install/
+        CONDA_PYTHON=test-install/Scripts/python
+        echo "##vso[task.setvariable variable=CONDA_PYTHON]$CONDA_PYTHON"
+      displayName: 'Run installation'
+
+    - bash: |
+        dist/scOrange-$(SC_ORANGE_VERSION)-Miniconda-x86_64.exe /S /D=test-install/
+        PYTHON=test-install/Scripts/python
+        echo "##vso[task.setvariable variable=PYTHON]PYTHON"
+      displayName: 'Test installation'
+
+    - bash: |
+        $(PYTHON) -m pip install --no-index --no-cache-dir orange3-singlecell
+      displayName: 'Test if add-on dependencies are installed'
+
+    - bash: |
+        $(PYTHON) --version
+        $(PYTHON) -m pip --version
+        $(PYTHON) -m pip freeze
+      displayName: 'Freeze installer dependencies'
+
+    - bash: |
+        $(PYTHON) -m unittest -v orangecontrib.single_cell.tests
+      displayName: 'Test installation'
+
+    - powershell: |
+        Get-FileHash dist/scOrange-$(SC_ORANGE_VERSION)-Miniconda-x86_64.exe -Algorithm SHA256 | Format-List
+      displayName: 'Hash of released installer'
+
+    - task: CopyFiles@2
+      condition: eq(variables['Agent.JobStatus'], 'Succeeded')
+      inputs:
+        contents: installers/*
+        targetFolder: $(Build.ArtifactStagingDirectory)
+
+    - task: PublishBuildArtifacts@1
+      condition: eq(variables['Agent.JobStatus'], 'Succeeded')
+      inputs:
+        pathtoPublish: $(Build.ArtifactStagingDirectory)

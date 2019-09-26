@@ -11,7 +11,6 @@ def include_documentation(local_dir, install_dir):
         print("Directory '{}' does not exist. "
               "Please build documentation before running bdist_wheel."
               .format(path.abspath(local_dir)))
-        sys.exit(0)
 
     doc_files = []
     for dirpath, dirs, files in walk(local_dir):
@@ -27,7 +26,8 @@ if __name__ == '__main__':
         use_scm_version=True,
         setup_requires=[
             'setuptools-scm>=3.3.3',
-            'setuptools>=41.2.0'
+            'setuptools>=41.2.0',
+            'wheel'
         ],
         install_requires=[
             'Orange3>=3.23.0',
