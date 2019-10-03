@@ -177,43 +177,65 @@ jobs:
         $(conda_installer) --env-spec $(conda_spec) --online=no --dist-dir installers/
       displayName: 'Build conda installer'
 
-    - bash: |
-        dist/scOrange-$(SC_ORANGE_VERSION)-Miniconda-x86_64.exe /S /D=test-install/
-        CONDA_PYTHON=test-install/Scripts/python
-        echo "##vso[task.setvariable variable=CONDA_PYTHON]$CONDA_PYTHON"
-      displayName: 'Run installation'
+#    - powershell: |
+#        invoke-item ".\installers\scOrange-$(SC_ORANGE_VERSION)-Miniconda-x86_64.exe /S /D=C:\test-install" -confirm:$false -Verbose -Debug
+#        start-job -Name TestInstall -scriptblock { .\installers\scOrange-$(SC_ORANGE_VERSION)-Miniconda-x86_64.exe /S /D=C:\test-install }
+#        Get-Job
+#        Wait-Job -Name "TestInstall" -Force
+#      displayName: 'Run installation'
 
-    - bash: |
-        dist/scOrange-$(SC_ORANGE_VERSION)-Miniconda-x86_64.exe /S /D=test-install/
-        PYTHON=test-install/Scripts/python
-        echo "##vso[task.setvariable variable=PYTHON]PYTHON"
-      displayName: 'Test installation'
+# Start-Process -FilePath .\installers\scOrange-$(SC_ORANGE_VERSION)-Miniconda-x86_64.exe -Argumentlist '/S /D=C:\test-install'
 
-    - bash: |
-        $(PYTHON) -m pip install --no-index --no-cache-dir orange3-singlecell
-      displayName: 'Test if add-on dependencies are installed'
+#    - powershell: |
+#        installers\scOrange-$(SC_ORANGE_VERSION)-Miniconda-x86_64.exe /S /D=C:\test-install > out.txt
+#        cat out.txt
+#        dir C:\test-install
+#      displayName: 'Run installation'
+#      timeoutInMinutes: 20
 
-    - bash: |
-        $(PYTHON) --version
-        $(PYTHON) -m pip --version
-        $(PYTHON) -m pip freeze
-      displayName: 'Freeze installer dependencies'
-
-    - bash: |
-        $(PYTHON) -m unittest -v orangecontrib.single_cell.tests
-      displayName: 'Test installation'
+#    - powershell: start "" /wait  "installers\scOrange-$(SC_ORANGE_VERSION)-Miniconda-x86_64.exe" /S /D=test-install\
+#      displayName: 'Run installation'
+#      timeoutInMinutes: 20
 
     - powershell: |
-        Get-FileHash dist/scOrange-$(SC_ORANGE_VERSION)-Miniconda-x86_64.exe -Algorithm SHA256 | Format-List
-      displayName: 'Hash of released installer'
+        .\installers\scOrange-$(SC_ORANGE_VERSION)-Miniconda-x86_64.exe /S /D=test-install\
 
-    - task: CopyFiles@2
-      condition: eq(variables['Agent.JobStatus'], 'Succeeded')
-      inputs:
-        contents: installers/*
-        targetFolder: $(Build.ArtifactStagingDirectory)
 
-    - task: PublishBuildArtifacts@1
-      condition: eq(variables['Agent.JobStatus'], 'Succeeded')
-      inputs:
-        pathtoPublish: $(Build.ArtifactStagingDirectory)
+    - bash: |
+        jobs
+        sleep 15m
+        echo done...
+        # cat out.txt
+        ls -la test-install\
+        cat /tmp/scOrange-$(SC_ORANGE_VERSION)-Miniconda-x86_64.exe-install-log.txt
+
+#    - bash: |
+#        PYTHON=test-install/Scripts/python
+#        echo "##vso[task.setvariable variable=CONDA_PYTHON]PYTHON"
+#        $(PYTHON) -m pip install --no-index --no-cache-dir orange3-singlecell
+#      displayName: 'Test if add-on dependencies are installed'
+#
+#    - bash: |
+#        $(PYTHON) --version
+#        $(PYTHON) -m pip --version
+#        $(PYTHON) -m pip freeze
+#      displayName: 'Freeze installer dependencies'
+#
+#    - bash: |
+#        $(PYTHON) -m unittest -v orangecontrib.single_cell.tests
+#      displayName: 'Test installation'
+#
+#    - powershell: |
+#        Get-FileHash dist/scOrange-$(SC_ORANGE_VERSION)-Miniconda-x86_64.exe -Algorithm SHA256 | Format-List
+#      displayName: 'Hash of released installer'
+#
+#    - task: CopyFiles@2
+#      condition: eq(variables['Agent.JobStatus'], 'Succeeded')
+#      inputs:
+#        contents: installers/*
+#        targetFolder: $(Build.ArtifactStagingDirectory)
+#
+#    - task: PublishBuildArtifacts@1
+#      condition: eq(variables['Agent.JobStatus'], 'Succeeded')
+#      inputs:
+#        pathtoPublish: $(Build.ArtifactStagingDirectory)
