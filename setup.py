@@ -32,13 +32,15 @@ if __name__ == '__main__':
         install_requires=[
             'Orange3>=3.23.0',
             'orange3-bioinformatics>=4.0.0',
-            'fastdtw==0.3.2',
-            'pandas>=0.23',
-            'loompy>=2.0.10',
+            'fastdtw~=0.3.2',
+            'loompy~=2.0.17',
             'xlrd~=1.2.0',
-            'anndata>=0.6.21',
+            'anndata~=0.6.21',
+            # versions are set in orange3
             'numpy',
             'scikit-learn',
+            'pandas'
+
         ],
         extras_require={
             'doc': ['sphinx', 'recommonmark'],
