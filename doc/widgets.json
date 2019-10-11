@@ -1,0 +1,81 @@
+[
+ [
+  "Single Cell",
+  [
+   {
+    "text": "Load Data",
+    "doc": "widgets/load_data.md",
+    "icon": "../orangecontrib/single_cell/widgets/icons/LoadData.svg",
+    "background": "light-blue",
+    "keywords": []
+   },
+   {
+    "text": "Single Cell Datasets",
+    "doc": "widgets/single_cell_datasets.md",
+    "icon": "../orangecontrib/single_cell/widgets/icons/SingleCellDatasets.svg",
+    "background": "light-blue",
+    "keywords": [
+     "online"
+    ]
+   },
+   {
+    "text": "Dropout Gene Selection",
+    "doc": null,
+    "icon": "../orangecontrib/single_cell/widgets/icons/Dropout.svg",
+    "background": "light-blue",
+    "keywords": []
+   },
+   {
+    "text": "Filter",
+    "doc": "widgets/filter.md",
+    "icon": "../orangecontrib/single_cell/widgets/icons/Filter.svg",
+    "background": "light-blue",
+    "keywords": []
+   },
+   {
+    "text": "Single Cell Preprocess",
+    "doc": "widgets/single_cell_preprocess.md",
+    "icon": "../orangecontrib/single_cell/widgets/icons/SingleCellPreprocess.svg",
+    "background": "light-blue",
+    "keywords": [
+     "process"
+    ]
+   },
+   {
+    "text": "Batch Effect Removal",
+    "doc": "widgets/batch_effect_removal.md",
+    "icon": "../orangecontrib/single_cell/widgets/icons/BatchEffectRemoval.svg",
+    "background": "light-blue",
+    "keywords": []
+   },
+   {
+    "text": "Align Datasets",
+    "doc": "widgets/align_datasets.md",
+    "icon": "../orangecontrib/single_cell/widgets/icons/AlignDatasets.svg",
+    "background": "light-blue",
+    "keywords": []
+   },
+   {
+    "text": "Score Genes",
+    "doc": "widgets/score_genes.md",
+    "icon": "../orangecontrib/single_cell/widgets/icons/ScoreGenes.svg",
+    "background": "light-blue",
+    "keywords": []
+   },
+   {
+    "text": "Score Cells",
+    "doc": "widgets/score_cells.md",
+    "icon": "../orangecontrib/single_cell/widgets/icons/ScoreCells.svg",
+    "background": "light-blue",
+    "keywords": []
+   },
+   {
+    "text": "Dot Matrix",
+    "doc": "widgets/dot_matrix.md",
+    "icon": "../orangecontrib/single_cell/widgets/icons/DotMatrix.svg",
+    "background": "light-blue",
+    "keywords": []
+   }
+  ]
+ ]
+]
