@@ -748,7 +748,7 @@ class Concatenate:
                             metas=sorted(metas, key=key))
             concat_data_t = concat_data.transform(domain)
             data_t = data.transform(domain)
-            source_var.values.append(source_name)
+            source_var.values + (source_name, )
             data_t[:, source_var] = np.full(
                 (len(data), 1), len(source_var.values) - 1, dtype=object
             )
