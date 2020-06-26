@@ -1,0 +1,17 @@
+The Single Cell add-on for [Orange3](http://orange.biolab.si) adds functionality for analysis of single cell data.
+See [documentation](https://singlecell.biolab.si/docs/).
+
+Features
+--------
+#### Explore the Diversity of Cells
+* load data from any platform and filter outlier cells
+* normalize expression values across samples and platforms
+* identify and explore sub-populations with a sample and across multiple samples
+
+#### Discover New Marker Genes
+* identify signature genes for each subpopulation using multiple methods
+* use gene ontology enrichment to explore the biological meaning and identify cell types
+
+#### Predict New Cell Types
+* build classifiers to identify the cell type of each subpopulation
+* use classifier on new data samples to predict cell types and focus on interesting cell type populations
