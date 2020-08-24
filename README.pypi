@@ -4,6 +4,21 @@ Orange3 Single Cell
 The Single Cell add-on for [Orange3](http://orange.biolab.si) adds functionality
 for analysis of single cell data. The widgets enable gene filtering,
 preprocessing, batch effect removal, gene and cell scoring and cluster analysis.
- The widgets can be used seamlessly with other Orange widgets, include those
- from [Orange3-Bioinformatics](https://github.com/biolab/orange3-bioinformatics)
- add-on.
+The widgets can be used seamlessly with other Orange widgets, including those
+from [Orange3-Bioinformatics](https://github.com/biolab/orange3-bioinformatics)
+add-on.
+
+Features
+--------
+#### Explore the Diversity of Cells
+* load data from any platform and filter outlier cells
+* normalize expression values across samples and platforms
+* identify and explore sub-populations with a sample and across multiple samples
+
+#### Discover New Marker Genes
+* identify signature genes for each subpopulation using multiple methods
+* use gene ontology enrichment to explore the biological meaning and identify cell types
+
+#### Predict New Cell Types
+* build classifiers to identify the cell type of each subpopulation
+* use classifier on new data samples to predict cell types and focus on interesting cell type populations
