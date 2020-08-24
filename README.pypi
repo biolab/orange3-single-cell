@@ -1,5 +1,12 @@
-The Single Cell add-on for [Orange3](http://orange.biolab.si) adds functionality for analysis of single cell data.
-See [documentation](https://singlecell.biolab.si/docs/).
+Orange3 Single Cell
+======================
+
+The Single Cell add-on for [Orange3](http://orange.biolab.si) adds functionality
+for analysis of single cell data. The widgets enable gene filtering,
+preprocessing, batch effect removal, gene and cell scoring and cluster analysis.
+The widgets can be used seamlessly with other Orange widgets, including those
+from [Orange3-Bioinformatics](https://github.com/biolab/orange3-bioinformatics)
+add-on.
 
 Features
 --------
