@@ -23,17 +23,17 @@ def include_documentation(local_dir, install_dir):
 
 if __name__ == '__main__':
     setuptools.setup(
-        data_files=include_documentation('doc/build/htmlhelp', 'help/orange3-single_cell'),
+        # data_files=include_documentation('doc/build/htmlhelp', 'help/orange3-single_cell'),
         use_scm_version=True,
         setup_requires=[
-            'setuptools-scm>=3.3.3',
-            'setuptools>=41.2.0'
+            'setuptools-scm',
+            'setuptools',
         ],
         install_requires=[
             'Orange3>=3.23.0',
             'orange3-bioinformatics>=4.0.0',
             'fastdtw==0.3.2',
-            'pandas>=0.23',
+            'pandas>=0.23,<1.1',
             'loompy>=2.0.10',
             'xlrd~=1.2.0',
             'anndata>=0.6.21',

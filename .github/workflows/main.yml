@@ -1,0 +1,46 @@
+name: main
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+        tox_env: [py37, py38]
+        include:
+          - tox_env: py37
+            python: 3.7
+          - tox_env: py38
+            python: 3.8
+            
+          # add additional jobs for future compatibility test
+          - tox_env: py38-orange-develop
+            python: 3.8
+            os: ubuntu-latest
+          - tox_env: py38-bioinformatics-develop
+            python: 3.8
+            os: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install Tox
+        run: python -m pip install tox
+      - name: Set env
+        run: echo ::set-env name=QT_QPA_PLATFORM::offscreen
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+      - name: Run Tox
+        run: python -m tox -e ${{ matrix.tox_env }}
