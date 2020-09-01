@@ -16,12 +16,20 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-latest, windows-latest, ubuntu-latest]
-        python: [3.7, 3.8]
+        tox_env: [py37, py38]
         include:
-          - python: 3.7
-            tox_env: py37
-          - python: 3.8
-            tox_env: py38
+          - tox_env: py37
+            python: 3.7
+          - tox_env: py38
+            python: 3.8
+            
+          # add additional jobs for future compatibility test
+          - tox_env: py38-orange-develop
+            python: 3.8
+            os: ubuntu-latest
+          - tox_env: py38-bioinformatics-develop
+            python: 3.8
+            os: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v2
