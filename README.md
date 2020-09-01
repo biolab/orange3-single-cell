@@ -2,7 +2,7 @@ Orange3 Single Cell
 ===================
 
 [![Discord Chat](https://img.shields.io/discord/633376992607076354)](https://discord.gg/FWrfeXV)
-[![Azure Pipeline](https://dev.azure.com/orange-biolab/orange3-singlecell/_apis/build/status/CI%20Pipeline?branchName=master)](https://dev.azure.com/orange-biolab/orange3-singlecell/)
+![main](https://github.com/biolab/orange3-single-cell/workflows/main/badge.svg?branch=master)
 [![codecov](https://codecov.io/gh/biolab/orange3-single-cell/branch/master/graph/badge.svg)](https://codecov.io/gh/biolab/orange3-single-cell)
 [![PyPI](https://img.shields.io/pypi/v/orange3-singlecell.svg)](https://pypi.org/project/Orange3-SingleCell/)
 [![Conda](https://img.shields.io/conda/v/conda-forge/orange3-singlecell.svg)](https://anaconda.org/conda-forge/orange3-singlecell)
