@@ -23,11 +23,11 @@ def include_documentation(local_dir, install_dir):
 
 if __name__ == '__main__':
     setuptools.setup(
-        data_files=include_documentation('doc/build/htmlhelp', 'help/orange3-single_cell'),
+        # data_files=include_documentation('doc/build/htmlhelp', 'help/orange3-single_cell'),
         use_scm_version=True,
         setup_requires=[
-            'setuptools-scm>=3.3.3',
-            'setuptools>=41.2.0'
+            'setuptools-scm',
+            'setuptools',
         ],
         install_requires=[
             'Orange3>=3.23.0',
