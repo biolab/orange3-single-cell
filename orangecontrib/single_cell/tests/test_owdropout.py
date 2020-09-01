@@ -138,7 +138,7 @@ class TestOWDropout(WidgetTest):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.data = Table("https://datasets.orange.biolab.si/sc/aml-1k.tab.gz")
+        cls.data = Table("https://datasets.biolab.si/sc/aml-1k.tab.gz")
         genes_path = serverfiles.localpath_download("marker_genes",
                                                     "panglao_gene_markers.tab")
         filter_ = FilterString("Organism", FilterString.Equal, "Human")

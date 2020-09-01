@@ -9,7 +9,7 @@ from pyqtgraph.graphicsItems import LegendItem
 from pyqtgraph import functions as fn
 from scipy.stats import multivariate_normal as mvn
 
-from Orange.widgets.settings import Setting, ContextSetting, DomainContextHandler
+from Orange.widgets.settings import Setting, ContextSetting, PerfectDomainContextHandler
 from Orange.data import Table, Domain, ContinuousVariable, DiscreteVariable
 from Orange.widgets import widget, gui
 from Orange.widgets.utils.itemmodels import DomainModel
@@ -76,7 +76,7 @@ class OWAlignDatasets(widget.OWWidget):
         transformed_data = Output("Transformed Data", Table)
         genes_components = Output("Genes per n. Components", Table)
 
-    settingsHandler = DomainContextHandler()
+    settingsHandler = PerfectDomainContextHandler()
     axis_labels = ContextSetting(10)
     source_id = ContextSetting(None)
     ncomponents = ContextSetting(20)
@@ -295,12 +295,19 @@ class OWAlignDatasets(widget.OWWidget):
         self._feature_model.set_domain(None)
         self.clear_plot()
 
+    def clear_legend(self):
+        if self._legend is None:
+            return
+
+        scene = self._legend.scene()
+        if scene is None:
+            return
+
+        scene.removeItem(self._legend)
+        self._legend = None
+
     def clear_plot(self):
-        try:
-            self._legend.scene().removeItem(self._legend)
-            self._legend = None
-        except Exception as e:
-            pass
+        self.clear_legend()
         self._line = False
         self.plot_horlabels = []
         self.plot_horlines = []
@@ -353,8 +360,7 @@ class OWAlignDatasets(widget.OWWidget):
         colors = ['#e41a1c', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00', '#ffff33', '#a65628',
                   '#f781bf', '#999999']
 
-        if self._legend is not None:
-            self._legend.scene().removeItem(self._legend)
+        self.clear_legend()
         self._legend = self.plot.addLegend(offset=(-1, 1))
         # correlation lines
         offset = 2
