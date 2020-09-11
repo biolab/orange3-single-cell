@@ -12,11 +12,6 @@ from Orange.widgets.tests.base import WidgetTest
 from orangecontrib.single_cell.widgets.owmultisample import OWMultiSample
 
 
-def get_sample_workflow_dir():
-    return os.path.realpath(os.path.join(os.path.dirname(__file__),
-                                         "..", "tutorials"))
-
-
 class TestOWMultiSample(WidgetTest):
 
     def setUp(self):
@@ -80,7 +75,7 @@ class TestOWMultiSample(WidgetTest):
         self.assertEqual(self.widget.view.model().rowCount(), 3)
 
     @patch("Orange.widgets.widget.OWWidget.workflowEnv",
-           Mock(return_value={"basedir": get_sample_workflow_dir()}))
+           Mock(return_value={"basedir": os.path.join(os.path.dirname(__file__), "data")}))
     def test_load_workflow(self):
         base_path = os.path.join("010-Showcase-LoadDataM-Data", "batch-A")
         base_name = str(PurePath(os.path.join(base_path, "matrix.mtx")))
@@ -89,7 +84,7 @@ class TestOWMultiSample(WidgetTest):
 
         # store settings - simulate saving workflow
         w1 = self.create_widget(OWMultiSample)
-        w1.set_current_path(os.path.join(get_sample_workflow_dir(), str(base_name)))
+        w1.set_current_path(os.path.join(os.path.join(os.path.dirname(__file__), "data"), str(base_name)))
         w1.write_settings()
         settings = self.widget.settingsHandler.pack_data(w1)
 
