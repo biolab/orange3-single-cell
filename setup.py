@@ -24,10 +24,7 @@ if __name__ == '__main__':
             'doc': ['sphinx', 'recommonmark'],
             'package': ['twine', 'wheel'],
             'test': [
-                'pytest~=5.1.0',
-                'pytest-cov~=2.7.1',
-                'coverage~=4.5.4',
-                'codecov~=2.0.15'
+                'coverage',
             ],
         },
     )

@@ -5,7 +5,7 @@ from functools import lru_cache
 
 from orangecontrib.bioinformatics.widgets.utils.data import GENE_ID_ATTRIBUTE
 from scipy.stats import hypergeom
-from sklearn.cluster.bicluster import SpectralBiclustering
+from sklearn.cluster import SpectralBiclustering
 from Orange.data import Domain, DiscreteVariable, ContinuousVariable, Table
 
 

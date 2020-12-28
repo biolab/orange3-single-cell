@@ -20,12 +20,11 @@ class TestOWScoreGenes(WidgetTest):
         metas = [ContinuousVariable('GeneName' + str(i)) for i in range(5)]
         domain = Domain(attributes=[], class_vars=class_var, metas=metas)
 
-        data = Table(
+        data = Table.from_numpy(
             domain,
-            [['STG1', 1, 2, 3, 4, 5],
-             ['STG1', 4, 4, 4, 4, 4],
-             ['STG1', 2, 3, 1, 1, 1],
-             ['STG2', -1, 0, 1, 0, 0]])
+            [[0], [0], [0], [1]],
+            metas=[[1, 2, 3, 4, 5], [4, 4, 4, 4, 4], [2, 3, 1, 1, 1], [-1, 0, 1, 0, 0]],
+        )
 
         self.assertFalse(w.Error.no_attributes.is_shown())
         for is_shown, input_data in ((True, data), (False, None)):

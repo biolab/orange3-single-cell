@@ -1,7 +1,7 @@
 import itertools as it
 import numpy as np
 from scipy.stats import pearsonr
-from sklearn.decomposition.truncated_svd import TruncatedSVD
+from sklearn.decomposition import TruncatedSVD
 
 import Orange.statistics.util as ut
 

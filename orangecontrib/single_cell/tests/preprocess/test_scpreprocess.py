@@ -7,16 +7,21 @@ import numpy.testing as npt
 from Orange.data import Table, Domain
 from Orange.widgets.tests.utils import table_dense_sparse
 from orangecontrib.single_cell.preprocess.scpreprocess import (
-    LogarithmicScale, Binarize, NormalizeSamples, NormalizeGroups,
-    Standardize, SelectMostVariableGenes, DropoutGeneSelection,
-    DropoutWarning
+    LogarithmicScale,
+    Binarize,
+    NormalizeSamples,
+    NormalizeGroups,
+    Standardize,
+    SelectMostVariableGenes,
+    DropoutGeneSelection,
+    DropoutWarning,
 )
 
 
 class TestLogarithmicScale(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.table = Table(np.arange(1, 13).reshape((3, 4)))
+        cls.table = Table.from_numpy(None, np.arange(1, 13).reshape((3, 4)))
 
     @table_dense_sparse
     def test_default(self, prepare_table):
@@ -43,7 +48,7 @@ class TestLogarithmicScale(unittest.TestCase):
 class TestBinarize(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.table = Table(np.arange(12).reshape((3, 4)))
+        cls.table = Table.from_numpy(None, np.arange(12).reshape((3, 4)))
 
     @table_dense_sparse
     def test_default(self, prepare_table):
@@ -73,11 +78,16 @@ class TestBinarize(unittest.TestCase):
 class TestNormalizeSamples(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.table = Table(np.array([
-            [1.5, 8.5, 0],
-            [2, 0, 3],
-            [3, np.nan, 7],
-        ]))
+        cls.table = Table.from_numpy(
+            None,
+            np.array(
+                [
+                    [1.5, 8.5, 0],
+                    [2, 0, 3],
+                    [3, np.nan, 7],
+                ]
+            ),
+        )
 
     @table_dense_sparse
     def test_default(self, prepare_table):
@@ -87,10 +97,7 @@ class TestNormalizeSamples(unittest.TestCase):
         self.assertNotEqual(new_table, self.table)
 
         new_table = new_table.to_dense()
-        npt.assert_array_almost_equal(
-            new_table, [[150000, 850000, 0],
-                        [400000, 0, 600000],
-                        [300000, np.nan, 700000]])
+        npt.assert_array_almost_equal(new_table, [[150000, 850000, 0], [400000, 0, 600000], [300000, np.nan, 700000]])
 
     @table_dense_sparse
     def test_options(self, prepare_table):
@@ -112,9 +119,8 @@ class TestNormalizeSamples(unittest.TestCase):
 class TestNormalizeGroups(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        table = Table([[1, 4, 0], [2, 5, 0], [3, 6, 1]])
-        domain = Domain(table.domain.attributes[:-1],
-                        metas=table.domain.attributes[-1:])
+        table = Table.from_numpy(None, [[1, 4, 0], [2, 5, 0], [3, 6, 1]])
+        domain = Domain(table.domain.attributes[:-1], metas=table.domain.attributes[-1:])
         cls.table = table.transform(domain)
 
     @table_dense_sparse
@@ -126,9 +132,8 @@ class TestNormalizeGroups(unittest.TestCase):
 
         new_table = new_table.to_dense()
         npt.assert_array_almost_equal(
-            new_table.X, [[83333.333, 333333.333],
-                          [166666.667, 416666.667],
-                          [333333.333, 666666.667]], decimal=3)
+            new_table.X, [[83333.333, 333333.333], [166666.667, 416666.667], [333333.333, 666666.667]], decimal=3
+        )
 
     @table_dense_sparse
     def test_options(self, prepare_table):
@@ -148,18 +153,17 @@ class TestNormalizeGroups(unittest.TestCase):
 class TestStandardize(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.table = Table(np.arange(1, 7).reshape((2, 3)).T)
+        cls.table = Table.from_numpy(None, np.arange(1, 7).reshape((2, 3)).T)
 
     def test_default(self):
         table = Standardize()(self.table)
         self.assertIsInstance(table, Table)
         self.assertNotEqual(table, self.table)
-        npt.assert_array_almost_equal(
-            table, [[-1.225, -1.225], [0., 0.], [1.225, 1.225]], decimal=3)
+        npt.assert_array_almost_equal(table, [[-1.225, -1.225], [0.0, 0.0], [1.225, 1.225]], decimal=3)
 
     def test_options(self):
         table = Standardize(-1, 1)(self.table)
-        npt.assert_array_equal(table, [[-1, -1], [0., 0.], [1, 1]])
+        npt.assert_array_equal(table, [[-1, -1], [0.0, 0.0], [1, 1]])
 
 
 class TestSelectMostVariableGenes(unittest.TestCase):
@@ -167,14 +171,13 @@ class TestSelectMostVariableGenes(unittest.TestCase):
     def setUpClass(cls):
         path = os.path.join(os.path.dirname(__file__), '..', "data")
         data = Table(os.path.join(path, 'dermatology.tab'))
-        cls.table = data.transform(Domain(data.domain.attributes[:-1],
-                                          data.domain.class_vars))
+        cls.table = data.transform(Domain(data.domain.attributes[:-1], data.domain.class_vars))
         cls.variance = np.nanvar(cls.table.X, axis=0)
         cls.mean = np.nanmean(cls.table.X, axis=0)
 
     @table_dense_sparse
     def test_default(self, prepare_table):
-        table = Table(np.arange(12).reshape((3, 4)).T ** (1 / 2))
+        table = Table.from_numpy(None, np.arange(12).reshape((3, 4)).T ** (1 / 2))
         table = prepare_table(table)
         pp_table = SelectMostVariableGenes(n_genes=2, n_groups=2)(table)
         self.assertIsInstance(pp_table, Table)
@@ -188,9 +191,7 @@ class TestSelectMostVariableGenes(unittest.TestCase):
         data = self.table.transform(Domain(tuple(np.array(attrs)[inds]), cls))
 
         table = prepare_table(data)
-        filtered_data = SelectMostVariableGenes(
-            method=SelectMostVariableGenes.Dispersion, n_groups=None
-        )(table)
+        filtered_data = SelectMostVariableGenes(method=SelectMostVariableGenes.Dispersion, n_groups=None)(table)
         npt.assert_array_equal(filtered_data, data)
 
     @table_dense_sparse
@@ -200,9 +201,7 @@ class TestSelectMostVariableGenes(unittest.TestCase):
         table = self.table.transform(Domain(tuple(np.array(attrs)[inds]), cls))
         table = prepare_table(table)
 
-        filtered_table = SelectMostVariableGenes(
-            method=SelectMostVariableGenes.Dispersion, n_groups=None
-        )(table)
+        filtered_table = SelectMostVariableGenes(method=SelectMostVariableGenes.Dispersion, n_groups=None)(table)
 
         npt.assert_array_equal(filtered_table, table)
 
@@ -213,9 +212,7 @@ class TestSelectMostVariableGenes(unittest.TestCase):
         table = self.table.transform(Domain(tuple(np.array(attrs)[inds]), cls))
         table = prepare_table(table)
 
-        filtered_table = SelectMostVariableGenes(
-            method=SelectMostVariableGenes.Dispersion, n_groups=None
-        )(table)
+        filtered_table = SelectMostVariableGenes(method=SelectMostVariableGenes.Dispersion, n_groups=None)(table)
 
         npt.assert_array_equal(filtered_table, table)
 
@@ -223,9 +220,7 @@ class TestSelectMostVariableGenes(unittest.TestCase):
     def test_preserves_density(self, prepare_table):
         table = prepare_table(self.table)
         is_sparse = table.is_sparse()
-        filtered_table = SelectMostVariableGenes(
-            method=SelectMostVariableGenes.Dispersion, n_groups=None
-        )(table)
+        filtered_table = SelectMostVariableGenes(method=SelectMostVariableGenes.Dispersion, n_groups=None)(table)
         self.assertEqual(is_sparse, filtered_table.is_sparse())
 
 
@@ -269,8 +264,7 @@ class TestDropoutGeneSelection(unittest.TestCase):
             filtered_table = DropoutGeneSelection(n_genes)(table)
         self.assertIsInstance(filtered_table, Table)
         self.assertNotEqual(len(filtered_table.domain.attributes), n_genes)
-        dropout_warnings = [warning for warning in w if
-                            issubclass(warning.category, DropoutWarning)]
+        dropout_warnings = [warning for warning in w if issubclass(warning.category, DropoutWarning)]
         self.assertEqual(len(dropout_warnings), 1)
 
     @table_dense_sparse

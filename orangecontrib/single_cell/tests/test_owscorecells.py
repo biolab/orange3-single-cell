@@ -6,12 +6,14 @@ from Orange.widgets.tests.base import WidgetTest
 from Orange.data import DiscreteVariable, ContinuousVariable, StringVariable, Domain, Table
 
 from orangecontrib.bioinformatics.widgets.utils.data import (
-    GENE_ID_ATTRIBUTE, GENE_ID_COLUMN, GENE_AS_ATTRIBUTE_NAME, TAX_ID
+    GENE_ID_ATTRIBUTE,
+    GENE_ID_COLUMN,
+    GENE_AS_ATTRIBUTE_NAME,
+    TAX_ID,
 )
 
 
 class TestOWScoreCells(WidgetTest):
-
     def setUp(self):
         self.widget = self.create_widget(OWScoreCells)
 
@@ -23,23 +25,25 @@ class TestOWScoreCells(WidgetTest):
 
         domain = Domain(attributes, class_vars=class_var)
 
-        self.data = Table(domain, [[1, 2, 3, 4, 5, 'STG1'],
-                                   [4, 4, 4, 4, 4, 'STG1'],
-                                   [2, 3, 1, 1, 1, 'STG1'],
-                                   [-1, 0, 1, 0, 0, 'STG2']])
+        self.data = Table.from_numpy(
+            domain,
+            [[1, 2, 3, 4, 5], [4, 4, 4, 4, 4], [2, 3, 1, 1, 1], [-1, 0, 1, 0, 0]],
+            [[0], [0], [0], [1]]
+        )
         self.data.attributes[TAX_ID] = '9606'
         self.data.attributes[GENE_AS_ATTRIBUTE_NAME] = True
         self.data.attributes[GENE_ID_ATTRIBUTE] = 'Entrez ID'
 
-        self.genes = Table(Domain([],
-                           metas=[StringVariable('Entrez ID')]),
-                           [[attr.attributes.get('Entrez ID')] for attr in self.data.domain.attributes])
+        self.genes = Table.from_list(
+            Domain([], metas=[StringVariable('Entrez ID')]),
+            [[attr.attributes.get('Entrez ID')] for attr in self.data.domain.attributes],
+        )
 
         self.genes.attributes[TAX_ID] = '9606'
         self.genes.attributes[GENE_AS_ATTRIBUTE_NAME] = False
         self.genes.attributes[GENE_ID_COLUMN] = 'Entrez ID'
 
-        self.expected_score_values = np.array([[3.], [4.], [1.6], [0]])
+        self.expected_score_values = np.array([[3.0], [4.0], [1.6], [0]])
 
     def test_score_cells(self):
         # input data
@@ -66,7 +70,7 @@ class TestOWScoreCells(WidgetTest):
         # output data
         self.widget.commit()
         out_data = self.get_output(self.widget.Outputs.data)
-        self.assertTrue(np.all(out_data.get_column_view('Score')[0] == 1.))
+        self.assertTrue(np.all(out_data.get_column_view('Score')[0] == 1.0))
 
 
 if __name__ == '__main__':
