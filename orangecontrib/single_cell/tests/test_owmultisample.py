@@ -1,8 +1,9 @@
 import os
-import numpy.testing as npt
-
+import unittest
 from unittest.mock import patch, Mock
 from pathlib import PurePath
+
+import numpy.testing as npt
 
 from AnyQt.QtCore import Qt, QMimeData, QUrl, QPoint
 from AnyQt.QtGui import QDropEvent
@@ -13,6 +14,16 @@ from orangecontrib.single_cell.widgets.owmultisample import OWMultiSample
 
 
 class TestOWMultiSample(WidgetTest):
+    def create_widget(self, cls, stored_settings=None,
+                      reset_default_settings=True):
+        if reset_default_settings:
+            self.reset_default_settings(cls)
+        widget = cls.__new__(cls, signal_manager=self.signal_manager,
+                             stored_settings=stored_settings)
+        widget.__init__()
+        self.process_events()
+        self.widgets.append(widget)
+        return widget
 
     def setUp(self):
         self.widget = self.create_widget(
@@ -100,3 +111,7 @@ class TestOWMultiSample(WidgetTest):
         self.assertEqual(loader.row_annotation_file.prefix, "basedir")
         self.assertEqual(str(PurePath(loader.col_annotation_file.relpath)), base_col_name)
         self.assertEqual(loader.col_annotation_file.prefix, "basedir")
+
+
+if __name__ == "__main__":
+    unittest.main()
