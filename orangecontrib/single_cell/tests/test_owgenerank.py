@@ -7,7 +7,6 @@ from Orange.data import DiscreteVariable, ContinuousVariable, Domain, Table
 
 
 class TestOWRank(WidgetTest):
-
     def setUp(self):
         self.widget = self.create_widget(OWRank)
         self.widget.selected_methods = set()
@@ -15,16 +14,13 @@ class TestOWRank(WidgetTest):
         class_var = DiscreteVariable('Stage name', values=['STG1', 'STG2'])
         attributes = [ContinuousVariable('GeneName' + str(i)) for i in range(2)]
         domain = Domain(attributes, class_vars=class_var)
+        self.data = Table.from_numpy(
+            domain, [[8, -4], [9, -2], [10, 0], [11, 2], [12, 4]], [[0], [0], [1], [1], [1]]
+        )
 
-        self.data = Table(domain, [[8, -4, 'STG1'],
-                                   [9, -2, 'STG1'],
-                                   [10, 0, 'STG2'],
-                                   [11, 2, 'STG2'],
-                                   [12, 4, 'STG2']])
-
-        self.expected_mean = np.array([[10.], [0.]])
-        self.expected_variance = np.array([[2.], [8.]])
-        self.expected_dispersion = np.array([[0.2], [8.]])
+        self.expected_mean = np.array([[10.0], [0.0]])
+        self.expected_variance = np.array([[2.0], [8.0]])
+        self.expected_dispersion = np.array([[0.2], [8.0]])
 
         # GeneName1(second column) -> if mean is zero, we set it to 1
         self.expected_cv = np.array([[0.141], [2.828]])

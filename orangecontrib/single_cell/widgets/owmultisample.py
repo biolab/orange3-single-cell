@@ -162,7 +162,7 @@ class OWMultiSample(owloaddata.OWLoadData):
     _sample_cols_p = 10.0
     _sample_rows_p = 10.0
 
-    samples = Setting([])  # type: List[Tuple[str, str, bool]
+    samples = Setting([])  # type: List[Tuple[str, str, bool]]
     loaders = Setting({})  # type: Dict[str, Loader]
     output_type = Setting(Concatenate.INTERSECTION)
     auto_commit = Setting(False)
