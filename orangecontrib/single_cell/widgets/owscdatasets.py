@@ -27,7 +27,7 @@ class OWscDataSets(Orange.widgets.data.owdatasets.OWDataSets):
         ['title',        {'label': 'Title'}],
         ['size',         {'label': 'Size'}],
         ['instances',    {'label': 'Cells'}],
-        ['num_of_genes', {'label': 'Genes'}],
+        ['variables',    {'label': 'Genes'}],
         ['taxid',        {'label': 'Organism'}],
         ['target',       {'label': 'Target'}],
         ['tags',         {'label': 'Tags'}]
@@ -54,7 +54,7 @@ class OWscDataSets(Orange.widgets.data.owdatasets.OWDataSets):
             Orange.widgets.data.owdatasets.NumericalDelegate(self)
         )
         self.view.setItemDelegateForColumn(
-            self.Header.num_of_genes,
+            self.Header.variables,
             Orange.widgets.data.owdatasets.NumericalDelegate(self)
         )
 
