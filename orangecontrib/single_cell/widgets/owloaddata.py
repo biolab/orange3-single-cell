@@ -339,7 +339,7 @@ class OWLoadData(widget.OWWidget):
             self.col_annotations_combo.model(),
             [self.resolve_path(p) for p in self._recent_col_annotations]
         )
-        self._update_summary()
+        self.__update_summary()
         self._update_warning()
 
         if self._last_path != "" and os.path.exists(self._last_path):
@@ -481,7 +481,7 @@ class OWLoadData(widget.OWWidget):
         self.recent_combo.setCurrentIndex(0)
 
         self._data_loader = get_data_loader(path)
-        self._update_summary()
+        self.__update_summary()
         self.setup_gui()
         self._invalidate()
 
@@ -556,7 +556,7 @@ class OWLoadData(widget.OWWidget):
 
         self.annotation_files_box.setEnabled(loader.ENABLE_ANNOTATIONS)
 
-    def _update_summary(self):
+    def __update_summary(self):
         size = self._data_loader.file_size
         ncols = self._data_loader.n_cols
         nrows = self._data_loader.n_rows
