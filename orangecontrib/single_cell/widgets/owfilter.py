@@ -742,8 +742,10 @@ class OWFilter(widget.OWWidget):
                         ),
                         data
                     )
-                if len(data) == 0 or \
-                        len(data.domain) + len(data.domain.metas) == 0:
+                if (
+                    len(data) == 0
+                    or len(data.domain.variables) + len(data.domain.metas) == 0
+                ):
                     data = None
             elif self.filter_type() == Data:
                 dmin, dmax = self.limit_lower, self.limit_upper
