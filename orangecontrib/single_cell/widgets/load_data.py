@@ -625,6 +625,7 @@ class ExcelLoader(Loader):
 
     @staticmethod
     def df_read_func(*args, **kwargs):
+        kwargs.pop("sep")
         return pd.read_excel(*args, **kwargs)
 
 

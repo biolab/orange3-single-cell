@@ -13,7 +13,7 @@ if __name__ == '__main__':
             'Orange3>=3.23.0',
             'orange3-bioinformatics>=4.0.0',
             'fastdtw==0.3.2',
-            'pandas>=0.23,<1.1',
+            'pandas>=0.23',
             'loompy>=2.0.10',
             'xlrd~=1.2.0',
             'anndata>=0.6.21',
