@@ -21,7 +21,7 @@ if __name__ == '__main__':
             'scikit-learn',
         ],
         extras_require={
-            'doc': ['sphinx', 'recommonmark'],
+            'doc': ['sphinx', 'recommonmark', 'sphinx_rtd_theme'],
             'package': ['twine', 'wheel'],
             'test': [
                 'coverage',
