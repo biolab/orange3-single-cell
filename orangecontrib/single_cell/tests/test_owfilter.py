@@ -1,5 +1,6 @@
+import unittest
+
 import numpy as np
-import numpy.testing
 
 import Orange.data
 from Orange.widgets.tests.base import WidgetTest
@@ -117,3 +118,6 @@ class TestOWFilterCells(WidgetTest):
         np.testing.assert_allclose(log1p(x), np.log10(1 + x))
         np.testing.assert_allclose(expm1(log1p(x)), x)
 
+
+if __name__ == "__main__":
+    unittest.main()

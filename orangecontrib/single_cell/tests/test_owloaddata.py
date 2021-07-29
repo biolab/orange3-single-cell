@@ -1,4 +1,5 @@
 import os
+import unittest
 
 import numpy as np
 import numpy.testing as npt
@@ -332,7 +333,7 @@ class TestOWLoadData(WidgetTest):
             self.assertDictEqual(attribute.attributes, {})
 
     def _test_load_data_x(self, x, df):
-        npt.assert_array_equal(x, df.values.T)
+        npt.assert_array_almost_equal(x, df.values.T)
 
     def _test_load_data_metas(self, metas, df):
         npt.assert_array_equal(metas, df.values)
@@ -369,3 +370,7 @@ class TestOWLoadData(WidgetTest):
     #     self.assertIsNotNone(data)
     #     self.assertEqual(data.X.shape, (3, 7))
     #     widget.set_dataset(data)
+
+
+if __name__ == "__main__":
+    unittest.main()
