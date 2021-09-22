@@ -12,9 +12,9 @@ BACKGROUND = "light-blue"
 WIDGET_HELP_PATH = (
     # Development documentation
     # You need to build help pages manually using
-    # make htmlhelp
+    # make html
     # inside doc folder
-    ("{DEVELOP_ROOT}/doc/build/htmlhelp/index.html", None),
+    ("{DEVELOP_ROOT}/doc/build/html/index.html", None),
 
     # Documentation included in wheel
     # Correct DATA_FILES entry is needed in setup.py and documentation has to be built
