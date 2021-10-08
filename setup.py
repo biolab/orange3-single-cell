@@ -21,7 +21,9 @@ if __name__ == '__main__':
             'scikit-learn',
         ],
         extras_require={
-            'doc': ['sphinx', 'recommonmark', 'sphinx_rtd_theme'],
+            # docutils changed html in 0.17; fixing to 0.16 until parser fixed
+            # todo: remove docutils when parser fixed in widget-base and released
+            'doc': ['sphinx', 'recommonmark', 'sphinx_rtd_theme', 'docutils<0.17'],
             'package': ['twine', 'wheel'],
             'test': [
                 'coverage',
