@@ -54,10 +54,11 @@ class Binarize(Preprocess):
 
     def __call__(self, data: Table) -> Table:
         new_data = data.copy()
-        if self.condition == Binarize.GreaterOrEqual:
-            new_data.X = new_data.X >= self.threshold
-        elif self.condition == Binarize.Greater:
-            new_data.X = new_data.X > self.threshold
+        with new_data.unlocked_reference(new_data.X):
+            if self.condition == Binarize.GreaterOrEqual:
+                new_data.X = new_data.X >= self.threshold
+            elif self.condition == Binarize.Greater:
+                new_data.X = new_data.X > self.threshold
         return new_data
 
 
@@ -78,7 +79,8 @@ class Normalize(Preprocess):
 class NormalizeSamples(Normalize):
     def __call__(self, data: Table) -> Table:
         new_data = data.copy()
-        new_data.X = self.normalize(data.X)
+        with new_data.unlocked_reference(new_data.X):
+            new_data.X = self.normalize(data.X)
         return new_data
 
     def normalize(self, table: AnyArray) -> AnyArray:
@@ -106,10 +108,11 @@ class NormalizeGroups(Normalize):
         self.group_var = group_var
 
     def __call__(self, data: Table) -> Table:
-        group_col = data.get_column_view(self.group_var)[0]
+        group_col = data.get_column(self.group_var)
         group_col = group_col.astype("int64")
         new_data = data.copy()
-        new_data.X = self.normalize(data.X, group_col)
+        with new_data.unlocked_reference(new_data.X):
+            new_data.X = self.normalize(data.X, group_col)
         return new_data
 
     def normalize(self, table: AnyArray, group_col: np.ndarray) -> AnyArray:
@@ -147,9 +150,11 @@ class Standardize(Preprocess):
     def __call__(self, data):
         new_data = data.copy()
         with np.errstate(invalid="ignore"):
-            new_data.X = np.nan_to_num(zscore(data.X))
+            with new_data.unlocked_reference(new_data.X):
+                new_data.X = np.nan_to_num(zscore(data.X))
         if self.lower_bound is not None or self.upper_bound is not None:
-            np.clip(new_data.X, self.lower_bound, self.upper_bound, new_data.X)
+            with new_data.unlocked(new_data.X):
+                np.clip(new_data.X, self.lower_bound, self.upper_bound, new_data.X)
         return new_data
 
 

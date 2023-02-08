@@ -538,8 +538,11 @@ class OWscPreprocess(Orange.widgets.data.owpreprocess.OWPreprocess):
             self.Error.discrete_attributes()
 
         self.Warning.missing_values.clear()
-        if self.data and np.isnan(self.data.X).any():
-            self.data.X = np.nan_to_num(self.data.X)
+        if self.data is not None and np.isnan(self.data.X).any():
+            # copy for not to change the input table
+            self.data = self.data.copy()
+            with self.data.unlocked_reference(self.data.X):
+                self.data.X = np.nan_to_num(self.data.X)
             self.Warning.missing_values()
 
     def load_group_var(self):

@@ -273,3 +273,7 @@ class TestDropoutGeneSelection(unittest.TestCase):
         is_sparse = table.is_sparse()
         filtered_table = DropoutGeneSelection(3)(table)
         self.assertEqual(is_sparse, filtered_table.is_sparse())
+
+
+if __name__ == "__main__":
+    unittest.main()
