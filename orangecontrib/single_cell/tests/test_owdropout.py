@@ -7,7 +7,7 @@ from pyqtgraph import PlotCurveItem, ScatterPlotItem
 
 from AnyQt.QtCore import Qt, QPoint
 from AnyQt.QtTest import QTest
-from PyQt5.QtWidgets import QToolTip
+from AnyQt.QtWidgets import QToolTip
 
 from Orange.data import Table, StringVariable, Domain, ContinuousVariable
 from Orange.data.filter import Values, FilterString
