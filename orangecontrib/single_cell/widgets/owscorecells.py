@@ -96,14 +96,20 @@ class OWScoreCells(widget.OWWidget):
         self.info_text = gui.widgetLabel(info_box)
 
         box = gui.vBox(self.controlArea, "Aggregation")
-        gui.comboBox(box, self, 'aggregation', sendSelectedValue=True,
-                     items=list(self.aggregation_functions.keys()),
-                     callback=lambda: self.commit())
+        gui.comboBox(
+            box,
+            self,
+            "aggregation",
+            sendSelectedValue=True,
+            items=list(self.aggregation_functions.keys()),
+            callback=self.commit.deferred,
+        )
 
         box = gui.vBox(self.controlArea, "Score Column Name in Output Data: ")
-        self.line_edit = gui.lineEdit(box, self, 'score_variable_name',
-                                      callback=lambda: self.commit())
-        self.line_edit.setPlaceholderText('Column Name ...')
+        self.line_edit = gui.lineEdit(
+            box, self, "score_variable_name", callback=lambda: self.commit.deferred
+        )
+        self.line_edit.setPlaceholderText("Column Name ...")
 
         self.apply_button = gui.auto_commit(
             self.controlArea, self, "auto_apply", "&Apply", box=False)
@@ -115,7 +121,7 @@ class OWScoreCells(widget.OWWidget):
 
     def handleNewSignals(self):
         self.update_info_box()
-        self.commit()
+        self.commit.deferred()
         
     def __check_organism_mismatch(self):
         """ Check if organisms from different inputs match.
@@ -243,11 +249,12 @@ class OWScoreCells(widget.OWWidget):
             for variable in self.marker_data.domain.attributes:
                 self.marker_genes.append(str(variable.attributes.get(self.marker_gene_id_attribute, '?')))
         else:
-            genes, _ = self.marker_data.get_column_view(self.marker_gene_id_column)
+            genes = self.marker_data.get_column(self.marker_gene_id_column)
             self.marker_genes = [str(g) for g in genes]
 
         self.marker_genes = set(filter(None, self.marker_genes))
 
+    @gui.deferred
     def commit(self):
         table = None
 
@@ -260,8 +267,10 @@ class OWScoreCells(widget.OWWidget):
                             self.input_data.domain.metas + (score_var,))
 
             table = self.input_data.transform(domain)
-            col, sparse = table.get_column_view(score_var)
-            col[:] = score
+            # transform does not guarantee a copy but metas can be unlocked
+            # since we added new column to metas
+            with table.unlocked(table.metas):
+                table[:, score_var] = score.reshape(-1, 1)
 
         self.Outputs.data.send(table)
 
