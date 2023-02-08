@@ -225,7 +225,7 @@ class OWAlignDatasets(widget.OWWidget):
                 self.openContext(self.data.domain)
                 if self.source_id is None or self.source_id == '':
                     for model in self._feature_model:
-                        y = np.array(self.data.get_column_view(model)[0], dtype=np.float64)
+                        y = np.array(self.data.get_column(model), dtype=np.float64)
                         _, counts = np.unique(y, return_counts=True)
                         if np.isfinite(y).all() and min(counts) > 1:
                             self.source_id = model
@@ -244,7 +244,7 @@ class OWAlignDatasets(widget.OWWidget):
                 if np.isnan(self.data.X).any():
                     self.Error.nan_input()
                     return
-                y = np.array(self.data.get_column_view(self.source_id)[0], dtype=np.float64)
+                y = np.array(self.data.get_column(self.source_id), dtype=np.float64)
                 _, counts = np.unique(y, return_counts=True)
                 if min(counts) < 2:
                     self.Error.no_instances()
@@ -265,7 +265,7 @@ class OWAlignDatasets(widget.OWWidget):
             self.ncomponents = MAX_COMPONENTS
 
         X = self.data.X
-        y = self.data.get_column_view(self.source_id)[0]
+        y = self.data.get_column(self.source_id)
 
         if len(set(y)) < 2:
             self.Error.only_one_dataset()
@@ -279,8 +279,7 @@ class OWAlignDatasets(widget.OWWidget):
         self._use_genes = self._mas.use_genes
 
         self._setup_plot()
-        if self.auto_commit:
-            self.commit()
+        self.commit.deferred()
 
     def clear(self):
         self.data = None
@@ -319,7 +318,7 @@ class OWAlignDatasets(widget.OWWidget):
         self.Outputs.genes_components.send(None)
 
     def _reset_max_components(self):
-        y = np.array(self.data.get_column_view(self.source_id)[0], dtype=np.float64)
+        y = np.array(self.data.get_column(self.source_id), dtype=np.float64)
         _, counts = np.unique(y, return_counts=True)
         global MAX_COMPONENTS
         if min(counts) < MAX_COMPONENTS_DEFAULT or len(
@@ -346,7 +345,7 @@ class OWAlignDatasets(widget.OWWidget):
 
         self.fit()
         self._setup_plot()
-        self.commit()
+        self.commit.deferred()
 
     def _setup_plot(self):
         self.plot.clear()
@@ -426,7 +425,7 @@ class OWAlignDatasets(widget.OWWidget):
 
         self._line.setValue(value)
         self._set_horline_pos()
-        self.commit()
+        self.commit.deferred()
 
     def _update_selection_component_spin(self):
         # cut changed by "ncomponents" spin.
@@ -437,12 +436,12 @@ class OWAlignDatasets(widget.OWWidget):
         if np.floor(self._line.value()) + 1 != self.ncomponents:
             self._line.setValue(self.ncomponents - 1)
 
-        self.commit()
+        self.commit.deferred()
 
     def _invalidate_selection(self):
         if self.data is not None:
             self._transformed = None
-            self.commit()
+            self.commit.deferred()
 
     def _update_scoring_combo(self):
         self.fit()
@@ -469,7 +468,7 @@ class OWAlignDatasets(widget.OWWidget):
         self.clear_plot()
         if self.data is None:
             return
-        y = np.array(self.data.get_column_view(self.source_id)[0], dtype=np.float64)
+        y = np.array(self.data.get_column(self.source_id), dtype=np.float64)
         _, counts = np.unique(y, return_counts=True)
         if min(counts) < 2:
             self.Error.no_instances()
@@ -489,16 +488,17 @@ class OWAlignDatasets(widget.OWWidget):
         axis.setTicks([[(i, str(i + 1)) for i in range(0, p, d)]])
 
     def _has_nan_classes(self):
-        y = np.array(self.data.get_column_view(self.source_id)[0], dtype=np.float64)
+        y = np.array(self.data.get_column(self.source_id), dtype=np.float64)
         return not np.isfinite(y).all()
 
+    @gui.deferred
     def commit(self):
         transformed_table = meta_genes = None
         if self._mas is not None:
             # Compute the full transform (MAX_COMPONENTS components) only once.
             if self._transformed is None:
                 X = self.data.X
-                y = self.data.get_column_view(self.source_id)[0]
+                y = self.data.get_column(self.source_id)
                 self._transformed = self._mas.transform(X, y, normalize=self.quantile_normalization,
                                                         quantile=self.quantile_normalization_perc,
                                                         dtw=self.dynamic_time_warping)
@@ -518,14 +518,17 @@ class OWAlignDatasets(widget.OWWidget):
                     for gene in genes:
                         genes_components[gene - 1, key] = genes.index(gene) + 1
                 genes_components[genes_components == 0] = np.NaN
-                meta_genes.X = genes_components
+                with meta_genes.unlocked_reference(meta_genes.X):
+                    meta_genes.X = genes_components
                 self.meta_genes = Table.from_numpy(Domain(attributes), genes_components)
 
                 # Transformed data
                 transformed = self._transformed
                 new_domain = add_columns(self.data.domain, attributes=attributes)
                 transformed_table_temp = self.data.transform(new_domain)
-                transformed_table_temp.X[:, -MAX_COMPONENTS:] = transformed
+                # safe to unlock since new attributes added to the domain
+                with transformed_table_temp.unlocked(transformed_table_temp.X):
+                    transformed_table_temp.X[:, -MAX_COMPONENTS:] = transformed
                 self.transformed_table = Table.from_table(dom, transformed_table_temp)
 
             ncomponents_attributes = tuple(ContinuousVariable.make("CCA{}".format(x + 1)) for x in

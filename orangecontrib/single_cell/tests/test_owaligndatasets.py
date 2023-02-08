@@ -1,3 +1,5 @@
+import unittest
+
 from sklearn import datasets
 from Orange.data import ContinuousVariable, DiscreteVariable
 import numpy as np
@@ -96,3 +98,7 @@ class TestOWMDA(WidgetTest):
 
         self.send_signal(w.Inputs.data, data)
         self.assertEqual("class", str(w.source_id))
+
+
+if __name__ == "__main__":
+    unittest.main()
