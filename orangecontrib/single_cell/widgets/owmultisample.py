@@ -233,7 +233,7 @@ class OWMultiSample(owloaddata.OWLoadData):
         if index.column() == self._Header.remove:
             self.remove_item(index)
         elif index.column() == self._Header.selected:
-            self.commit()
+            self.commit.deferred()
 
     def _selection_changed(self):
         rows = self.view.selectionModel().selectedRows(0)
@@ -247,7 +247,7 @@ class OWMultiSample(owloaddata.OWLoadData):
             )
 
     def _output_type_changed(self):
-        self.commit()
+        self.commit.deferred()
 
     def _assign_delegates(self):
         self.view.setItemDelegateForColumn(
@@ -271,8 +271,8 @@ class OWMultiSample(owloaddata.OWLoadData):
         model.setHorizontalHeaderLabels(self._header_labels)
         self.view.setModel(model)
         self.view.clicked[QModelIndex].connect(self._view_clicked)
-        self.view.data_changed.connect(lambda: self.commit())
-        self.view.drop_finished.connect(lambda: self.commit())
+        self.view.data_changed.connect(self.commit.deferred)
+        self.view.drop_finished.connect(self.commit.deferred)
         self.view.header().setStretchLastSection(False)
         self.view.header().setSectionResizeMode(
             self._Header.name, QHeaderView.Stretch
@@ -312,7 +312,7 @@ class OWMultiSample(owloaddata.OWLoadData):
             self.__remove_item()
         ])
         self._resize_columns_to_contents()
-        self.commit()
+        self.commit.deferred()
 
     def __selected_item(self, checked, exists):
         item = QStandardItem()
@@ -377,7 +377,7 @@ class OWMultiSample(owloaddata.OWLoadData):
 
     def remove_item(self, index):
         self.view.model().removeRows(index.row(), 1)
-        self.commit()
+        self.commit.deferred()
         if not self.view.model().rowCount():
             self.set_current_loader(Loader(), "")
 
@@ -424,8 +424,9 @@ class OWMultiSample(owloaddata.OWLoadData):
             self.recent_model.rowCount())
 
     def _invalidate(self):
-        self.commit()
+        self.commit.deferred()
 
+    @gui.deferred
     def commit(self):
         if not self.view or not self.view.model():
             return

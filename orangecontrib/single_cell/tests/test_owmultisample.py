@@ -5,7 +5,7 @@ from pathlib import PurePath
 
 import numpy.testing as npt
 
-from AnyQt.QtCore import Qt, QMimeData, QUrl, QPoint
+from AnyQt.QtCore import Qt, QMimeData, QUrl, QPointF
 from AnyQt.QtGui import QDropEvent
 
 from Orange.widgets.tests.base import WidgetTest
@@ -35,9 +35,9 @@ class TestOWMultiSample(WidgetTest):
         self.widget.set_current_path(self.file_name_1)
         self.widget.set_current_path(self.file_name_2)
         model = self.widget.view.model()
-        model.item(0).setCheckState(True)
-        model.item(1).setCheckState(True)
-        self.widget.commit()
+        model.item(0).setCheckState(Qt.CheckState.Checked)
+        model.item(1).setCheckState(Qt.CheckState.Checked)
+        self.widget.commit.now()
 
     def test_minimum_size(self):
         pass
@@ -80,7 +80,7 @@ class TestOWMultiSample(WidgetTest):
         data = QMimeData()
         data.setUrls([QUrl.fromLocalFile(path)])
         event = QDropEvent(
-            QPoint(10, 10), Qt.MoveAction, data,
+            QPointF(10, 10), Qt.MoveAction, data,
             Qt.NoButton, Qt.NoModifier, QDropEvent.Drop)
         self.widget.view.dropEvent(event)
         self.assertEqual(self.widget.view.model().rowCount(), 3)
