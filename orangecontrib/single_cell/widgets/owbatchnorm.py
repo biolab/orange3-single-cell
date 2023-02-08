@@ -98,7 +98,7 @@ class OWBatchNorm(OWWidget):
         self.skip_zeros_check = gui.checkBox(
             method_box, self, "skip_zeros", "Skip zero expressions",
             enabled=self.link_method != LinkMethod.LOG_LINK,
-            callback=lambda: self.commit()
+            callback=self.commit.deferred
         )
 
         # Batch Variable Selection
@@ -128,14 +128,14 @@ class OWBatchNorm(OWWidget):
         self.skip_zeros_check.setEnabled(enable)
         if not enable:
             self.skip_zeros_check.setChecked(True)
-        self.commit()
+        self.commit.deferred()
 
     def __selected_batch_vars_changed(self, item):
         if item.checkState():
             self.batch_vars.append(item.data(VariableRole))
         else:
             self.batch_vars.remove(item.data(VariableRole))
-        self.commit()
+        self.commit.deferred()
 
     def _setup_view(self):
         self.view.setModel(self.model)
@@ -163,7 +163,7 @@ class OWBatchNorm(OWWidget):
         if self.data is not None:
             self.batch_vars = [data.domain[v.name] for v in self.batch_vars]
             self._setup_model()
-        self.commit()
+        self.commit.deferred()
 
     def clear(self):
         self.batch_vars = []
@@ -185,8 +185,11 @@ class OWBatchNorm(OWWidget):
         if self.data and self.data.domain.has_discrete_attributes():
             self.data = None
             self.Error.discrete_attributes()
-        if self.data and np.isnan(self.data.X).any():
-            self.data.X = np.nan_to_num(self.data.X)
+        if self.data is not None and np.isnan(self.data.X).any():
+            # copy data to not to edit input data
+            self.data = self.data.copy()
+            with self.data.unlocked_reference(self.data.X):
+                self.data.X = np.nan_to_num(self.data.X)
             self.Warning.missing_values()
 
     def _setup_model(self):
@@ -234,6 +237,7 @@ class OWBatchNorm(OWWidget):
         item.setEditable(False)
         return item
 
+    @gui.deferred
     def commit(self):
         data = None
         self.Error.general_error.clear()

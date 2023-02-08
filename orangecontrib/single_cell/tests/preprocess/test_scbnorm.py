@@ -1,8 +1,6 @@
-import numpy as np
 import unittest
 from itertools import product
 from scipy.stats import pearsonr
-from Orange.data import Table, ContinuousVariable, DiscreteVariable, Domain
 from orangecontrib.single_cell.preprocess.scbnorm import *
 
 
@@ -61,8 +59,8 @@ class ScBatchNormalize(unittest.TestCase):
         model = ScBatchNormalizeModel(batch_vars=["Z0", "Z1"], link=LINK_IDENTITY)
         model.fit(self.data_lin)
         data1 = model(self.data_lin)
-        assert pearsonr(data1.get_column_view("Z0")[0], data1.X[:, 0].ravel())[1] > alpha
-        assert pearsonr(data1.get_column_view("Z1")[0], data1.X[:, 0].ravel())[1] > alpha
+        assert pearsonr(data1.get_column("Z0"), data1.X[:, 0].ravel())[1] > alpha
+        assert pearsonr(data1.get_column("Z1"), data1.X[:, 0].ravel())[1] > alpha
         assert pearsonr(self.noise.ravel(), data1.X[:, 0].ravel())[1] < alpha
         assert np.linalg.norm(data1.X[self.zeros]) == 0
 
@@ -72,8 +70,8 @@ class ScBatchNormalize(unittest.TestCase):
         model = ScBatchNormalizeModel(batch_vars=["Z0", "Z1"], link=LINK_LOG)
         model.fit(self.data_log)
         data1 = model(self.data_log)
-        assert pearsonr(data1.get_column_view("Z0")[0], data1.X[:, 0].ravel())[1] > alpha
-        assert pearsonr(data1.get_column_view("Z1")[0], data1.X[:, 0].ravel())[1] > alpha
+        assert pearsonr(data1.get_column("Z0"), data1.X[:, 0].ravel())[1] > alpha
+        assert pearsonr(data1.get_column("Z1"), data1.X[:, 0].ravel())[1] > alpha
         assert pearsonr(self.noise.ravel(), data1.X[:, 0].ravel())[1] < alpha
         assert np.linalg.norm(data1.X[self.zeros]) == 0
 
@@ -119,8 +117,8 @@ class ScBatchNormalize(unittest.TestCase):
                                       link=LINK_IDENTITY)
         model.fit(self.data_lin)
         data1 = model(self.data_lin)
-        assert pearsonr(data1.get_column_view("Z0")[0], data1.X[:, 0].ravel())[1] > alpha
-        assert pearsonr(data1.get_column_view("Z1")[0], data1.X[:, 0].ravel())[1] > alpha
+        assert pearsonr(data1.get_column("Z0"), data1.X[:, 0].ravel())[1] > alpha
+        assert pearsonr(data1.get_column("Z1"), data1.X[:, 0].ravel())[1] > alpha
         assert pearsonr(self.noise.ravel(), data1.X[:, 0].ravel())[1] < alpha
         assert np.linalg.norm(data1.X[self.zeros]) > 0
 
@@ -137,8 +135,8 @@ class ScBatchNormalize(unittest.TestCase):
         alpha = 0.05
         pp = SCBatchNormalizer(batch_vars=("class", "Z0"))
         data1 = pp(self.data_lin)
-        assert pearsonr(data1.get_column_view("class")[0], data1.X[:, 0].ravel())[1] > alpha
-        assert pearsonr(data1.get_column_view("Z0")[0], data1.X[:, 0].ravel())[1] > alpha
+        assert pearsonr(data1.get_column("class"), data1.X[:, 0].ravel())[1] > alpha
+        assert pearsonr(data1.get_column("Z0"), data1.X[:, 0].ravel())[1] > alpha
 
     def test_no_vars(self):
         """ Test with no batch variables. """
@@ -164,3 +162,7 @@ class ScBatchNormalize(unittest.TestCase):
                                           link=LINK_IDENTITY)
             model.fit(self.data_lin_neg)
         self.assertRaises(ValueError, dummy_call)
+
+
+if __name__ == "__main__":
+    unittest.main()
