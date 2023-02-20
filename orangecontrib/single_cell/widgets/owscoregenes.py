@@ -374,7 +374,7 @@ class OWRank(OWWidget):
         grid = QGridLayout()
         grid.setContentsMargins(6, 0, 6, 0)
         self.selectButtons = QButtonGroup()
-        self.selectButtons.buttonClicked[int].connect(self.setSelectionMethod)
+        self.selectButtons.idClicked.connect(self.setSelectionMethod)
 
         def button(text, buttonid, toolTip=None):
             b = QRadioButton(text)
@@ -710,12 +710,10 @@ class OWRank(OWWidget):
 
 
 if __name__ == "__main__":
-    from AnyQt.QtWidgets import QApplication
     from Orange.classification import RandomForestLearner
-    a = QApplication([])
-    ow = OWRank()
-    ow.set_learner(RandomForestLearner(), (3, 'Learner', None))
-    ow.setData(Table("heart_disease.tab"))
-    ow.show()
-    a.exec_()
-    ow.saveSettings()
+    from Orange.widgets.utils.widgetpreview import WidgetPreview
+
+    WidgetPreview(OWRank).run(
+        set_learner=(RandomForestLearner(), (3, 'Learner', None)),
+        setData=Table("heart_disease.tab")
+    )
