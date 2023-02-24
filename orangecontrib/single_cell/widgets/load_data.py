@@ -750,9 +750,11 @@ class Concatenate:
             concat_data_t = concat_data.transform(domain)
             data_t = data.transform(domain)
             source_var.values + (source_name, )
-            data_t[:, source_var] = np.full(
-                (len(data), 1), len(source_var.values) - 1, dtype=object
-            )
+            # metas can be unlocked, source_var added to metas by append_source_name
+            with data_t.unlocked(data_t.metas):
+                data_t[:, source_var] = np.full(
+                    (len(data), 1), len(source_var.values) - 1, dtype=object
+                )
             concat_data = Table.concatenate((concat_data_t, data_t), axis=0)
         return concat_data
 
@@ -762,5 +764,8 @@ class Concatenate:
         metas = data.domain.metas + (source_var,)
         domain = Domain(data.domain.attributes, metas=metas)
         data = data.transform(domain)
-        data[:, source_var] = np.full((len(data), 1), 0, dtype=object)
+        # transform does not guarantee a copy but metas can be unlocked
+        # since we added new column to metas
+        with data.unlocked(data.metas):
+            data[:, source_var] = np.full((len(data), 1), 0, dtype=object)
         return data, source_var

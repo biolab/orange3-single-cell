@@ -58,7 +58,7 @@ class TestOWScoreCells(WidgetTest):
         self.assertIsNotNone(self.widget.marker_genes)
 
         # output data
-        self.widget.commit()
+        self.widget.commit.now()
         out_data = self.get_output(self.widget.Outputs.data)
         self.assertTrue((self.expected_score_values == out_data.metas).all())
 
@@ -68,9 +68,9 @@ class TestOWScoreCells(WidgetTest):
         self.assertIsNotNone(self.widget.input_data)
 
         # output data
-        self.widget.commit()
+        self.widget.commit.now()
         out_data = self.get_output(self.widget.Outputs.data)
-        self.assertTrue(np.all(out_data.get_column_view('Score')[0] == 1.0))
+        self.assertTrue(np.all(out_data.get_column("Score") == 1.0))
 
 
 if __name__ == '__main__':

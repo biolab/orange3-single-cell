@@ -1,3 +1,5 @@
+import unittest
+
 import numpy as np
 
 from Orange.data import Table
@@ -40,7 +42,8 @@ class TestOWscPreprocess(WidgetTest):
 
     def test_missing_values(self):
         data = Table("iris")
-        data[0, 3] = np.nan
+        with data.unlocked(data.X):
+            data[0, 3] = np.nan
         self.send_signal(self.widget.Inputs.data, data)
         pp_data = self.get_output(self.widget.Outputs.preprocessed_data)
         self.assertIsInstance(pp_data, Table)
@@ -151,3 +154,7 @@ class TestDropoutEditor(WidgetTest):
         p = widget.createinstance(widget.parameters())
         self.assertIsInstance(p, DropoutGeneSelection)
         self.assertEqual(p.n_genes, 1000)
+
+
+if __name__ == "__main__":
+    unittest.main()

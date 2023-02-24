@@ -1,3 +1,5 @@
+import unittest
+
 import numpy as np
 
 from AnyQt.QtCore import Qt
@@ -38,7 +40,8 @@ class TestOWBatchNorm(WidgetTest):
     def test_missing_values_input(self):
         """Check batch normalization for data set with unknown values """
         data = Table("iris")
-        data[0, 3] = np.nan
+        with data.unlocked(data.X):
+            data[0, 3] = np.nan
         self.send_signal(self.widget.Inputs.data, data)
         self.assertIsInstance(self.get_output(self.widget.Outputs.data), Table)
         self.assertTrue(self.widget.Warning.missing_values.is_shown())
@@ -49,7 +52,8 @@ class TestOWBatchNorm(WidgetTest):
     def test_negative_values_input_log_link(self):
         """Check batch normalization for data set with negative values"""
         data = Table("iris")
-        data[0, 3] = -1
+        with data.unlocked(data.X):
+            data[0, 3] = -1
         self.send_signal(self.widget.Inputs.data, data)
         self.widget.model.item(0).setCheckState(Qt.Checked)
         link_method = self.widget.controls.link_method
@@ -65,7 +69,8 @@ class TestOWBatchNorm(WidgetTest):
     def test_negative_values_input_id_link(self):
         """Check batch normalization for data set with negative values"""
         data = Table("iris")
-        data[0, 3] = -1
+        with data.unlocked(data.X):
+            data[0, 3] = -1
         self.send_signal(self.widget.Inputs.data, data)
         self.widget.model.item(0).setCheckState(Qt.Checked)
         link_method = self.widget.controls.link_method
@@ -80,3 +85,7 @@ class TestOWBatchNorm(WidgetTest):
         self.assertFalse(self.widget.Warning.negative_values.is_shown())
         output = self.get_output(self.widget.Outputs.data)
         self.assertFalse((output.X == data.X).any())
+
+
+if __name__ == "__main__":
+    unittest.main()

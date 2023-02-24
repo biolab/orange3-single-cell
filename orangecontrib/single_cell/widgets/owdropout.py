@@ -80,7 +80,7 @@ class DropoutGraph(pg.PlotWidget):
 
     def __plot_markers(self, x: np.ndarray, y: np.ndarray,
                        data: Table, markers: Table):
-        col = markers.get_column_view(ENTREZ_ID)[0]
+        col = markers.get_column(ENTREZ_ID)
         mask = [str(a.attributes.get(ENTREZ_ID, None)) in col
                 for a in data.domain.attributes]
         self.__markers = pg.ScatterPlotItem(
@@ -298,7 +298,7 @@ class OWDropout(OWWidget):
     def __param_changed(self):
         self.update_selection()
         self.setup_info_label()
-        self.commit()
+        self.commit.deferred()
 
     def __manual_move(self, delta_x, delta_y):
         self.x_offset += delta_x
@@ -321,7 +321,7 @@ class OWDropout(OWWidget):
         self.openContext(data)
         self.select_genes()
         self.setup_info_label()
-        self.unconditional_commit()
+        self.commit.now()
 
     @Inputs.genes
     def set_genes(self, genes):
@@ -392,6 +392,7 @@ class OWDropout(OWWidget):
         self.controls.x_offset.setEnabled(not self.filter_by_nr_of_genes)
         self.controls.y_offset.setEnabled(not self.filter_by_nr_of_genes)
 
+    @gui.deferred
     def commit(self):
         data = None
         if self.selected is not None:

@@ -146,15 +146,15 @@ class OWDotMatrix(widget.OWWidget):
                 self.Error.no_discrete_variable()
                 self.data = None
                 self._set_info_string()
-                self.commit()
+                self.commit.deferred()
         else:
             self.tableview.clear()
             self._set_info_string()
-            self.commit()
+            self.commit.deferred()
 
     @staticmethod
     def _group_by(table: Table, var: DiscreteVariable):
-        column = table.get_column_view(var)[0]
+        column = table.get_column(var)
         return (table[column == value] for value in np.unique(column))
 
     @staticmethod
@@ -180,8 +180,11 @@ class OWDotMatrix(widget.OWWidget):
             return
 
         self.clusters_unordered = np.array(
-            [self.cluster_var.values[int(ix)]
-             for ix in np.unique(self.data.get_column_view(self.cluster_var)[0])])
+            [
+                self.cluster_var.values[int(ix)]
+                for ix in np.unique(self.data.get_column(self.cluster_var))
+            ]
+        )
         self._set_info_string()
 
         if len(self.data.domain.attributes) > self.GENE_MAXIMUM:
@@ -204,13 +207,13 @@ class OWDotMatrix(widget.OWWidget):
         matrix_before_norm = matrix.copy()  # for tooltip
         matrix = SklImpute()(matrix)
 
-        if self.log_scale:
-            matrix.X = np.log(matrix.X + 1)
-        if self.normalize:
-            matrix.X = self._normalize(matrix.X)
-
-        # values must be in range [0, 1] for visualisation
-        matrix.X = self._norm_min_max(matrix.X)
+        with matrix.unlocked_reference(matrix.X):
+            if self.log_scale:
+                matrix.X = np.log(matrix.X + 1)
+            if self.normalize:
+                matrix.X = self._normalize(matrix.X)
+            # values must be in range [0, 1] for visualisation
+            matrix.X = self._norm_min_max(matrix.X)
 
         if self.biclustering:
             cluster_order, gene_order = self.cluster_data(matrix)
@@ -232,8 +235,7 @@ class OWDotMatrix(widget.OWWidget):
             if len(matrix) > 1:
                 rows_distances = Euclidean(matrix)
                 cluster = hierarchical.dist_matrix_clustering(rows_distances)
-                row_order = hierarchical.optimal_leaf_ordering(
-                    cluster, rows_distances, progress_callback=self.progressBarSet)
+                row_order = hierarchical.optimal_leaf_ordering(cluster, rows_distances)
                 row_order = np.array([x.value.index for x in leaves(row_order)])
             else:
                 row_order = np.array([0])
@@ -243,8 +245,8 @@ class OWDotMatrix(widget.OWWidget):
                 columns_distances = Euclidean(matrix, axis=0)
                 cluster = hierarchical.dist_matrix_clustering(columns_distances)
                 columns_order = hierarchical.optimal_leaf_ordering(
-                    cluster, columns_distances,
-                    progress_callback=self.progressBarSet)
+                    cluster, columns_distances
+                )
                 columns_order = np.array([x.value.index for x in leaves(columns_order)])
             else:
                 columns_order = np.array([0])
@@ -269,6 +271,7 @@ class OWDotMatrix(widget.OWWidget):
 
             self.tableview.update_table(matrix, tooltip=tooltip)
 
+    @gui.deferred
     def commit(self):
         if self.data is None:
             self.Outputs.selected_data.send(None)
@@ -329,7 +332,7 @@ class OWDotMatrix(widget.OWWidget):
 
     def _invalidate(self):
         self.save_selection_names()
-        self.commit()
+        self.commit.deferred()
 
     def save_selection_names(self):
         """

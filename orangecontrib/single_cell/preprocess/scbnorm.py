@@ -72,7 +72,7 @@ class ScBatchScorer(Scorer):
         if not all((isinstance(att, ContinuousVariable) for att in data.domain.attributes)):
             raise ValueError("All variables in the data must be Continuous!")
 
-        a = data.get_column_view(feature.name)[0].reshape((len(data), 1))
+        a = data.get_column(feature.name).reshape((len(data), 1))
         if isinstance(feature, ContinuousVariable):
             _, p = self.correlations(a, data.X)
             w = (p < self.alpha).mean()
@@ -91,7 +91,7 @@ class ScBatchShared(SharedComputeValue):
     """Places the values of shared data within the corresponding variable column."""
     def compute(self, data, shared_data):
         assert self.variable is not None
-        return shared_data.get_column_view(self.variable)[0] if self.variable in shared_data.domain else np.nan
+        return shared_data.get_column(self.variable) if self.variable in shared_data.domain else np.nan
 
 
 class SCBatchNormalizer(Preprocess):
@@ -186,7 +186,7 @@ class ScBatchNormalizeModel:
             assert all((a.name in self.models for a in atts))
             assert all(b in data.domain for b in self.batch_vars)
             Z = self._design_matrix(data)
-            W = np.hstack((self.models[a.name].reshape((Z.shape[1], 1)) for a in atts))
+            W = np.hstack([self.models[a.name].reshape((Z.shape[1], 1)) for a in atts])
             Xc = data.X.copy()
             if self.nonzero_only:
                 nz = np.where(Xc)
@@ -198,7 +198,8 @@ class ScBatchNormalizeModel:
             else:
                 Xc = INV_LINKS[self.link](LINKS[self.link](Xc) - Z.dot(W))
             new_data = data.copy()
-            new_data.X = Xc
+            with new_data.unlocked_reference(new_data.X):
+                new_data.X = Xc
             return new_data
 
     def __call__(self, data):

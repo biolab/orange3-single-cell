@@ -10,7 +10,7 @@ if __name__ == '__main__':
             'setuptools',
         ],
         install_requires=[
-            'Orange3>=3.23.0',
+            'Orange3>=3.34.0',
             'orange3-bioinformatics>=4.0.0',
             'fastdtw==0.3.2',
             'pandas>=0.23',
@@ -21,9 +21,7 @@ if __name__ == '__main__':
             'scikit-learn',
         ],
         extras_require={
-            # docutils changed html in 0.17; fixing to 0.16 until parser fixed
-            # todo: remove docutils when parser fixed in widget-base and released
-            'doc': ['sphinx', 'recommonmark', 'sphinx_rtd_theme', 'docutils<0.17'],
+            'doc': ['sphinx', 'recommonmark', 'sphinx_rtd_theme', 'docutils'],
             'package': ['twine', 'wheel'],
             'test': [
                 'coverage',

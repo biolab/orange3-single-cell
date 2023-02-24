@@ -1,4 +1,5 @@
-from unittest.mock import patch, Mock
+import unittest
+from unittest.mock import Mock
 
 import numpy as np
 
@@ -212,3 +213,7 @@ class TestOWDotMatrix(WidgetTest):
         self.assertEqual(1, len(cont_data.domain.metas))
         self.assertEqual(1, len(cont_data.domain.metas))
         self.assertEqual("Gene", str(cont_data.domain.metas[0]))
+
+
+if __name__ == "__main__":
+    unittest.main()
