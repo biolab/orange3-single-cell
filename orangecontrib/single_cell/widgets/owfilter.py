@@ -197,7 +197,7 @@ class OWFilter(widget.OWWidget):
             layout.addWidget(b, stretch=10, alignment=Qt.AlignCenter)
         box.layout().addLayout(layout)
 
-        rbg.buttonClicked[int].connect(self.set_filter_type)
+        rbg.idClicked.connect(self.set_filter_type)
 
         self.filter_metric_cb = gui.comboBox(
             box, self, "selected_filter_metric", callback=self._update_metric,
