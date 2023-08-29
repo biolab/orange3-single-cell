@@ -63,8 +63,8 @@ class Binarize(Preprocess):
 
 
 class Normalize(Preprocess):
-    Method = Enum("Normalize", ("CPM", "Median"), qualname="Normalize.Method")
-    CPM, Median = Method
+    Method = Enum("Normalize", ("CPM", "Median", "CP10K"), qualname="Normalize.Method")
+    CPM, Median, CP10K = Method
 
     def __init__(self, method=CPM):
         self.method = method
@@ -89,6 +89,9 @@ class NormalizeSamples(Normalize):
 
         if self.method == NormalizeSamples.Median:
             factor = np.nanmedian(row_sums)
+        
+        elif self.method == NormalizeSamples.CP10K:
+            factor = 1e4
         else:
             factor = 1e6
 
