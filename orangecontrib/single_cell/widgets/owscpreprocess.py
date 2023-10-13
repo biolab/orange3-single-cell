@@ -145,9 +145,10 @@ class NormalizeEditor(ScBaseEditor):
         form = QFormLayout()
         cpm_b = QRadioButton("Counts per million", checked=True)
         med_b = QRadioButton("Median")
+        cp10k_b = QRadioButton("Counts per 10k")
         self.group = QButtonGroup()
         self.group.buttonClicked.connect(self._on_button_clicked)
-        for i, button in enumerate([cpm_b, med_b]):
+        for i, button in enumerate([cpm_b, med_b, cp10k_b]):
             index = index_to_enum(Normalize.Method, i).value
             self.group.addButton(button, index - 1)
             form.addRow(button)
