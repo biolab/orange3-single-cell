@@ -511,10 +511,9 @@ class MtxLoader(Loader):
 
     def _set_file_parameters(self):
         try:
-            with open_compressed(self._file_name, "rb") as f:
-                self.n_rows, self.n_cols, non_zero_el = scipy.io.mminfo(f)[:3]
-                all_el = self.n_rows * self.n_cols
-                self.sparsity = (all_el - non_zero_el) / all_el
+            self.n_rows, self.n_cols, non_zero_el = scipy.io.mminfo(self._file_name)[:3]
+            all_el = self.n_rows * self.n_cols
+            self.sparsity = (all_el - non_zero_el) / all_el
         except OSError:
             pass
         except ValueError:
