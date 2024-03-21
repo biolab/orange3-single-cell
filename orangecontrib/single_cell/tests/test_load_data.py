@@ -76,12 +76,13 @@ class TestLoadData(unittest.TestCase):
         self.assertEqual(round(loader.sparsity, 2), 0.86)
 
     def test_file_summary_xls(self):
-        file_name = os.path.join(os.path.dirname(__file__), "data/data.xlsx")
-        loader = ExcelLoader(file_name)
-        self.assertEqual(loader.file_size, 9160)
-        self.assertEqual(loader.n_rows, 11)
-        self.assertEqual(loader.n_cols, 15)
-        self.assertEqual(round(loader.sparsity, 2), 0.86)
+        for file, size in (("data/data.xlsx", 9160), ("data/data.xls", 27648)):
+            file_name = os.path.join(os.path.dirname(__file__), file)
+            loader = ExcelLoader(file_name)
+            self.assertEqual(loader.file_size, size)
+            self.assertEqual(loader.n_rows, 11)
+            self.assertEqual(loader.n_cols, 15)
+            self.assertEqual(round(loader.sparsity, 2), 0.86)
 
     def test_file_summary_loom(self):
         file_name = os.path.join(os.path.dirname(__file__), "data/data.loom")
@@ -121,17 +122,18 @@ class TestLoadData(unittest.TestCase):
         npt.assert_array_equal(X, array)
 
     def test_load_data_xls(self):
-        kwargs = {"header_rows": 0, "header_cols": 0}
-        xls_path = os.path.join(os.path.dirname(__file__), "data/data.xlsx")
-        xls_loader = ExcelLoader(xls_path)
-        xls_attrs, xls_X, xls_M, xls_M_index = xls_loader._load_data(**kwargs)
-        csv_loader = Loader(os.path.join(os.path.dirname(__file__),
-                                         "data/DATA_MATRIX_LOG_TPM.txt"))
-        csv_attrs, csv_X, csv_M, csv_M_index = csv_loader._load_data(**kwargs)
-        self.assertEqual(xls_attrs, csv_attrs)
-        npt.assert_array_almost_equal(xls_X, csv_X)
-        npt.assert_array_equal(xls_M, csv_M)
-        npt.assert_array_equal(xls_M_index, csv_M_index)
+        for file in ("data/data.xlsx", "data/data.xls"):
+            kwargs = {"header_rows": 0, "header_cols": 0}
+            xls_path = os.path.join(os.path.dirname(__file__), file)
+            xls_loader = ExcelLoader(xls_path)
+            xls_attrs, xls_X, xls_M, xls_M_index = xls_loader._load_data(**kwargs)
+            csv_loader = Loader(os.path.join(os.path.dirname(__file__),
+                                             "data/DATA_MATRIX_LOG_TPM.txt"))
+            csv_attrs, csv_X, csv_M, csv_M_index = csv_loader._load_data(**kwargs)
+            self.assertEqual(xls_attrs, csv_attrs)
+            npt.assert_array_almost_equal(xls_X, csv_X)
+            npt.assert_array_equal(xls_M, csv_M)
+            npt.assert_array_equal(xls_M_index, csv_M_index)
 
     def test_n_genes_n_cells(self):
         file_name = os.path.join(os.path.dirname(__file__),
@@ -200,3 +202,5 @@ class TestConcatenate(unittest.TestCase):
         self.assertEqual(2 * len(data1) + len(data2), len(concat_data))
         self.assertEqual(len(concat_data.domain.attributes), 8)
         self.assertEqual(len(concat_data.domain.metas), 2)
+
+

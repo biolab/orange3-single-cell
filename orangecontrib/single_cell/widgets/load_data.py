@@ -18,6 +18,7 @@ from Orange.data.io import (
     guess_data_type, sanitize_variable
 )
 from Orange.widgets.utils.filedialogs import RecentPath
+from openpyxl.reader.excel import load_workbook
 
 
 def separator_from_filename(file_name):
@@ -616,9 +617,16 @@ class ExcelLoader(Loader):
 
     def _set_file_parameters(self):
         try:
-            sheet = xlrd.open_workbook(self._file_name).sheet_by_index(0)
-            self.n_cols = sheet.ncols
-            self.n_rows = sheet.nrows
+            if self._file_name.endswith(".xls"):
+                # xlrd support only historic xls files
+                sheet = xlrd.open_workbook(self._file_name).sheet_by_index(0)
+                self.n_cols, self.n_rows = sheet.ncols, sheet.nrows
+            elif self._file_name.endswith(".xlsx"):
+                # use openpyxl library for xlsx files
+                wb = load_workbook(self._file_name, read_only=True)
+                sheet = wb.worksheets[0]
+                self.n_cols, self.n_rows = sheet.max_column, sheet.max_row
+                wb.close()
             self._set_sparsity()
         except Exception:
             pass
