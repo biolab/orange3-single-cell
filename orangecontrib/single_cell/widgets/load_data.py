@@ -764,13 +764,21 @@ class Concatenate:
                             metas=sorted(metas, key=key))
             concat_data_t = concat_data.transform(domain)
             data_t = data.transform(domain)
-            source_var.values + (source_name, )
+
+            new_values = source_var.values + (source_name,)
+            new_source_var = DiscreteVariable(source_var.name, values=new_values)
+            new_metas = tuple(var if var.name != source_var.name else new_source_var for var in domain.metas)
+            new_domain = Domain(domain.attributes, metas=new_metas)
+            concat_data_t = concat_data_t.transform(new_domain)
+            data_t = data_t.transform(new_domain)
+            source_var_index = new_source_var.values.index(source_name)
             # metas can be unlocked, source_var added to metas by append_source_name
             with data_t.unlocked(data_t.metas):
-                data_t[:, source_var] = np.full(
-                    (len(data), 1), len(source_var.values) - 1, dtype=object
+                data_t[:, new_source_var] = np.full(
+                    (len(data_t), 1), source_var_index, dtype=object
                 )
             concat_data = Table.concatenate((concat_data_t, data_t), axis=0)
+            source_var = new_source_var  # Update source_var for the next iteration
         return concat_data
 
     @staticmethod
