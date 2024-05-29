@@ -776,3 +776,4 @@ class Concatenate:
         with data.unlocked(data.metas):
             data[:, source_var] = np.full((len(data), 1), 0, dtype=object)
         return data, source_var
+    
