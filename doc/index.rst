@@ -16,3 +16,4 @@ Widgets
    widgets/score_genes
    widgets/score_cells
    widgets/dot_matrix
+   widgets/spatial_autocorrelation
