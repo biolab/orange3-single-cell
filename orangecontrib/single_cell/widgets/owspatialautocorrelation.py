@@ -5,11 +5,11 @@ from sklearn.neighbors import kneighbors_graph
 
 from AnyQt.QtCore import Qt
 from AnyQt.QtGui import QIntValidator
-from AnyQt.QtWidgets import QApplication, QComboBox, QVBoxLayout, QWidget, QLineEdit
+from AnyQt.QtWidgets import QApplication, QComboBox, QLineEdit
 
 from Orange.data import Table, ContinuousVariable
 from Orange.widgets import gui
-from Orange.widgets.settings import ContextSetting, Setting, DomainContextHandler
+from Orange.widgets.settings import Setting, DomainContextHandler
 from Orange.widgets.widget import Input, Output, Msg, OWWidget
 from Orange.preprocess import score
 from Orange.widgets.utils.concurrent import ConcurrentWidgetMixin, TaskState
