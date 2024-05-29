@@ -488,10 +488,18 @@ class MtxLoader(Loader):
 
     def _set_annotation_files(self):
         dir_name, _ = os.path.split(self._file_name)
-        genes_path = os.path.join(dir_name, "genes.tsv")
-        if os.path.isfile(genes_path):
-            self.col_annotation_file = RecentPath.create(genes_path, [])
-        barcodes_path = os.path.join(dir_name, "barcodes.tsv")
+        genes_paths = ['genes.tsv', 'features.tsv', 'genes.tsv.gz', 'features.tsv.gz']
+        for genes_path in genes_paths:
+            genes_path = os.path.join(dir_name, genes_path)
+            if os.path.isfile(genes_path):
+                self.col_annotation_file = RecentPath.create(genes_path, [])
+                break
+        barcodes_paths = ['barcodes.tsv', 'barcodes.tsv.gz']
+        for barcodes_path in barcodes_paths:
+            barcodes_path = os.path.join(dir_name, barcodes_path)
+            if os.path.isfile(barcodes_path):
+                self.row_annotation_file = RecentPath.create(barcodes_path, [])
+                break
         if os.path.isfile(barcodes_path):
             self.row_annotation_file = RecentPath.create(barcodes_path, [])
 
@@ -756,13 +764,21 @@ class Concatenate:
                             metas=sorted(metas, key=key))
             concat_data_t = concat_data.transform(domain)
             data_t = data.transform(domain)
-            source_var.values + (source_name, )
+
+            new_values = source_var.values + (source_name,)
+            new_source_var = DiscreteVariable(source_var.name, values=new_values)
+            new_metas = tuple(var if var.name != source_var.name else new_source_var for var in domain.metas)
+            new_domain = Domain(domain.attributes, metas=new_metas)
+            concat_data_t = concat_data_t.transform(new_domain)
+            data_t = data_t.transform(new_domain)
+            source_var_index = new_source_var.values.index(source_name)
             # metas can be unlocked, source_var added to metas by append_source_name
             with data_t.unlocked(data_t.metas):
-                data_t[:, source_var] = np.full(
-                    (len(data), 1), len(source_var.values) - 1, dtype=object
+                data_t[:, new_source_var] = np.full(
+                    (len(data_t), 1), source_var_index, dtype=object
                 )
             concat_data = Table.concatenate((concat_data_t, data_t), axis=0)
+            source_var = new_source_var  # Update source_var for the next iteration
         return concat_data
 
     @staticmethod
