@@ -75,6 +75,13 @@
     "icon": "../orangecontrib/single_cell/widgets/icons/DotMatrix.svg",
     "background": "light-blue",
     "keywords": []
+   },
+   {
+    "text": "Spatial Autocorrelation Scorer",
+    "doc": "widgets/spatial_autocorrelation.md",
+    "icon": "../orangecontrib/single_cell/widgets/icons/SpatialAutocorrelation.svg",
+    "background": "light-blue",
+    "keywords": []
    }
   ]
  ]
