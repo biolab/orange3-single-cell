@@ -613,7 +613,6 @@ class OWLoadData(widget.OWWidget):
             pathitem = RecentPath.create(filename, [])
             index = insert_recent_path(m, pathitem)
             self.row_annotations_combo.setCurrentIndex(index)
-            self._row_annotations_combo_changed()
             self._invalidate()
 
     @Slot()
@@ -633,7 +632,6 @@ class OWLoadData(widget.OWWidget):
             pathitem = RecentPath.create(filename, [])
             index = insert_recent_path(m, pathitem)
             self.col_annotations_combo.setCurrentIndex(index)
-            self._col_annotations_combo_changed()
             self._invalidate()
 
     def _invalidate(self):
