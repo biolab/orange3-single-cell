@@ -93,7 +93,7 @@ class OWSpatialAutocorrelation(OWWidget, ConcurrentWidgetMixin):
 
     feature_x = Setting(None)
     feature_y = Setting(None)
-    method = Setting("Moran")  # Default method is Moran
+    method_name = Setting("Moran")  # Default method is Moran
     k_neighbors = Setting(30)
     auto_commit = Setting(True)
 
@@ -130,12 +130,12 @@ class OWSpatialAutocorrelation(OWWidget, ConcurrentWidgetMixin):
         method_combo = gui.comboBox(
             method_box,
             self,
-            "method",
+            "method_name",
             items=["Moran I", "Geary C"],
             callback=self._on_method_changed,
         )
         method_combo.setCurrentText(
-            self.method
+            self.method_name
         )  # Set current selection to the saved method
 
         # Input for k-neighbors
@@ -239,7 +239,7 @@ class OWSpatialAutocorrelation(OWWidget, ConcurrentWidgetMixin):
         self.Error.general_error(str(ex))
 
     def on_done(self, result):
-        scorer = SpatialScorer(self.adjacency_matrix, method=self.method)
+        scorer = SpatialScorer(self.adjacency_matrix, method=self.method_name)
         self.Outputs.scorer.send(scorer)
 
     def commit(self):
