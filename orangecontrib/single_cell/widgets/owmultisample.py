@@ -412,7 +412,7 @@ class OWMultiSample(owloaddata.OWLoadData):
         dlg.setNameFilters(filters)
         if filters:
             dlg.selectNameFilter(filters[-1])
-        if dlg.exec_() == QFileDialog.Accepted:
+        if dlg.exec() == QFileDialog.Accepted:
             for filename in dlg.selectedFiles():
                 self.set_current_path(filename)
                 self.select_last_item()
@@ -505,12 +505,6 @@ class OWMultiSample(owloaddata.OWLoadData):
 
 
 if __name__ == "__main__":
-    from AnyQt.QtWidgets import QApplication
+    from orangewidget.utils.widgetpreview import WidgetPreview
 
-    app = QApplication([])
-    w = OWMultiSample()
-    w.show()
-    w.raise_()
-    app.exec_()
-    w.saveSettings()
-    w.onDeleteWidget()
+    WidgetPreview(OWMultiSample).run()
