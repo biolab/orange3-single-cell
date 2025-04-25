@@ -17,6 +17,7 @@ from Orange.data.io import (
     Compression, open_compressed, PickleReader,
     guess_data_type, sanitize_variable
 )
+from Orange.data.util import get_unique_names
 from Orange.widgets.utils.filedialogs import RecentPath
 from openpyxl.reader.excel import load_workbook
 
@@ -763,6 +764,7 @@ class Concatenate:
             concat_data_t = concat_data.transform(domain)
             data_t = data.transform(domain)
 
+            source_name = get_unique_names(source_var.values, source_name)
             new_values = source_var.values + (source_name,)
             new_source_var = DiscreteVariable(source_var.name, values=new_values)
             new_metas = tuple(var if var.name != source_var.name else new_source_var for var in domain.metas)
