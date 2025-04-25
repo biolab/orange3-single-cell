@@ -1,16 +1,14 @@
 import os
-import sys
 import Orange.widgets.data.owdatasets
 
-from AnyQt.QtWidgets import QApplication
 from AnyQt.QtGui import QStandardItemModel, QStandardItem
 from AnyQt.QtCore import Qt
-
-from Orange.widgets.gui import IndicatorItemDelegate
 
 from orangecontrib.bioinformatics.ncbi.taxonomy import shortname, common_taxids
 from orangecontrib.bioinformatics.ncbi.gene import ENTREZ_ID
 from orangecontrib.bioinformatics.widgets.utils.data import GENE_AS_ATTRIBUTE_NAME, TAX_ID, GENE_ID_ATTRIBUTE
+
+from orangewidget.utils.widgetpreview import WidgetPreview
 
 
 class OWscDataSets(Orange.widgets.data.owdatasets.OWDataSets):
@@ -40,23 +38,6 @@ class OWscDataSets(Orange.widgets.data.owdatasets.OWDataSets):
         data.attributes[GENE_AS_ATTRIBUTE_NAME] = True  # Will all data sets have gene names in columns?
         data.attributes[GENE_ID_ATTRIBUTE] = ENTREZ_ID
         return data
-
-    def assign_delegates(self):
-        self.view.setItemDelegateForColumn(
-            self.Header.islocal, IndicatorItemDelegate(self, role=Qt.DisplayRole)
-        )
-        self.view.setItemDelegateForColumn(
-            self.Header.size,
-            Orange.widgets.data.owdatasets.SizeDelegate(self))
-
-        self.view.setItemDelegateForColumn(
-            self.Header.instances,
-            Orange.widgets.data.owdatasets.NumericalDelegate(self)
-        )
-        self.view.setItemDelegateForColumn(
-            self.Header.variables,
-            Orange.widgets.data.owdatasets.NumericalDelegate(self)
-        )
 
     def create_model(self):
         allkeys = set(self.allinfo_local)
@@ -111,20 +92,6 @@ class OWscDataSets(Orange.widgets.data.owdatasets.OWDataSets):
         return model, current_index
 
 
-def main(args=None):
-    if args is None:
-        args = sys.argv
-
-    app = QApplication(list(args))
-    w = OWscDataSets()
-    w.show()
-    w.raise_()
-    rv = app.exec_()
-    w.saveSettings()
-    w.onDeleteWidget()
-    return rv
-
-
 if __name__ == "__main__":
-    sys.exit(main())
+    WidgetPreview(OWscDataSets).run()
 
