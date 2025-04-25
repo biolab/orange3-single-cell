@@ -34,7 +34,7 @@ class OWscDataSets(Orange.widgets.data.owdatasets.OWDataSets):
     def load_data(self, path):
         info = self.selected_dataset()
         data = Orange.data.Table(path)
-        data.attributes[TAX_ID] = info.taxid
+        data.attributes[TAX_ID] = str(info.taxid)
         data.attributes[GENE_AS_ATTRIBUTE_NAME] = True  # Will all data sets have gene names in columns?
         data.attributes[GENE_ID_ATTRIBUTE] = ENTREZ_ID
         return data
