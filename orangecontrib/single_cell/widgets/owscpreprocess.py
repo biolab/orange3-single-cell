@@ -1,5 +1,5 @@
 import sys
-import pkg_resources
+import importlib.resources
 import warnings
 
 import numpy as np
@@ -34,7 +34,7 @@ from orangecontrib.single_cell.preprocess.scpreprocess import (
 
 
 def icon_path(basename):
-    return pkg_resources.resource_filename(__name__, "icons/" + basename)
+    return str(importlib.resources.files(__package__).joinpath("icons/" + basename))
 
 
 class ScBaseEditor(BaseEditor):
