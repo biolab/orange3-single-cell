@@ -173,7 +173,7 @@ class NormalizeEditor(ScBaseEditor):
 
     def _set_model(self):
         data = self._master.data
-        self.group_by_model.set_domain(data and data.domain)
+        self.group_by_model.set_domain(data.domain if data is not None else None)
         enable = bool(self.group_by_model)
         self.group_by_check.setChecked(False)
         self.group_by_check.setEnabled(enable)
