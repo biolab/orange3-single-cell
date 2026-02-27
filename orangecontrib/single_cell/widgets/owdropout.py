@@ -96,6 +96,8 @@ class DropoutGraph(pg.PlotWidget):
     def __plot_curve(self, results: DropoutResults):
         self.removeItem(self.__curve)
         xmin, xmax = self.__get_xlim(results.threshold, results.mean_expr)
+        if np.isnan(xmin) or np.isnan(xmax):
+            return
         x = np.arange(xmin, xmax + 0.01, 0.01)
         y = np.exp(-results.decay * (x - results.x_offset)) + results.y_offset
         pen = self.MOVING_CURVE_PEN if self._state == States.MOVING_CURVE \
@@ -108,6 +110,8 @@ class DropoutGraph(pg.PlotWidget):
 
     def __set_range(self, threshold: float, x: np.ndarray):
         xmin, xmax = self.__get_xlim(threshold, x)
+        if np.isnan(xmin) or np.isnan(xmax):
+            return
         rect = QRectF(xmin, 0, xmin + xmax, 1)
         self.setRange(rect, padding=0)
 
