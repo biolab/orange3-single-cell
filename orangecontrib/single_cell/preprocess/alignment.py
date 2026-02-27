@@ -35,7 +35,7 @@ def score_genes(Xs, Ws, n_metagenes=30, method=GENE_SCORING_METHODS[0]):
 
         # Apply sorting criteria; high is good, low is bad
         f0 = np.isnan(gene_scores).sum(axis=1)
-        f1 = - np.product(np.sign(gene_scores[:, 0:1]) == np.sign(gene_scores[:, 1:]), axis=1)
+        f1 = - np.prod(np.sign(gene_scores[:, 0:1]) == np.sign(gene_scores[:, 1:]), axis=1)
         f2 = - np.min(np.absolute(gene_scores), axis=1)
         order = sorted(range(n_genes), key=lambda i: (f0[i], f1[i], f2[i]))
         use_genes[j] = order[:n_metagenes]
