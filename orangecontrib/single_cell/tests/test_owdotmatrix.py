@@ -214,6 +214,13 @@ class TestOWDotMatrix(WidgetTest):
         self.assertEqual(1, len(cont_data.domain.metas))
         self.assertEqual("Gene", str(cont_data.domain.metas[0]))
 
+    def test_paint(self):
+        w = self.widget
+        w.grab()
+        self.send_signal(w.Inputs.data, self.iris)
+        w.grab()
+        self.send_signal(w.Inputs.data, self.iris)
+        w.grab()
 
 if __name__ == "__main__":
     unittest.main()
