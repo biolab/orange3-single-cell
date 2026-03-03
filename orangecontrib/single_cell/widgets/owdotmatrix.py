@@ -133,6 +133,8 @@ class OWDotMatrix(widget.OWWidget):
         self._init_vars()
         self.Error.no_discrete_variable.clear()
         self.Warning.clear()
+        if data is not None and (not len(data) or not data.domain.attributes):
+            data = None
         self.data = data
         if self.data:
             self.feature_model.set_domain(self.data.domain)

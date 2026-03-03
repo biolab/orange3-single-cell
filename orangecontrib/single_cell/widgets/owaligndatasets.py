@@ -517,7 +517,7 @@ class OWAlignDatasets(widget.OWWidget):
                 for key, genes in self._mas.use_genes.items():
                     for gene in genes:
                         genes_components[gene - 1, key] = genes.index(gene) + 1
-                genes_components[genes_components == 0] = np.NaN
+                genes_components[genes_components == 0] = np.nan
                 with meta_genes.unlocked_reference(meta_genes.X):
                     meta_genes.X = genes_components
                 self.meta_genes = Table.from_numpy(Domain(attributes), genes_components)

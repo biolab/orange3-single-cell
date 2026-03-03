@@ -90,7 +90,7 @@ class TestLoadData(unittest.TestCase):
         self.assertEqual(loader.file_size, 14100)
         self.assertEqual(loader.n_rows, 10)
         self.assertEqual(loader.n_cols, 20)
-        self.assertEqual(round(loader.sparsity, 2), 0.93)
+        self.assertEqual(round(float(loader.sparsity), 2), 0.93)
 
     def test_file_summary_h5ad_sparse(self):
         file_name = os.path.join(os.path.dirname(__file__), "data/data_sparse.h5ad")

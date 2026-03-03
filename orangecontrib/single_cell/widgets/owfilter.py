@@ -384,6 +384,8 @@ class OWFilter(widget.OWWidget):
     def set_data(self, data):
         # type: (Optional[Orange.data.Table]) -> None
         self.clear()
+        if data is not None and not len(data):
+            data = None
 
         if data is not None and \
                 any(type(v) is not Orange.data.ContinuousVariable
