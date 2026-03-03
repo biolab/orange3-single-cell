@@ -84,7 +84,7 @@ class CircleItemDelegate(BorderedItemDelegate, gui.VerticalItemDelegate):
             QStyledItemDelegate.paint(self, painter, option, index)
             area = index.data(CircleAreaRole)
             rect = option.rect
-            radius = max(1, self.max_diameter/2*sqrt(area))
+            radius = max(1, int(self.max_diameter/2*sqrt(area)))
             painter.setPen(Qt.transparent)
             painter.setBrush(Qt.blue)
             painter.setRenderHint(QPainter.Antialiasing)
