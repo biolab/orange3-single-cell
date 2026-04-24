@@ -131,7 +131,7 @@ class OWBatchNorm(OWWidget):
         self.commit.deferred()
 
     def __selected_batch_vars_changed(self, item):
-        if item.checkState():
+        if item.checkState() == Qt.CheckState.Checked:
             self.batch_vars.append(item.data(VariableRole))
         else:
             self.batch_vars.remove(item.data(VariableRole))
