@@ -291,7 +291,7 @@ class OWFilter(widget.OWWidget):
         self._view = pg.GraphicsView()
         self._view.enableMouse(False)
         self._view.setAntialiasing(True)
-        self._plot = plot = ViolinPlot()
+        self._plot = plot = ViolinPlot(axisItems={"left": pg.AxisItem("left")})
         self._plot.setDataPointsVisible(self.display_dotplot)
         self._plot.setSelectionMode(
             (ViolinPlot.Low if self.limit_lower_enabled else 0) |
@@ -301,8 +301,7 @@ class OWFilter(widget.OWWidget):
         self._plot.selectionEdited.connect(self._limitchanged_plot)
         self._view.setCentralWidget(self._plot)
 
-        bottom = self._plot.getAxis("bottom")  # type: pg.AxisItem
-        bottom.hide()
+        self._plot.hideAxis("bottom")
         plot.setMouseEnabled(False, False)
         plot.hideButtons()
         self.mainArea.layout().addWidget(self._view)
@@ -833,14 +832,8 @@ class ViolinPlot(pg.PlotItem):
     #: Selection Flags
     NoSelection, Low, High = 0, 1, 2
 
-    def __init__(self, *args, enableMenu=False, axisItems=None, **kwargs):
-        if axisItems is None:
-            axisItems = {}
-        for position in ("left", 'right', 'top', 'bottom'):
-            axisItems.setdefault(position, AxisItem(position))
-
-        super().__init__(*args, enableMenu=enableMenu, axisItems=axisItems,
-                         **kwargs)
+    def __init__(self, *args, enableMenu=False, **kwargs):
+        super().__init__(*args, enableMenu=enableMenu, **kwargs)
         self.__data = None
         #: min/max cutoff line positions
         self.__min = 0
