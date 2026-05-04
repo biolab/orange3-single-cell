@@ -1,6 +1,5 @@
 import sys
 import enum
-import math
 import numbers
 
 from contextlib import contextmanager
@@ -812,13 +811,6 @@ def block_signals(qobj):
         qobj.blockSignals(b)
 
 
-class AxisItem(pg.AxisItem):
-    def logTickStrings(self, values, scale, spacing):
-        # reimplemented
-        values = [10 ** v for v in values]
-        return [render_exp(v, 1) for v in values]
-
-
 class ViolinPlot(pg.PlotItem):
     """
     A violin plot item with interactive data boundary selection.
@@ -1127,38 +1119,6 @@ class SelectionLine(pg.InfiniteLine):
         painter.setPen(self.currentPen)
         painter.drawLine(line)
         painter.restore()
-
-
-def render_exp(value, prec=2):
-    # type: (float, int) -> str
-    if not math.isfinite(value):
-        return repr(value)
-    exp = "{:.{prec}G}".format(value, prec=prec)
-    try:
-        frac, exp = exp.split("E", 1)
-    except ValueError:
-        return exp
-
-    frac = float(frac)
-    exp = int(exp)
-    if exp == 0:
-        return str(frac)
-    elif frac == 1.0:
-        return "10{exp}".format(exp=_superscript(str(exp)))
-    else:
-        return "{frac:g}\u00D710{exp}".format(
-            frac=frac, exp=_superscript(str(exp))
-        )
-
-
-def _superscript(string):
-    # type: (str) -> str
-    table = str.maketrans(
-        "0123456789+-",
-        "\u2070\u00B9\u00B2\u00B3\u2074\u2075\u2076\u2077\u2078\u2079"
-        "\u207A\u207B",
-    )
-    return string.translate(table)
 
 
 def main(argv=None):  # pragma: no cover
