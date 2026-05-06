@@ -630,8 +630,8 @@ class OWRank(OWWidget):
         sort_column = self.ranksModel.sortColumn() - 1  # -1 for '#' (discrete count) column
         self.sorting = (sort_column, sort_order)
 
-    def methodSelectionChanged(self, state, method_name):
-        if state == Qt.Checked:
+    def methodSelectionChanged(self, state: int, method_name: str):
+        if Qt.CheckState(state) == Qt.CheckState.Checked:
             self.selected_methods.add(method_name)
         elif method_name in self.selected_methods:
             self.selected_methods.remove(method_name)
