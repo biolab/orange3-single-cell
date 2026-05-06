@@ -86,6 +86,21 @@ class TestOWBatchNorm(WidgetTest):
         output = self.get_output(self.widget.Outputs.data)
         self.assertFalse((output.X == data.X).any())
 
+    def test_batch_var_change(self):
+        data = Table("iris")
+        w = self.widget
+        self.send_signal(w.Inputs.data, data)
+
+        self.widget.model.item(0).setCheckState(Qt.CheckState.Checked)
+        self.assertEqual(w.batch_vars, [data.domain["iris"]])
+        output = self.get_output(w.Outputs.data)
+        self.assertNotEqual(output.X[0, 0], data.X[0, 0])
+
+        self.widget.model.item(0).setCheckState(Qt.CheckState.Unchecked)
+        self.assertEqual(w.batch_vars, [])
+        output = self.get_output(w.Outputs.data)
+        self.assertEqual(output.X[0, 0], data.X[0, 0])
+
 
 if __name__ == "__main__":
     unittest.main()
