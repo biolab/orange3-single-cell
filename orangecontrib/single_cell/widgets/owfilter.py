@@ -1,6 +1,5 @@
 import sys
 import enum
-import math
 import numbers
 
 from contextlib import contextmanager
@@ -291,7 +290,7 @@ class OWFilter(widget.OWWidget):
         self._view = pg.GraphicsView()
         self._view.enableMouse(False)
         self._view.setAntialiasing(True)
-        self._plot = plot = ViolinPlot()
+        self._plot = plot = ViolinPlot(axisItems={"left": pg.AxisItem("left")})
         self._plot.setDataPointsVisible(self.display_dotplot)
         self._plot.setSelectionMode(
             (ViolinPlot.Low if self.limit_lower_enabled else 0) |
@@ -301,8 +300,7 @@ class OWFilter(widget.OWWidget):
         self._plot.selectionEdited.connect(self._limitchanged_plot)
         self._view.setCentralWidget(self._plot)
 
-        bottom = self._plot.getAxis("bottom")  # type: pg.AxisItem
-        bottom.hide()
+        self._plot.hideAxis("bottom")
         plot.setMouseEnabled(False, False)
         plot.hideButtons()
         self.mainArea.layout().addWidget(self._view)
@@ -813,13 +811,6 @@ def block_signals(qobj):
         qobj.blockSignals(b)
 
 
-class AxisItem(pg.AxisItem):
-    def logTickStrings(self, values, scale, spacing):
-        # reimplemented
-        values = [10 ** v for v in values]
-        return [render_exp(v, 1) for v in values]
-
-
 class ViolinPlot(pg.PlotItem):
     """
     A violin plot item with interactive data boundary selection.
@@ -833,14 +824,8 @@ class ViolinPlot(pg.PlotItem):
     #: Selection Flags
     NoSelection, Low, High = 0, 1, 2
 
-    def __init__(self, *args, enableMenu=False, axisItems=None, **kwargs):
-        if axisItems is None:
-            axisItems = {}
-        for position in ("left", 'right', 'top', 'bottom'):
-            axisItems.setdefault(position, AxisItem(position))
-
-        super().__init__(*args, enableMenu=enableMenu, axisItems=axisItems,
-                         **kwargs)
+    def __init__(self, *args, enableMenu=False, **kwargs):
+        super().__init__(*args, enableMenu=enableMenu, **kwargs)
         self.__data = None
         #: min/max cutoff line positions
         self.__min = 0
@@ -1134,38 +1119,6 @@ class SelectionLine(pg.InfiniteLine):
         painter.setPen(self.currentPen)
         painter.drawLine(line)
         painter.restore()
-
-
-def render_exp(value, prec=2):
-    # type: (float, int) -> str
-    if not math.isfinite(value):
-        return repr(value)
-    exp = "{:.{prec}G}".format(value, prec=prec)
-    try:
-        frac, exp = exp.split("E", 1)
-    except ValueError:
-        return exp
-
-    frac = float(frac)
-    exp = int(exp)
-    if exp == 0:
-        return str(frac)
-    elif frac == 1.0:
-        return "10{exp}".format(exp=_superscript(str(exp)))
-    else:
-        return "{frac:g}\u00D710{exp}".format(
-            frac=frac, exp=_superscript(str(exp))
-        )
-
-
-def _superscript(string):
-    # type: (str) -> str
-    table = str.maketrans(
-        "0123456789+-",
-        "\u2070\u00B9\u00B2\u00B3\u2074\u2075\u2076\u2077\u2078\u2079"
-        "\u207A\u207B",
-    )
-    return string.translate(table)
 
 
 def main(argv=None):  # pragma: no cover
