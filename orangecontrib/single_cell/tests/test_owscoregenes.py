@@ -1,5 +1,8 @@
 import unittest
 
+from AnyQt.QtCore import Qt
+from AnyQt.QtWidgets import QStackedWidget, QCheckBox
+
 from orangecontrib.single_cell.widgets.owscoregenes import OWRank
 from Orange.widgets.tests.base import WidgetTest
 from Orange.data import DiscreteVariable, ContinuousVariable, Domain, Table
@@ -44,6 +47,17 @@ class TestOWScoreGenes(WidgetTest):
         self.send_signal(w1.Inputs.data, self.data)
         self.assertEqual(w1.selectionMethod, OWRank.SelectManual)
         self.assertSequenceEqual(w.selected_attrs, w1.selected_attrs)
+
+    def test_update_selected_scores(self):
+        w = self.widget
+        self.send_signal(w.Inputs.data, self.data)
+        stack = w.findChild(QStackedWidget)
+        box = stack.widget(2)  # for unsupervised
+        cb: QCheckBox = box.findChild(QCheckBox, "Mean")
+        cb.setCheckState(Qt.CheckState.Unchecked)
+        self.assertNotIn("Mean", w.selected_methods)
+        cb.setCheckState(Qt.CheckState.Checked)
+        self.assertIn("Mean", w.selected_methods)
 
 
 if __name__ == '__main__':
