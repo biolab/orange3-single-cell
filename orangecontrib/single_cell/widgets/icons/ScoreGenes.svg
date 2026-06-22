@@ -2,13 +2,19 @@
 <!-- Generator: Adobe Illustrator 22.0.1, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
 <svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
 	 viewBox="0 0 48 48" style="enable-background:new 0 0 48 48;" xml:space="preserve">
-<style type="text/css">
-	.st0{fill:none;stroke:#333333;stroke-width:2;stroke-linecap:round;stroke-miterlimit:10;}
-	.st1{fill:none;stroke:#333333;stroke-linecap:round;stroke-miterlimit:10;}
-	.st2{fill:none;stroke:#333333;stroke-width:2;stroke-miterlimit:10;}
-	.st3{fill:none;stroke:#333333;stroke-miterlimit:10;}
+<style type="text/css" id="current-color-scheme">
+* { color: #333; }
+.ColorScheme-Text { color: #333; }
+.ColorScheme-DisabledText { color: #666; }
+.ColorScheme-Background { color: #fff; }
 </style>
-<g>
+<style type="text/css">
+	.st0{fill:none;stroke-width:2;stroke-linecap:round;stroke-miterlimit:10;}
+	.st1{fill:none;stroke-linecap:round;stroke-miterlimit:10;}
+	.st2{fill:none;stroke-width:2;stroke-miterlimit:10;}
+	.st3{fill:none;stroke-miterlimit:10;}
+</style>
+<g class="ColorScheme-Text" style="stroke:currentColor">
 	<g>
 		<path class="st0" d="M7.3,29.6c0,0,5.4,2.4,9.2-9s7.4-11,7.4-11s3.2-1,6.8,7.7s3.7,12.1,10,12.1"/>
 		<path class="st0" d="M7.3,9.8c0,0,5.4-2.4,9.2,9s7.4,11,7.4,11s3.2,1,6.8-7.7S34.4,10,40.7,10"/>
